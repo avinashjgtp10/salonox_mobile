@@ -10,7 +10,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { printerService } from "@/services/printer.service";
 import type { ReceiptData } from "@/utils/receiptGenerator";
 import { receiptAssetUrl } from "@/utils/receiptAssets";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
+import { pearlGradients } from "@/components/auth/pearl/tokens";
+import { LinearGradient } from "expo-linear-gradient";
+import { AppStatusBar } from "@/components/ui/AppStatusBar";
 
 interface ReceiptModalProps {
   visible: boolean;
@@ -24,7 +28,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   receiptData,
 }) => {
   const { clientName } = useClientPrivacy();
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const [paperSize, setPaperSize] = useState<"A4" | "80mm" | "58mm">(receiptData.paperSize ?? "80mm");
   // Only the tapped button shows a spinner; the other is just disabled meanwhile.
   const [activeAction, setActiveAction] = useState<"print" | "share" | null>(null);
@@ -69,18 +73,22 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       visible={visible}
       onRequestClose={onClose}
     >
-      <SafeAreaView style={[styles.container, { backgroundColor: Colors.bg }]}>
+      <PearlBackground>
+      <SafeAreaView style={styles.container}>
+        <AppStatusBar />
 
         <View style={[styles.header, { borderBottomColor: Colors.border }]}>
-          <TouchableOpacity activeOpacity={0.7} onPress={onClose} style={styles.closeBtn}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close receipt preview" activeOpacity={0.7} onPress={onClose} style={[styles.closeBtn, { backgroundColor: Colors.card, borderColor: Colors.border }]}>
             <Ionicons name="close" size={24} color={Colors.text} />
           </TouchableOpacity>
           <Text translate style={[styles.title, { color: Colors.text }]}>Receipt Preview</Text>
-          <View style={styles.paperToggle}>
-            <TouchableOpacity onPress={() => setPaperSize("A4")} style={[styles.paperBadge, paperSize === "A4" && { backgroundColor: Colors.primary }]}>
-              <Text translate style={[styles.paperBadgeText, { color: paperSize === "A4" ? Colors.onPrimary : Colors.hint }]}>A4</Text>
+        </View>
+          <View accessibilityRole="tablist" style={[styles.paperToggle, { backgroundColor: Colors.card, borderColor: Colors.border }]}>
+            <TouchableOpacity accessibilityRole="tab" accessibilityState={{ selected: paperSize === "A4" }} onPress={() => setPaperSize("A4")} style={[styles.paperBadge, paperSize === "A4" && { backgroundColor: Colors.primary }]}>
+              <Text translate style={[styles.paperBadgeText, { color: paperSize === "A4" ? Colors.onPrimary : Colors.text2 }]}>A4</Text>
             </TouchableOpacity>
             <TouchableOpacity
+              accessibilityRole="tab" accessibilityState={{ selected: paperSize === "80mm" }}
               onPress={() => setPaperSize("80mm")}
               style={[
                 styles.paperBadge,
@@ -90,13 +98,14 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               <Text translate
                 style={[
                   styles.paperBadgeText,
-                  { color: paperSize === "80mm" ? Colors.onPrimary : Colors.hint },
+                  { color: paperSize === "80mm" ? Colors.onPrimary : Colors.text2 },
                 ]}
               >
                 80mm
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
+              accessibilityRole="tab" accessibilityState={{ selected: paperSize === "58mm" }}
               onPress={() => setPaperSize("58mm")}
               style={[
                 styles.paperBadge,
@@ -106,14 +115,13 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               <Text translate
                 style={[
                   styles.paperBadgeText,
-                  { color: paperSize === "58mm" ? Colors.onPrimary : Colors.hint },
+                  { color: paperSize === "58mm" ? Colors.onPrimary : Colors.text2 },
                 ]}
               >
                 58mm
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
 
 
         {paperSize === "A4" ? (
@@ -125,29 +133,32 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         )}
 
 
-        <View style={[styles.footer, { borderTopColor: Colors.border }]}>
+        <View style={[styles.footer, { borderTopColor: Colors.border, backgroundColor: Colors.card }]}>
           <TouchableOpacity
             activeOpacity={0.8}
+            accessibilityRole="button"
             disabled={isActionLoading}
             onPress={handleShare}
-            style={[styles.actionBtn, styles.shareBtn, isActionLoading && activeAction !== "share" && styles.actionBtnIdle]}
+            style={[styles.actionBtn, { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border }, isActionLoading && activeAction !== "share" && styles.actionBtnIdle]}
           >
             {activeAction === "share" ? (
               <ActivityIndicator color={Colors.text} size="small" />
             ) : (
             <>
-              <Ionicons name="send-outline" size={18} color="#000" />
-              <Text translate style={styles.actionBtnText}>Send Receipt</Text>
+              <Ionicons name="send-outline" size={18} color={Colors.primaryText} />
+              <Text translate style={[styles.actionBtnText, { color: Colors.primaryText }]}>Send Receipt</Text>
             </>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity
             activeOpacity={0.8}
+            accessibilityRole="button"
             disabled={isActionLoading}
             onPress={handlePrint}
             style={[styles.actionBtn, { backgroundColor: Colors.primary }, isActionLoading && activeAction !== "print" && styles.actionBtnIdle]}
           >
+            <LinearGradient colors={pearlGradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
             {activeAction === "print" ? (
               <ActivityIndicator color={Colors.onPrimary} size="small" />
             ) : (
@@ -161,6 +172,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           </TouchableOpacity>
         </View>
       </SafeAreaView>
+      </PearlBackground>
     </Modal>
   );
 };
@@ -171,28 +183,41 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    height: 56,
+    minHeight: 72,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
   },
   closeBtn: {
-    padding: 4,
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   title: {
-    fontSize: 16,
+    flexShrink: 1,
+    fontSize: 20,
     fontWeight: "bold",
   },
   paperToggle: {
     flexDirection: "row",
     gap: 4,
+    marginHorizontal: 16,
+    marginVertical: 12,
+    padding: 4,
+    borderWidth: 1,
+    borderRadius: 18,
   },
   paperBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    flex: 1,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 14,
   },
   paperBadgeText: {
     fontSize: 12,
@@ -210,19 +235,20 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     flex: 1,
-    height: 48,
-    borderRadius: 8,
+    minHeight: 50,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 16,
+    overflow: "hidden",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
   },
-  shareBtn: {
-    backgroundColor: "#E5E5E5",
-  },
   actionBtnText: {
+    flexShrink: 1,
+    textAlign: "center",
     fontSize: 14,
     fontWeight: "600",
-    color: "#000",
   },
 });

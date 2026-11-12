@@ -109,7 +109,7 @@ export function BottomSheet({
 
   const sheet = (
     <Animated.View
-      style={[styles.sheet, pearlStyle && { borderRadius: 30, backgroundColor: Colors.bg }, centered && styles.sheetCentered, { maxHeight: sheetMaxHeight }, sheetStyle]}
+      style={[styles.sheet, pearlStyle && { borderTopLeftRadius: 30, borderTopRightRadius: 30, backgroundColor: Colors.bg }, centered && styles.sheetCentered, { maxHeight: sheetMaxHeight }, sheetStyle]}
     >
       {!centered ? <View style={styles.handle} /> : null}
       <View style={styles.header}>
@@ -154,6 +154,9 @@ export function BottomSheet({
         <Pressable onPress={onClose} style={StyleSheet.absoluteFill} />
         {avoidKeyboard ? (
           <KeyboardInsetView
+            // Bottom-attached sheets already include the safe area inside their
+            // panel. Subtract it here so the panel reaches the screen edge.
+            bottomOffset={centered ? 0 : insets.bottom}
             onContentLayout={event => setAvailableHeight(event.nativeEvent.layout.height)}
             contentContainerStyle={[styles.keyboardAvoiding, centered && styles.keyboardAvoidingCentered, centered && { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 16) }]}
           >

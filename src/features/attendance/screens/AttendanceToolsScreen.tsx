@@ -16,7 +16,13 @@ import { staffService } from "@/services/staff.service";
 import { getApiErrorMessage } from "@/services/api";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentUser } from "@/store/user/user.slice";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { pearlGradients } from "@/components/auth/pearl/tokens";
+import { emitRealtimeEntityChanged } from "@/services/realtimeEvents";
+import { realtimeSocket } from "@/services/realtimeSocket";
 import type { AttendanceSettings, UpdateAttendanceSettingsRequest } from "@/types/attendance";
 import type { StaffMember } from "@/data/teamData";
 
@@ -40,7 +46,7 @@ const toForm = (settings: AttendanceSettings): RuleForm => Object.fromEntries([
 export default function AttendanceToolsScreen() {
   const user = useAppSelector(selectCurrentUser);
   const allowed = ["salon_owner", "admin"].includes(user?.role ?? "");
-  const colors = useThemeColors();
+  const colors = usePearlColors();
   const [tab, setTab] = useState<"Rules" | "Devices" | "Export">("Rules");
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -73,6 +79,20 @@ export default function AttendanceToolsScreen() {
     const [list, discovered] = await Promise.all([devicesApi.list(), devicesApi.pending()]);
     setDevices(list); setPending(discovered);
   }, []);
+  useEffect(() => {
+    if (!allowed || tab !== "Devices") return;
+    const socket = realtimeSocket.activeSocket;
+    const onChanged = (event?: { refresh?: boolean; device_id?: string; last_seen?: string; last_ip?: string }) => {
+      if (event?.device_id && event.last_seen) {
+        setDevices(list => list.map(device => device.id === event.device_id
+          ? { ...device, last_seen: event.last_seen!, last_ip: event.last_ip ?? device.last_ip } : device));
+      } else {
+        void loadDevices().catch(failure => setError(getApiErrorMessage(failure)));
+      }
+    };
+    socket?.on("devices:changed", onChanged);
+    return () => { socket?.off("devices:changed", onChanged); };
+  }, [allowed, tab, loadDevices]);
   useEffect(() => {
     if (!allowed) return;
     let active = true;
@@ -126,7 +146,8 @@ export default function AttendanceToolsScreen() {
     }
     if (numbers.halfDayThresholdMinutes > numbers.minFullDayHours * 60) throw new Error("Minimum half-day hours cannot exceed full-day hours.");
     if (!Number.isInteger(numbers.gracePeriodMinutes) || !Number.isInteger(numbers.commissionThresholdDays)) throw new Error("Grace minutes and commission days must be whole numbers.");
-    if (settings.active && settings.staffScope === "selected" && !settings.selectedStaffIds.length) throw new Error("Select at least one staff member for this rule.");
+    if (settings.active && numbers.thresholdHours <= 0) throw new Error("Late arrival threshold must be greater than zero when the rule is enabled.");
+    if (settings.staffScope === "selected" && !settings.selectedStaffIds.length) throw new Error("Select at least one staff member for this rule.");
     const payload: UpdateAttendanceSettingsRequest = {
       ...numbers, workStartTime: form.workStartTime, workEndTime: form.workEndTime,
       active: settings.active, staffScope: settings.staffScope, selectedStaffIds: settings.selectedStaffIds,
@@ -160,12 +181,13 @@ export default function AttendanceToolsScreen() {
   };
 
   if (!allowed) return <Redirect href="/team/attendance" />;
-  const button = (label: string, onPress: () => void, danger = false) => (
-    <TouchableOpacity disabled={busy || loading} onPress={onPress} style={[styles.button, { backgroundColor: danger ? colors.errorBg : colors.bg2, opacity: busy || loading ? 0.5 : 1 }]}>
-      <Text translate style={{ color: danger ? colors.error : colors.primaryText, fontWeight: "700" }}>{label}</Text>
+  const button = (label: string, onPress: () => void, danger = false, primary = false) => (
+    <TouchableOpacity accessibilityRole="button" disabled={busy || loading} onPress={onPress} style={[styles.button, { borderColor: colors.border, backgroundColor: danger ? colors.errorBg : colors.bg2, opacity: busy || loading ? 0.5 : 1 }]}>
+      {primary ? <LinearGradient colors={pearlGradients.primary} style={StyleSheet.absoluteFill} /> : null}
+      <Text translate style={{ color: danger ? colors.error : primary ? colors.onPrimary : colors.primaryText, fontWeight: "700" }}>{label}</Text>
     </TouchableOpacity>
   );
-  const staffChoices = (multiple: boolean) => staff.map(member => {
+  const staffChoices = (multiple: boolean) => staff.filter(member => multiple || !mappings.some(mapping => mapping.staff_id === member.id)).map(member => {
     const chosen = multiple ? settings?.selectedStaffIds.includes(member.id) : mappingStaff === member.id;
     return <TouchableOpacity key={member.id} disabled={busy || loading} style={[styles.button, { backgroundColor: chosen ? colors.primary : colors.bg2 }]} onPress={() => {
       if (multiple && settings) setSettings({ ...settings, selectedStaffIds: chosen ? settings.selectedStaffIds.filter(id => id !== member.id) : [...settings.selectedStaffIds, member.id] });
@@ -173,10 +195,10 @@ export default function AttendanceToolsScreen() {
     }}><Text style={{ color: chosen ? "#fff" : colors.text2 }}>{chosen ? "✓ " : ""}{member.name}</Text></TouchableOpacity>;
   });
 
-  return <SafeAreaView edges={["top", "bottom"]} style={{ flex: 1, backgroundColor: colors.bg }}>
+  return <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={{ flex: 1 }}>
     <AppStatusBar />
     <View style={styles.header}><AppBackButton /><Text translate style={[styles.title, { color: colors.heading }]}>Attendance tools</Text></View>
-    <View style={styles.row}>{(["Rules", "Devices", "Export"] as const).map(item => <TouchableOpacity key={item} disabled={busy} style={[styles.tab, { backgroundColor: tab === item ? colors.primary : colors.bg2 }]} onPress={() => { setTab(item); setError(""); setMessage(""); setDeviceForm(null); setSelectedDevice(null); }}><Text style={{ color: tab === item ? "#fff" : colors.text2 }}>{item}</Text></TouchableOpacity>)}</View>
+    <View style={[styles.tabs, { borderColor: colors.border, backgroundColor: colors.card }]}>{(["Rules", "Devices", "Export"] as const).map(item => <TouchableOpacity accessibilityRole="tab" accessibilityState={{ selected: tab === item, disabled: busy }} key={item} disabled={busy} style={[styles.tab, { backgroundColor: tab === item ? colors.primary : "transparent" }]} onPress={() => { setTab(item); setError(""); setMessage(""); setDeviceForm(null); setSelectedDevice(null); }}><Ionicons name={item === "Rules" ? "options-outline" : item === "Devices" ? "hardware-chip-outline" : "download-outline"} size={16} color={tab === item ? colors.onPrimary : colors.text2} /><Text translate style={{ color: tab === item ? colors.onPrimary : colors.text2, fontWeight: "700", fontSize: 13 }}>{item}</Text></TouchableOpacity>)}</View>
     <KeyboardAwareForm autoReveal>
     <View style={styles.content}>
       {loading || busy ? <ActivityIndicator color={colors.primaryText} /> : null}
@@ -187,9 +209,14 @@ export default function AttendanceToolsScreen() {
       })) : null}
       {message ? <Text translate style={{ color: colors.success }}>{message}</Text> : null}
       {tab === "Rules" && settings && form ? <>
-        <Text translate style={{ color: colors.text2 }}>These settings are shared with the web app. Shift times use India time (IST).</Text>
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]}>
+        <Text translate style={[styles.sectionTitle, { color: colors.heading }]}>Shift & attendance rules</Text>
+        <Text translate style={{ color: colors.text2 }}>Manage the attendance settings shared with your web app.</Text>
         <StaffTextField label="Shift start (HH:MM)" value={form.workStartTime} editable={!busy && !loading} onChangeText={value => setForm({ ...form, workStartTime: value })} />
         <StaffTextField label="Shift end (HH:MM)" value={form.workEndTime} editable={!busy && !loading} onChangeText={value => setForm({ ...form, workEndTime: value })} />
+        </View>
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]}>
+        <Text translate style={[styles.sectionTitle, { color: colors.heading }]}>Attendance & payroll</Text>
         <TouchableOpacity
           accessibilityRole="switch"
           accessibilityLabel="Apply half-day rule for late arrivals"
@@ -205,30 +232,49 @@ export default function AttendanceToolsScreen() {
           </View>
         </TouchableOpacity>
         {numberFields.map(([key, label]) => <StaffTextField key={key} label={label} keyboardType="decimal-pad" value={form[key]} editable={!busy && !loading} onChangeText={value => setForm({ ...form, [key]: value })} />)}
-        <Text translate style={{ color: colors.heading }}>Apply late arrival rule to</Text>
+        </View>
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]}>
+        <Text translate style={[styles.sectionTitle, { color: colors.heading }]}>Apply late arrival rule to</Text>
         <View style={styles.row}>{button(settings.staffScope === "all" ? "✓ All staff" : "All staff", () => setSettings({ ...settings, staffScope: "all" }))}{button(settings.staffScope === "selected" ? "✓ Selected staff" : "Selected staff", () => setSettings({ ...settings, staffScope: "selected" }))}</View>
         {settings.staffScope === "selected" ? staffChoices(true) : null}
-        {button("Save attendance rules", () => void run(saveRules))}
+        </View>
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]}>
+          <Text translate style={[styles.sectionTitle, { color: colors.heading }]}>Staff visibility</Text>
+          <View style={styles.row}>
+            <Text translate style={{ flex: 1, color: colors.heading }}>Show only checked-in staff</Text>
+            <Switch accessibilityLabel="Show only checked-in staff" value={settings.requireCheckinForVisibility ?? false} disabled={busy || loading}
+              trackColor={{ false: colors.border, true: colors.primary }} thumbColor={colors.onPrimary}
+              onValueChange={value => void run(async () => {
+                const result = await attendanceService.updateSettings({ requireCheckinForVisibility: value });
+                setSettings(current => current ? { ...current, requireCheckinForVisibility: result.settings.requireCheckinForVisibility } : current);
+                emitRealtimeEntityChanged({ entity: "attendance" });
+                setMessage("Staff visibility updated.");
+              })} />
+          </View>
+          <Text translate style={{ color: colors.text2, lineHeight: 20 }}>Only checked-in staff appear as available in the booking calendar. This setting saves immediately.</Text>
+        </View>
+        {button("Save attendance rules", () => void run(saveRules), false, true)}
       </> : null}
       {tab === "Devices" ? <>
         <Text translate style={{ color: colors.text2 }}>Connect a biometric device and link its employee PINs to your staff.</Text>
         <View style={styles.row}>{button("Refresh devices", () => void run(loadDevices))}{button("Register device", () => setDeviceForm({ mode: "add", serial: "", name: "", location: "" }))}</View>
-        {deviceForm ? <View style={[styles.card, { borderColor: colors.border }]}>
-          <Text translate style={{ color: colors.heading }}>{deviceForm.mode === "edit" ? "Edit device" : "Connect device"}</Text>
+        {deviceForm ? <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]}>
+          <Text translate style={{ color: colors.heading }}>{deviceForm.mode === "edit" ? "Edit device" : deviceForm.mode === "add" ? "Register device" : "Connect device"}</Text>
           <StaffTextField label="Serial number" editable={deviceForm.mode === "add" && !busy} value={deviceForm.serial} onChangeText={serial => setDeviceForm({ ...deviceForm, serial })} />
           <StaffTextField label="Device name" editable={!busy} value={deviceForm.name} onChangeText={name => setDeviceForm({ ...deviceForm, name })} />
           <StaffTextField label="Location (optional)" editable={!busy} value={deviceForm.location} onChangeText={location => setDeviceForm({ ...deviceForm, location })} />
-          <View style={styles.row}>{button("Save device", () => void run(saveDevice))}{button("Cancel", () => setDeviceForm(null))}</View>
+          <View style={styles.row}>{button("Save device", () => void run(saveDevice), false, true)}{button("Cancel", () => setDeviceForm(null))}</View>
         </View> : null}
         {pending.length ? <Text translate style={{ color: colors.heading }}>Discovered devices</Text> : null}
-        {pending.map(device => <View key={device.sn} style={[styles.card, { borderColor: colors.border }]}><Text style={{ color: colors.text2 }}>{device.sn}</Text>{button("Connect", () => setDeviceForm({ mode: "connect", serial: device.sn, name: "", location: "" }))}</View>)}
+        {pending.map(device => <View key={device.sn} style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]}><Text style={{ color: colors.text2 }}>{device.sn}</Text><Text style={{ color: colors.text2 }}>IP: {device.ip}</Text>{button("Connect", () => setDeviceForm({ mode: "connect", serial: device.sn, name: "", location: "" }))}</View>)}
         {!loading && !devices.length ? <Text translate style={{ color: colors.text2 }}>No devices registered yet.</Text> : null}
-        {devices.map(device => <View key={device.id} style={[styles.card, { borderColor: colors.border }]}>
+        {devices.map(device => <View key={device.id} style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]}>
+          <DeviceConnectionStatus lastSeen={device.last_seen} />
           <Text style={{ color: colors.heading, fontWeight: "700" }}>{device.name}</Text><Text style={{ color: colors.text2 }}>{device.serial_no} · {device.is_active ? "Active" : "Inactive"}{device.location ? ` · ${device.location}` : ""}</Text>
-          <View style={styles.row}>{button("Staff PINs", () => void run(() => selectDevice(device)))}{button("Edit", () => setDeviceForm({ mode: "edit", id: device.id, serial: device.serial_no, name: device.name, location: device.location ?? "" }))}{button(device.is_active ? "Deactivate" : "Activate", () => void run(async () => { await devicesApi.update(device.id, { is_active: !device.is_active }); await loadDevices(); }))}</View>
+          <Text style={{ color: colors.text2 }}>{device.last_seen ? `Last seen: ${new Date(device.last_seen).toLocaleString()}` : "Never connected"}</Text>{device.last_ip ? <Text style={{ color: colors.text2 }}>IP: {device.last_ip}</Text> : null}<View style={styles.row}>{button("Staff PINs", () => void run(() => selectDevice(device)))}{button("Edit", () => setDeviceForm({ mode: "edit", id: device.id, serial: device.serial_no, name: device.name, location: device.location ?? "" }))}{button(device.is_active ? "Deactivate" : "Activate", () => void run(async () => { await devicesApi.update(device.id, { is_active: !device.is_active }); await loadDevices(); }))}</View>
           {button("Remove device", () => Alert.alert("Remove device?", `Remove ${device.name} and its staff PIN mappings?`, [{ text: "Cancel", style: "cancel" }, { text: "Remove", style: "destructive", onPress: () => void run(async () => { await devicesApi.remove(device.id); if (selectedDevice?.id === device.id) setSelectedDevice(null); await loadDevices(); }) }]), true)}
         </View>)}
-        {selectedDevice ? <View style={[styles.card, { borderColor: colors.border }]}>
+        {selectedDevice ? <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]}>
           <Text style={{ color: colors.heading }}>Staff PINs · {selectedDevice.name}</Text>
           {!mappings.length ? <Text translate style={{ color: colors.text2 }}>No staff linked yet.</Text> : null}
           {mappings.map(mapping => <View key={mapping.id}><Text style={{ color: colors.text2 }}>{mapping.staff_name ?? staff.find(item => item.id === mapping.staff_id)?.name ?? "Staff member"} · PIN {mapping.pin}</Text>{button("Remove PIN", () => Alert.alert("Remove staff PIN?", "This staff member's punches will no longer be linked from this device.", [{ text: "Cancel", style: "cancel" }, { text: "Remove", style: "destructive", onPress: () => void run(async () => { await devicesApi.removeMapping(selectedDevice.id, mapping.id); await selectDevice(selectedDevice); }) }]), true)}</View>)}
@@ -241,23 +287,38 @@ export default function AttendanceToolsScreen() {
           {button("Close staff PINs", () => setSelectedDevice(null))}
         </View> : null}
       </> : null}
-      {tab === "Export" ? <>
+      {tab === "Export" ? <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]}>
+        <Ionicons name="document-text-outline" size={32} color={colors.primaryText} />
+        <Text translate style={[styles.sectionTitle, { color: colors.heading }]}>Monthly attendance report</Text>
         <Text translate style={{ color: colors.text2 }}>Export monthly attendance as a CSV file to share or save.</Text>
         <StaffTextField label="Year" keyboardType="number-pad" editable={!busy} value={year} onChangeText={setYear} maxLength={4} />
         <StaffTextField label="Month (1–12)" keyboardType="number-pad" editable={!busy} value={month} onChangeText={setMonth} maxLength={2} />
-        {button("Export CSV", () => void run(exportCsv))}
-      </> : null}
+        {button("Export CSV", () => void run(exportCsv), false, true)}
+      </View> : null}
     </View>
     </KeyboardAwareForm>
-  </SafeAreaView>;
+  </SafeAreaView></PearlBackground>;
+}
+
+function DeviceConnectionStatus({ lastSeen }: { lastSeen: string | null }) {
+  const colors = usePearlColors();
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+  const online = lastSeen !== null && now - new Date(lastSeen).getTime() < 120_000;
+  return <Text translate style={{ color: online ? colors.success : colors.text2, fontSize: 12, fontWeight: "700" }}>{online ? "Online" : "Offline"}</Text>;
 }
 
 const styles = StyleSheet.create({
   header: { padding: 16, flexDirection: "row", alignItems: "center", gap: 12 },
-  title: { fontSize: 20, fontWeight: "700" },
+  title: { fontSize: 22, fontWeight: "700" },
+  sectionTitle: { fontSize: 17, fontWeight: "700" },
   content: { padding: 16, gap: 14, paddingBottom: 32 },
   row: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, paddingHorizontal: 4 },
-  tab: { flex: 1, padding: 12, alignItems: "center", borderRadius: 12 },
-  button: { paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, alignItems: "center" },
-  card: { borderWidth: 1, padding: 14, borderRadius: 14, gap: 12 },
+  tabs: { flexDirection: "row", marginHorizontal: 16, padding: 4, borderRadius: 18, borderWidth: 1 },
+  tab: { flex: 1, minHeight: 46, flexDirection: "row", justifyContent: "center", gap: 6, alignItems: "center", borderRadius: 14 },
+  button: { minHeight: 48, borderWidth: 1, overflow: "hidden", justifyContent: "center", paddingHorizontal: 14, paddingVertical: 12, borderRadius: 16, alignItems: "center" },
+  card: { borderWidth: 1, padding: 16, borderRadius: 22, gap: 16 },
 });

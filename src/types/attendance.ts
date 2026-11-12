@@ -116,6 +116,7 @@ export type UpdateAttendanceResponse = {
 };
 
 export type AttendanceSettings = {
+  requireCheckinForVisibility?: boolean;
   active: boolean;
   thresholdHours: number;
   minFullDayHours: number;
@@ -133,6 +134,7 @@ export type AttendanceSettings = {
 };
 
 export type UpdateAttendanceSettingsRequest = {
+  requireCheckinForVisibility?: boolean;
   active?: boolean;
   thresholdHours?: number;
   minFullDayHours?: number;
