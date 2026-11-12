@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { PanResponder, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/ui/AppTypography";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import type { ReceiptData } from "@/utils/receiptGenerator";
 import { InvoicePreview } from "./InvoicePreview";
 
@@ -11,7 +11,7 @@ const GUTTER = 12;
 const MAX_ZOOM = 4;
 
 export function ZoomableInvoicePreview({ data }: { data: ReceiptData }) {
-  const colors = useThemeColors();
+  const colors = usePearlColors();
   const [width, setWidth] = useState(0);
   const [pageHeight, setPageHeight] = useState(1122);
   const [zoom, setZoom] = useState(1);
@@ -48,7 +48,7 @@ export function ZoomableInvoicePreview({ data }: { data: ReceiptData }) {
   const scale = Math.min(1, Math.max(1, width - GUTTER * 2) / PAGE_WIDTH) * zoom;
 
   return <View style={styles.root} onLayout={event => setWidth(event.nativeEvent.layout.width)}>
-    <View style={[styles.toolbar, { borderBottomColor: colors.border }]}>
+    <View style={[styles.toolbar, { borderBottomColor: colors.border, backgroundColor: colors.card }]}>
       <TouchableOpacity accessibilityRole="button" accessibilityLabel="Zoom out invoice" disabled={zoom <= 1} onPress={() => changeZoom(zoom - 0.25)} style={[styles.control, zoom <= 1 && styles.disabled]}>
         <Ionicons name="remove" size={22} color={colors.text} />
       </TouchableOpacity>

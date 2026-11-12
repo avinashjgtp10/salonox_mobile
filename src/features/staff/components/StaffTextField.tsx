@@ -1,4 +1,4 @@
-import { pearl } from "@/components/auth/pearl/tokens";
+import { usePearlPalette } from "@/components/auth/pearl/usePearlPalette";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { forwardRef, useMemo } from "react";
 import { StyleSheet, View, type TextInputProps } from "react-native";
@@ -19,7 +19,8 @@ export const StaffTextField = forwardRef<TextInput, StaffTextFieldProps>(
     ref,
   ) {
     const Colors = usePearlColors();
-    const styles = useMemo(() => createStyles(Colors), [Colors]);
+    const palette = usePearlPalette();
+    const styles = useMemo(() => createStyles(Colors, palette), [Colors, palette]);
 
     return (
       <View style={styles.group}>
@@ -42,7 +43,7 @@ export const StaffTextField = forwardRef<TextInput, StaffTextFieldProps>(
   },
 );
 
-const createStyles = (Colors: ThemeColors) =>
+const createStyles = (Colors: ThemeColors, palette: ReturnType<typeof usePearlPalette>) =>
   StyleSheet.create({
     group: {
       marginBottom: 0,
@@ -54,8 +55,8 @@ const createStyles = (Colors: ThemeColors) =>
       marginBottom: 8,
     },
     input: {
-      backgroundColor: pearl.field,
-      borderColor: pearl.fieldBorder,
+      backgroundColor: palette.field,
+      borderColor: palette.fieldBorder,
       borderRadius: 16,
       borderWidth: 1,
       color: Colors.heading,

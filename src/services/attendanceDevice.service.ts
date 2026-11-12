@@ -3,7 +3,7 @@ import type { ApiResponse } from "@/types/auth";
 
 export type AttendanceDevice = {
   id: string; serial_no: string; name: string; location: string | null;
-  is_active: boolean; last_seen: string | null;
+  is_active: boolean; last_seen: string | null; last_ip?: string | null;
 };
 export type PendingAttendanceDevice = { sn: string; ip: string; lastSeen: string };
 export type AttendanceDeviceMapping = { id: string; staff_id: string; pin: string; staff_name?: string };
