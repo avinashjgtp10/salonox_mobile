@@ -302,6 +302,7 @@ const getSettingsFromEnvelope = (payload: AttendanceSettingsEnvelope): UnknownRe
 };
 
 const normalizeAttendanceSettings = (entry: UnknownRecord): AttendanceSettings => ({
+  requireCheckinForVisibility: entry.require_checkin_for_visibility === true,
   active: entry.active === true,
   thresholdHours: toSafeNumber(entry.threshold_hours ?? 2),
   minFullDayHours: toSafeNumber(entry.min_full_day_hours ?? 7),
@@ -623,6 +624,9 @@ export const attendanceService = {
     updates: UpdateAttendanceSettingsRequest,
   ): Promise<UpdateAttendanceSettingsResponse> {
     const requestBody: Record<string, number | string | boolean | string[]> = {};
+    if (updates.requireCheckinForVisibility !== undefined) {
+      requestBody.require_checkin_for_visibility = updates.requireCheckinForVisibility;
+    }
 
     if (updates.workStartTime !== undefined) {
       requestBody.shift_start = updates.workStartTime;

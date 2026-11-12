@@ -1,7 +1,7 @@
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { Linking } from "react-native";
-import { getFreshAccessToken } from "@/services/api";
+import { api, getFreshAccessToken } from "@/services/api";
 
 const EXTENSIONS: Record<string, string> = {
   "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif",
@@ -19,18 +19,20 @@ export async function inboxMediaHeaders(): Promise<Record<string, string> | unde
   return token ? { Authorization: `Bearer ${token}` } : undefined;
 }
 
-/** WhatsApp deletes media 30 days after upload; the backend then answers 404. */
-export class InboxMediaGoneError extends Error {}
-
-/** True when the backend says the attachment no longer exists (not a network or auth hiccup). */
-export async function isInboxMediaGone(source: { uri: string; authenticated: boolean }) {
-  if (!source.authenticated) return false;
-  try {
-    const response = await fetch(source.uri, { headers: await inboxMediaHeaders() });
-    return response.status === 404;
-  } catch {
-    return false;
-  }
+/** Match web's ProtectedMedia: use the API client (including session refresh),
+ * then render downloaded bytes instead of making another native HTTP request.
+ * Do not cache failures: the backend also reports transient Meta errors as 404.
+ */
+export async function loadInboxImage(source: { uri: string; authenticated: boolean }): Promise<string> {
+  if (!source.authenticated) return source.uri;
+  const response = await api.get<Blob>(source.uri, { responseType: "blob" });
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => typeof reader.result === "string"
+      ? resolve(reader.result) : reject(new Error("Could not read image"));
+    reader.onerror = () => reject(new Error("Could not read image"));
+    reader.readAsDataURL(response.data);
+  });
 }
 
 /** Downloads an authed inbox attachment and hands it to the system preview/share
@@ -46,7 +48,6 @@ export async function openInboxMedia(source: { uri: string; authenticated: boole
   const download = await FileSystem.downloadAsync(source.uri, `${folder}${name}`, { headers: await inboxMediaHeaders() });
   if (download.status < 200 || download.status >= 300) {
     await FileSystem.deleteAsync(download.uri, { idempotent: true });
-    if (download.status === 404) throw new InboxMediaGoneError("Media is no longer available");
     throw new Error(`Media download failed (${download.status})`);
   }
   // Share sheets pick the viewer from the file extension, so name it after the real type.

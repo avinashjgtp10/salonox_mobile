@@ -198,7 +198,6 @@ function LunoxSheetContent({ visible, onClose, seed }: { visible: boolean; onClo
             returnKeyType="send"
             onSubmitEditing={() => void ask(draft)}
             submitBehavior="submit"
-            editable={!busy}
             accessibilityLabel="Ask Lunox anything"
           />
           <Pressable onPress={() => void ask(draft)} disabled={!canSend} accessibilityRole="button" accessibilityLabel="Send"

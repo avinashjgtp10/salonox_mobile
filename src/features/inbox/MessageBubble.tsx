@@ -7,9 +7,7 @@ import { API_BASE_URL } from "@/services/api";
 import type { InboxMessage } from "@/types/inbox";
 import { mediaSource } from "@/utils/inboxPresentation";
 import {
-  InboxMediaGoneError,
-  inboxMediaHeaders,
-  isInboxMediaGone,
+  loadInboxImage,
   openInboxMedia,
 } from "./inboxMedia";
 import { useInboxTheme } from "./inboxTheme";
@@ -25,17 +23,13 @@ export function MessageBubble({
   const [failedImage, setFailedImage] = useState(false);
   const [openError, setOpenError] = useState(false);
   const [opening, setOpening] = useState(false);
-  // The backend no longer has this attachment (WhatsApp deletes media after 30 days).
-  const [gone, setGone] = useState(false);
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageAttempt, setImageAttempt] = useState(0);
   const outgoing = message.direction === "OUTBOUND";
   const source = mediaSource(message.mediaUrl, API_BASE_URL);
   const type = message.mediaType || "attachment";
   const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
   const isImage = !!source && type === "image" && !failedImage;
-  // undefined = still fetching the token for an authed image; null = no header needed.
-  const [imageHeaders, setImageHeaders] = useState<
-    Record<string, string> | null | undefined
-  >(isImage && source.authenticated ? undefined : null);
   const status = message.status.toUpperCase();
   const statusIcon: ComponentProps<typeof Ionicons>["name"] =
     status === "FAILED"
@@ -47,11 +41,14 @@ export function MessageBubble({
           : "time-outline";
 
   useEffect(() => {
-    if (!isImage || !source.authenticated) return;
+    setFailedImage(false);
+    setOpenError(false);
+    setImageUri(null);
+    if (!source || type !== "image") return;
     let active = true;
-    inboxMediaHeaders()
-      .then((headers) => {
-        if (active) setImageHeaders(headers ?? null);
+    loadInboxImage({ uri: source.uri, authenticated: source.authenticated })
+      .then((uri) => {
+        if (active) setImageUri(uri);
       })
       .catch(() => {
         if (active) setFailedImage(true);
@@ -59,17 +56,20 @@ export function MessageBubble({
     return () => {
       active = false;
     };
-  }, [isImage, source?.authenticated]);
+  }, [source?.uri, source?.authenticated, type, imageAttempt]); // eslint-disable-line react-hooks/exhaustive-deps -- source is recreated each render; depend on its values
 
   const open = async () => {
     if (!source || opening) return;
+    if (type === "image" && failedImage) {
+      setImageAttempt(attempt => attempt + 1);
+      return;
+    }
     setOpenError(false);
     setOpening(true);
     try {
       await openInboxMedia(source, message.mediaUrl!.trim(), type);
-    } catch (error) {
-      if (error instanceof InboxMediaGoneError) setGone(true);
-      else setOpenError(true);
+    } catch {
+      setOpenError(true);
     } finally {
       setOpening(false);
     }
@@ -77,10 +77,6 @@ export function MessageBubble({
 
   const onImageError = () => {
     setFailedImage(true);
-    if (source)
-      void isInboxMediaGone(source).then((isGone) => {
-        if (isGone) setGone(true);
-      });
   };
 
   return (
@@ -102,18 +98,14 @@ export function MessageBubble({
           <TouchableOpacity
             accessibilityRole={source ? "link" : undefined}
             accessibilityLabel={
-              source && !gone
-                ? `Open ${type}`
-                : gone
-                  ? `${typeLabel} no longer available`
-                  : `${type} preview unavailable`
+              source ? (failedImage ? `Retry ${type}` : `Open ${type}`) : `${type} preview unavailable`
             }
-            disabled={!source || gone || opening}
+            disabled={!source || opening}
             onPress={() => void open()}
           >
             {isImage ? (
               <View>
-                {imageHeaders === undefined ? (
+                {imageUri === null ? (
                   <View
                     style={[
                       s.image,
@@ -129,8 +121,7 @@ export function MessageBubble({
                 ) : (
                   <Image
                     source={{
-                      uri: source.uri,
-                      headers: imageHeaders ?? undefined,
+                      uri: imageUri,
                     }}
                     style={s.image}
                     resizeMode="cover"
@@ -175,8 +166,8 @@ export function MessageBubble({
                 )}
                 <Text style={s.heading}>{typeLabel}</Text>
                 <Text style={[s.muted, { textAlign: "center" }]}>
-                  {gone
-                    ? `${typeLabel} no longer available`
+                  {failedImage
+                    ? "Couldn’t load image. Tap to retry."
                     : source
                       ? type === "video" || type === "audio"
                         ? "Tap to play"
