@@ -18,7 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Modal, RefreshControl, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { GestureHandlerRootView, TouchableOpacity as GestureTouchableOpacity } from "react-native-gesture-handler";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -99,7 +99,7 @@ function SwipeActionButton({
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
-    <TouchableOpacity
+    <GestureTouchableOpacity
       activeOpacity={0.82}
       disabled={disabled}
       onPress={onPress}
@@ -107,15 +107,15 @@ function SwipeActionButton({
     >
       <Ionicons name={icon} size={18} color={color} />
       <Text translate style={[styles.swipeActionText, { color }]}>{label}</Text>
-    </TouchableOpacity>
+    </GestureTouchableOpacity>
   );
 }
 
 function ClientCard({ client, index, isLast, isDeleting, onBook, onDelete, onEdit, onOpen, onQuickSale }: { client: ClientListItem; index: number; isLast: boolean; isDeleting: boolean; onBook: () => void; onDelete: () => void; onEdit: () => void; onOpen: () => void; onQuickSale: () => void }) {
   const tone = [pearlTones.rose, pearlTones.lilac, pearlTones.peach][index % 3];
   return <Swipeable containerStyle={{ overflow: "hidden", borderTopLeftRadius: index === 0 ? 22 : 0, borderTopRightRadius: index === 0 ? 22 : 0, borderBottomLeftRadius: isLast ? 22 : 0, borderBottomRightRadius: isLast ? 22 : 0 }} overshootLeft={false} overshootRight={false}
-    renderLeftActions={() => <View style={{ flexDirection: "row" }}><SwipeActionButton backgroundColor={pearl.successBg} color={pearl.successText} icon="calendar-outline" label="Book" onPress={onBook} /><SwipeActionButton backgroundColor={pearl.accentWash} color={pearl.accentDeep} icon="flash-outline" label="Sale" onPress={onQuickSale} /></View>}
-    renderRightActions={() => <View style={{ flexDirection: "row" }}><SwipeActionButton backgroundColor={pearl.accentWash} color={pearl.accentDeep} icon="create-outline" label="Edit" onPress={onEdit} /><SwipeActionButton backgroundColor={pearl.dangerBg} color={pearl.dangerText} icon="trash-outline" label="Delete" onPress={onDelete} disabled={isDeleting} /></View>}>
+    renderLeftActions={() => <View style={{ flexDirection: "row", alignItems: "stretch" }}><SwipeActionButton backgroundColor={pearl.successBg} color={pearl.successText} icon="calendar-outline" label="Book" onPress={onBook} /><SwipeActionButton backgroundColor={pearl.accentWash} color={pearl.accentDeep} icon="flash-outline" label="Sale" onPress={onQuickSale} /></View>}
+    renderRightActions={() => <View style={{ flexDirection: "row", alignItems: "stretch" }}><SwipeActionButton backgroundColor={pearl.accentWash} color={pearl.accentDeep} icon="create-outline" label="Edit" onPress={onEdit} /><SwipeActionButton backgroundColor={pearl.dangerBg} color={pearl.dangerText} icon="trash-outline" label="Delete" onPress={onDelete} disabled={isDeleting} /></View>}>
     <TouchableOpacity accessibilityRole="button" onPress={onOpen} style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 14, backgroundColor: pearl.glass, borderBottomWidth: 1, borderBottomColor: pearl.divider }}>
       <LinearGradient colors={tone.avatar} style={{ width: 44, height: 44, borderRadius: 16, alignItems: "center", justifyContent: "center" }}><Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "700" }}>{client.initials}</Text></LinearGradient>
       <View style={{ flex: 1 }}><View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 }}><Text style={clientUi.rowTitle}>{client.fullName}</Text>{client.membership ? <Text style={{ fontSize: 10, color: "#94640F", backgroundColor: pearl.warningBg, borderRadius: 8, paddingHorizontal: 6 }}>{client.membership}</Text> : isCreatedToday(client.createdAt) ? <Text translate style={{ fontSize: 10, color: pearl.successText }}>New</Text> : null}</View>
@@ -541,11 +541,11 @@ function ClientsScreenContent() {
               index={index}
               isLast={index === clients.length - 1}
               isDeleting={deletingClientIds.includes(item.id)}
-              onBook={() => router.push("/bookings/new")}
+              onBook={() => router.push({ pathname: "/bookings/new", params: { clientId: item.id } } as Href)}
               onDelete={() => handleDeleteClient(item)}
               onEdit={() => handleEditClient(item)}
               onOpen={() => handleOpenClient(item)}
-              onQuickSale={() => router.push("/quick-sale")}
+              onQuickSale={() => router.push({ pathname: "/quick-sale", params: { clientId: item.id } } as Href)}
             />
           )}
           removeClippedSubviews
@@ -683,8 +683,12 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   swipeActionButton: {
     alignItems: "center",
+    alignSelf: "stretch",
     borderRadius: Radius.xl,
     justifyContent: "center",
+    // Without a height the button collapses to icon + label and leaves the
+    // card background showing; 72 matches the row (14 padding + 44 avatar).
+    minHeight: 72,
     minWidth: 88,
     paddingHorizontal: 10,
   },
