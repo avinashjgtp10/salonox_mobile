@@ -71,7 +71,7 @@ export function PearlNavigationBar({ tabs, activeName, onNavigate }: { tabs: App
   const onLayout = (e: LayoutChangeEvent) => setW(Math.round(e.nativeEvent.layout.width));
 
   return (
-    <View pointerEvents="box-none" style={[styles.wrap, { bottom: Math.max(insets.bottom, 10) }]}>
+    <View pointerEvents="box-none" style={[styles.wrap, { bottom: Math.max(insets.bottom, 10), left: insets.left + 14, right: insets.right + 14 }]}>
       <View style={styles.bar} onLayout={onLayout}>
         {w ? (
           <Svg width={w + 24} height={BAR_H + LIFT + 24} viewBox={`-12 0 ${w + 24} ${BAR_H + LIFT + 24}`} style={styles.svg} pointerEvents="none">
@@ -162,6 +162,7 @@ export function AppTabLayout({ children, tabs }: AppTabLayoutProps) {
 const styles = StyleSheet.create({
   wrap: { position: "absolute", left: 14, right: 14 },
   bar: {
+    width: "100%", maxWidth: 600, alignSelf: "center",
     height: BAR_H, marginTop: LIFT,
     ...Platform.select({ ios: { shadowColor: "#46446E", shadowOpacity: 0.18, shadowRadius: 16, shadowOffset: { width: 0, height: 8 } }, default: {} }),
   },
