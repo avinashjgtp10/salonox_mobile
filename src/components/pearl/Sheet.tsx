@@ -32,7 +32,8 @@ function useMounted(visible: boolean, show: () => void, hide: (done: () => void)
 
 export function BottomSheet({ visible, onClose, title, subtitle, headerRight, children, tall }: SheetProps) {
   const insets = useSafeAreaInsets();
-  const { height: H } = useWindowDimensions();
+  const { height: H, width } = useWindowDimensions();
+  const sheetWidth = Math.min(600, Math.max(0, width - insets.left - insets.right));
   const y = useRef(new Animated.Value(H)).current;
   const dim = useRef(new Animated.Value(0)).current;
   const closeRef = useRef(onClose);
@@ -61,7 +62,7 @@ export function BottomSheet({ visible, onClose, title, subtitle, headerRight, ch
       <Animated.View style={[StyleSheet.absoluteFill, styles.dim, { opacity: dim }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
       </Animated.View>
-      <Animated.View accessibilityViewIsModal style={[styles.sheet, tall ? { top: insets.top + 76 } : { maxHeight: H * 0.88 }, { paddingBottom: insets.bottom + 30, transform: [{ translateY: y }] }]}>
+      <Animated.View accessibilityViewIsModal style={[styles.sheet, tall ? { top: insets.top + 76 } : { maxHeight: Math.min(H * 0.88, H - insets.top) }, { left: insets.left + (width - insets.left - insets.right - sheetWidth) / 2, width: sheetWidth, paddingBottom: insets.bottom + 30, transform: [{ translateY: y }] }]}>
         <View {...pan.panHandlers} style={styles.grab}><View style={styles.handle} /></View>
         {title ? (
           <View style={styles.head} {...pan.panHandlers}>
@@ -122,7 +123,7 @@ export function SideDrawer({ visible, onClose, children }: { visible: boolean; o
 const styles = StyleSheet.create({
   dim: { backgroundColor: "rgba(59,57,80,0.22)" },
   sheet: {
-    position: "absolute", left: 0, right: 0, bottom: 0, borderTopLeftRadius: 30, borderTopRightRadius: 30,
+    position: "absolute", bottom: 0, borderTopLeftRadius: 30, borderTopRightRadius: 30,
     backgroundColor: "#FAF9FC", borderTopWidth: 1, borderColor: pearl.white,
     shadowColor: "#46446E", shadowOpacity: 0.18, shadowRadius: 20, shadowOffset: { width: 0, height: -14 }, elevation: 16,
   },

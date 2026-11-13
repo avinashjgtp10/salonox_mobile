@@ -25,7 +25,7 @@ export function Page({ children, header, refreshing, onRefresh, scrollRef }: {
   return (
     <PearlBackground>
       {focused ? <StatusBar style="dark" /> : null}
-      <View style={{ flex: 1, paddingTop: insets.top }}>
+      <View style={{ flex: 1, paddingTop: insets.top, paddingLeft: insets.left, paddingRight: insets.right }}>
         {header ? <View style={styles.header}>{header}</View> : null}
         <ScrollView
           ref={scrollRef}
