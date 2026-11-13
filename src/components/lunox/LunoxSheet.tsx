@@ -187,13 +187,14 @@ function LunoxSheetContent({ visible, onClose, seed }: { visible: boolean; onClo
         )}
 
         <View style={styles.askBar}>
-          <Image source={LUNOX_MARK} style={{ width: 18, height: 18 }} resizeMode="contain" />
+          <Image source={LUNOX_MARK} style={{ width: 18, height: 18, marginBottom: 13 }} resizeMode="contain" />
           <TextInput
             value={draft}
             onChangeText={setDraft}
             placeholder="Ask Lunox anything…"
             placeholderTextColor={pearl.muted}
             style={styles.input}
+            multiline
             maxLength={2000}
             returnKeyType="send"
             onSubmitEditing={() => void ask(draft)}
@@ -288,10 +289,13 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 12, fontWeight: "700", color: pearl.accentDeep },
   // .ask-bar.glass / .mic / .send-b
   askBar: {
-    flexDirection: "row", alignItems: "center", gap: 10, height: 56, paddingLeft: 14, paddingRight: 6, borderRadius: 20,
+    flexDirection: "row", alignItems: "flex-end", gap: 10, minHeight: 56, paddingLeft: 14, paddingRight: 6, paddingVertical: 6, borderRadius: 20,
     backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, ...pearlShadow.card,
   },
-  input: { flex: 1, height: "100%", paddingVertical: 0, fontSize: 14.5, fontWeight: "500", color: pearl.ink },
+  input: {
+    flex: 1, minWidth: 0, minHeight: 44, maxHeight: 120, paddingVertical: 11,
+    fontSize: 14.5, lineHeight: 20, fontWeight: "500", color: pearl.ink, textAlignVertical: "top",
+  },
   send: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" },
 });
 
