@@ -9,7 +9,7 @@ import { ENVIRONMENTS, resolveAppEnv } from "./config/environments";
 const appEnv = resolveAppEnv(process.env.APP_ENV);
 const env = ENVIRONMENTS[appEnv];
 
-const APP_VERSION = "1.0.1";
+const APP_VERSION = "1.0.4";
 
 const existsInProject = (relativePath: string) => fs.existsSync(path.resolve(__dirname, relativePath));
 
