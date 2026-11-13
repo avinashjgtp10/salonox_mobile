@@ -159,8 +159,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       [
         "expo-image-picker",
         {
-          photosPermission: "Allow SalonOX to access your photos so you can set a profile picture.",
-          cameraPermission: "Allow SalonOX to use your camera so you can take a profile picture.",
+          photosPermission: "Allow SalonOX to access your photos so you can set a profile picture and send photos in WhatsApp chats.",
+          cameraPermission: "Allow SalonOX to use your camera so you can take a profile picture and send photos in WhatsApp chats.",
         },
       ],
       [

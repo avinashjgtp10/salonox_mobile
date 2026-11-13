@@ -6,6 +6,7 @@ import type { RootState } from "@/store";
 import type {
   InboxConversationsResponse,
   InboxMessagesResponse,
+  SendInboxMediaRequest,
   SendInboxReplyRequest,
   SendInboxReplyResponse,
 } from "@/types/inbox";
@@ -74,6 +75,28 @@ export const sendInboxReplyThunk = createAsyncThunk<
     const response = await inboxService.sendReply({ message, phone });
 
     if (!response.message?.id) void dispatch(fetchInboxMessagesThunk({ phone, refresh: true }));
+
+    void dispatch(fetchInboxConversationsThunk({ refresh: true }));
+
+    return response;
+  } catch (error) {
+    return rejectWithValue(reject(error));
+  }
+});
+
+
+export const sendInboxMediaThunk = createAsyncThunk<
+  SendInboxReplyResponse,
+  SendInboxMediaRequest & { onProgress?: (fraction: number) => void },
+  { rejectValue: RejectValue; state: RootState }
+>("inbox/sendMedia", async ({ onProgress, ...request }, { dispatch, rejectWithValue }) => {
+  try {
+    const response = await inboxService.sendMedia(request, onProgress);
+
+    // Same refresh rule as a text reply: if the backend returned no row, pull
+    // the thread so the sent file still appears.
+    if (!response.message?.id)
+      void dispatch(fetchInboxMessagesThunk({ phone: request.phone, refresh: true }));
 
     void dispatch(fetchInboxConversationsThunk({ refresh: true }));
 

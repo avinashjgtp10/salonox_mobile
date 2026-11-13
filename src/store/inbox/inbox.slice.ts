@@ -4,6 +4,7 @@ import {
   deleteInboxConversationsThunk,
   fetchInboxConversationsThunk,
   fetchInboxMessagesThunk,
+  sendInboxMediaThunk,
   sendInboxReplyThunk,
 } from "@/middleware/inbox/inbox.thunk";
 import type { RootState } from "@/store";
@@ -294,6 +295,43 @@ const inboxSlice = createSlice({
           action.payload?.message ??
           action.error.message ??
           "Unable to send this reply.";
+        state.sendingByPhone[phone] = false;
+      })
+      .addCase(sendInboxMediaThunk.pending, (state, action) => {
+        const { phone } = action.meta.arg;
+
+        state.sendErrorByPhone[phone] = null;
+        state.sendingByPhone[phone] = true;
+      })
+      .addCase(sendInboxMediaThunk.fulfilled, (state, action) => {
+        const { phone } = action.meta.arg;
+
+        state.sendingByPhone[phone] = false;
+
+        if (action.payload.message?.id) {
+          const message = action.payload.message;
+          state.messagesByPhone[phone] = appendMessage(
+            state.messagesByPhone[phone] ?? [],
+            message,
+          );
+          const conversation = state.conversations.find(
+            (entry) => entry.contactPhone === phone,
+          );
+          if (conversation) {
+            conversation.lastMessage = message.body;
+            conversation.lastMessageAt = message.sentAt;
+            conversation.lastMessageLabel = "Just now";
+          }
+          state.conversations = sortInboxConversations(state.conversations);
+        }
+      })
+      .addCase(sendInboxMediaThunk.rejected, (state, action) => {
+        const { phone } = action.meta.arg;
+
+        state.sendErrorByPhone[phone] =
+          action.payload?.message ??
+          action.error.message ??
+          "Unable to send this file.";
         state.sendingByPhone[phone] = false;
       });
   },

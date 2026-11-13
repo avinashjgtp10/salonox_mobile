@@ -4,6 +4,8 @@ export const INBOX = {
   CUSTOMER: (phone: string) =>
     `/inbox/conversations/${encodeURIComponent(phone)}/customer`,
   MEDIA: (mediaId: string) => `/inbox/media/${encodeURIComponent(mediaId)}`,
+  SEND_MEDIA: (phone: string) =>
+    `/inbox/conversations/${encodeURIComponent(phone)}/media`,
   MESSAGES: (phone: string) =>
     `/inbox/conversations/${encodeURIComponent(phone)}/messages`,
   REPLY: (phone: string) =>
