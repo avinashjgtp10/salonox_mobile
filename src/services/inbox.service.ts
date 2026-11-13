@@ -11,6 +11,7 @@ import type {
   InboxTemplate,
   InboxMessageDirection,
   InboxMessagesResponse,
+  SendInboxMediaRequest,
   SendInboxReplyRequest,
   SendInboxReplyResponse,
 } from "@/types/inbox";
@@ -315,6 +316,48 @@ export const inboxService = {
       INBOX.REPLY(phone),
       {
         message,
+      },
+    );
+    const payload = response.data.data;
+
+    return { message: payload ? normalizeMessage(asRecord(payload)) : null };
+  },
+  /** Mirrors the backend limits in inbox.service.sendMedia so an oversized file
+   * is rejected before it is uploaded instead of after. */
+  mediaLimitMb(mimeType: string): number {
+    return mimeType.toLowerCase().startsWith("image/") ? 5 : 16;
+  },
+
+  /** Sends a photo / video / audio / document to one conversation. Only allowed
+   * while the 24-hour window is open; the backend rejects it otherwise. */
+  async sendMedia(
+    { phone, file, caption }: SendInboxMediaRequest,
+    onProgress?: (fraction: number) => void,
+  ): Promise<SendInboxReplyResponse> {
+    const limitMb = this.mediaLimitMb(file.type);
+    if (file.size !== null && file.size > limitMb * 1024 * 1024) {
+      throw new ApiError(
+        `This file is too large — the limit is ${limitMb} MB.`,
+      );
+    }
+    const form = new FormData();
+    form.append("file", {
+      uri: file.uri,
+      name: file.name,
+      type: file.type,
+    } as unknown as Blob);
+    if (caption?.trim()) form.append("caption", caption.trim());
+
+    const response = await api.post<ApiResponse<UnknownRecord | null>>(
+      INBOX.SEND_MEDIA(phone),
+      form,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: (event) => {
+          if (!onProgress) return;
+          const total = event.total ?? file.size ?? 0;
+          onProgress(total > 0 ? Math.min(1, event.loaded / total) : 0);
+        },
       },
     );
     const payload = response.data.data;

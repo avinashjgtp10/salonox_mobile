@@ -150,17 +150,17 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       [
         "expo-splash-screen",
         {
-          backgroundColor: "#f8f5fb",
+          backgroundColor: "#f8f7fc",
           dark: {
-            backgroundColor: "#f8f5fb",
+            backgroundColor: "#f8f7fc",
           },
         },
       ],
       [
         "expo-image-picker",
         {
-          photosPermission: "Allow SalonOX to access your photos so you can set a profile picture.",
-          cameraPermission: "Allow SalonOX to use your camera so you can take a profile picture.",
+          photosPermission: "Allow SalonOX to access your photos so you can set a profile picture and send photos in WhatsApp chats.",
+          cameraPermission: "Allow SalonOX to use your camera so you can take a profile picture and send photos in WhatsApp chats.",
         },
       ],
       [
