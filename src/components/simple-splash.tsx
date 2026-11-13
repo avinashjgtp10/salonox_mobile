@@ -1,9 +1,9 @@
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import AnimatedSplash from './animated-splash';
+import SalonOXSplash from './splash/SalonOXSplash';
 
 type SimpleSplashProps = {
   backgroundColor: string;
@@ -13,11 +13,13 @@ type SimpleSplashProps = {
 export default function SimpleSplash({ backgroundColor, isReady }: SimpleSplashProps) {
   const [visible, setVisible] = useState(true);
 
-  const handlePrepared = useCallback(async () => {
-    await SplashScreen.hideAsync().catch(() => {});
+  // The JS splash is on screen as soon as this mounts, so the native launch
+  // screen can go: keeping both would hide the animation behind a static image.
+  useEffect(() => {
+    void SplashScreen.hideAsync().catch(() => {});
   }, []);
 
-  const handleComplete = useCallback(() => {
+  const handleFinish = useCallback(() => {
     setVisible(false);
   }, []);
 
@@ -25,9 +27,10 @@ export default function SimpleSplash({ backgroundColor, isReady }: SimpleSplashP
 
   return (
     <View style={[styles.overlay, { backgroundColor }]} accessibilityViewIsModal>
-
       <StatusBar style="dark" />
-      <AnimatedSplash isReady={isReady} onPrepared={handlePrepared} onComplete={handleComplete} />
+      {/* `ready` holds the splash past its animation until the app has hydrated
+          its theme and navigation, matching the previous behaviour. */}
+      <SalonOXSplash ready={isReady} onFinish={handleFinish} />
     </View>
   );
 }
