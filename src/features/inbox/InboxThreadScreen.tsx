@@ -2,6 +2,7 @@ import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { inboxService } from "@/services/inbox.service";
 import { getApiErrorMessage } from "@/services/api";
+import { AttachmentSheet } from "./AttachmentSheet";
 import { SendTemplateSheet } from "./SendTemplateSheet";
 import { InboxButton } from "./InboxButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
@@ -109,6 +110,7 @@ function Thread({ phone }: { phone: string }) {
   const connected = useAppSelector((state) => state.inbox.connected);
   const [now, setNow] = useState(Date.now());
   const [templateOpen, setTemplateOpen] = useState(false);
+  const [attachOpen, setAttachOpen] = useState(false);
   const [customer, setCustomer] = useState<InboxCustomer | null>(null);
   const [customerKnown, setCustomerKnown] = useState(false);
   const [actionMessage, setActionMessage] = useState<InboxMessage | null>(null);
@@ -481,6 +483,16 @@ function Thread({ phone }: { phone: string }) {
                     onPress={openTemplates}
                   />
                   <InboxIcon
+                    name="attach-outline"
+                    label="Attach a photo or document"
+                    disabled={sending || loading || !allowed || !replyAllowed}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      setTray(null);
+                      setAttachOpen(true);
+                    }}
+                  />
+                  <InboxIcon
                     name="flash-outline"
                     label="Quick replies"
                     disabled={sending || loading}
@@ -535,6 +547,16 @@ function Thread({ phone }: { phone: string }) {
               </>
             )}
           </View>
+          <AttachmentSheet
+            visible={attachOpen}
+            phone={phone}
+            onClose={() => setAttachOpen(false)}
+            onSent={() => {
+              refresh();
+              void dispatch(fetchInboxConversationsThunk({ refresh: true }));
+              list.current?.scrollToOffset({ offset: 0, animated: true });
+            }}
+          />
           {templateOpen && (
             <SendTemplateSheet
               phone={phone}
