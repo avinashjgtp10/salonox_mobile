@@ -47,7 +47,7 @@ export default function SalonOXSplash({ ready = true, minimumDuration = 1900,
   const a = useRef({ logo: new Animated.Value(0), name: new Animated.Value(0),
     divider: new Animated.Value(0), tagline: new Animated.Value(0),
     loader: new Animated.Value(0), progress: new Animated.Value(0),
-    shine: new Animated.Value(0),
+    shine: new Animated.Value(0), sweep: new Animated.Value(0),
     opacity: new Animated.Value(1) }).current;
 
   useEffect(() => {
@@ -60,7 +60,7 @@ export default function SalonOXSplash({ ready = true, minimumDuration = 1900,
 
   useEffect(() => {
     if (!imageReady || reduced === null) return;
-    const revealValues = [a.logo, a.name, a.divider, a.tagline, a.loader, a.progress, a.shine];
+    const revealValues = [a.logo, a.name, a.divider, a.tagline, a.loader, a.progress, a.shine, a.sweep];
     revealValues.forEach(value => value.setValue(reduced ? 1 : 0));
     // The reveal was authored to end at 2330ms (progress: 1480 delay + 850).
     // Squeeze it into the hold so the bar still completes one uninterrupted
@@ -68,6 +68,7 @@ export default function SalonOXSplash({ ready = true, minimumDuration = 1900,
     const scale = Math.min(1, minimumDuration / AUTHORED_END);
     const ms = (value: number) => Math.round(value * scale);
     const sequence = Animated.parallel([
+      timing(a.sweep, ms(1350), ms(100)),
       timing(a.logo, ms(900), ms(180), logoEase),
       timing(a.shine, ms(900), ms(950), Easing.bezier(0.42, 0, 0.58, 1)),
       timing(a.name, ms(650), ms(720)),
@@ -77,6 +78,7 @@ export default function SalonOXSplash({ ready = true, minimumDuration = 1900,
       timing(a.progress, ms(850), ms(1480), Easing.linear),
     ]);
     if (!reduced) sequence.start();
+
     const timer = setTimeout(() => setElapsed(true), Math.max(0, minimumDuration));
     return () => { clearTimeout(timer); sequence.stop(); };
   }, [a, imageReady, minimumDuration, reduced]);
@@ -108,6 +110,10 @@ export default function SalonOXSplash({ ready = true, minimumDuration = 1900,
     <Animated.View onLayout={onLayout} style={[styles.root, { opacity: a.opacity }]}
       accessibilityViewIsModal>
       <SplashBackground width={w} height={h} />
+      <Animated.View pointerEvents="none" style={[styles.sweep, {
+        width: w * 0.3, height: h * 1.4, top: -h * 0.2, left: -w * 0.75,
+        transform: [{ translateX: interp(a.sweep, 0, w * 2.2) }, { rotate: '16deg' }],
+      }]}><Gradient colors={['#ffffff00', '#ffffff40', '#ffffff00']} /></Animated.View>
 
       <View style={[styles.brand, { transform: [{ translateY: -h * (short ? 0.02 : 0.04) },
         { scale: short ? 0.84 : 1 }] }]} accessible accessibilityLabel="SalonOX is opening">
@@ -154,7 +160,14 @@ function Gradient({ colors, offsets }: { colors: string[]; offsets?: number[] })
   const id = useId().replace(/:/g, '');
   return <Svg width="100%" height="100%"><Defs>
     <LinearGradient id={id} x1="0%" y1="0%" x2="100%" y2="0%">
-      {colors.map((color, i) => <Stop key={i} offset={offsets?.[i] ?? i / (colors.length - 1)} stopColor={color} />)}
+      {colors.map((color, i) => {
+        // react-native-svg ignores the alpha pair in #rrggbbaa on stopColor, so
+        // '#ffffff00' renders as solid white. Split the alpha into stopOpacity.
+        const rgba = /^#([0-9a-f]{6})([0-9a-f]{2})$/i.exec(color);
+        return <Stop key={i} offset={offsets?.[i] ?? i / (colors.length - 1)}
+          stopColor={rgba ? `#${rgba[1]}` : color}
+          stopOpacity={rgba ? parseInt(rgba[2], 16) / 255 : 1} />;
+      })}
     </LinearGradient>
   </Defs><Rect width="100%" height="100%" fill={`url(#${id})`} /></Svg>;
 }
@@ -199,6 +212,7 @@ export function SplashBackground({ width: w, height: h }: { width: number; heigh
 const styles = StyleSheet.create({
   root: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 100, backgroundColor: '#f8f7fc',
     alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  sweep: { position: 'absolute' },
   brand: { alignItems: 'center' },
   logoWrap: { borderRadius: 999, overflow: 'hidden' },
   logo: { width: '100%', height: '100%' },
