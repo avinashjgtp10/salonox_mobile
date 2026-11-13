@@ -154,7 +154,14 @@ function Gradient({ colors, offsets }: { colors: string[]; offsets?: number[] })
   const id = useId().replace(/:/g, '');
   return <Svg width="100%" height="100%"><Defs>
     <LinearGradient id={id} x1="0%" y1="0%" x2="100%" y2="0%">
-      {colors.map((color, i) => <Stop key={i} offset={offsets?.[i] ?? i / (colors.length - 1)} stopColor={color} />)}
+      {colors.map((color, i) => {
+        // react-native-svg ignores the alpha pair in #rrggbbaa on stopColor, so
+        // '#ffffff00' renders as solid white. Split the alpha into stopOpacity.
+        const rgba = /^#([0-9a-f]{6})([0-9a-f]{2})$/i.exec(color);
+        return <Stop key={i} offset={offsets?.[i] ?? i / (colors.length - 1)}
+          stopColor={rgba ? `#${rgba[1]}` : color}
+          stopOpacity={rgba ? parseInt(rgba[2], 16) / 255 : 1} />;
+      })}
     </LinearGradient>
   </Defs><Rect width="100%" height="100%" fill={`url(#${id})`} /></Svg>;
 }
