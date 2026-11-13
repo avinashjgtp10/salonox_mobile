@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { useRef, useState } from "react";
 import { ActivityIndicator, Image, TouchableOpacity, View } from "react-native";
@@ -12,6 +11,24 @@ import { useAppDispatch } from "@/store/hooks";
 import type { InboxMediaFile, InboxMessage } from "@/types/inbox";
 
 import { useInboxTheme } from "./inboxTheme";
+
+type DocumentPickerModule = typeof import("expo-document-picker");
+let documentPicker: DocumentPickerModule | null | undefined;
+
+/** App builds made before expo-document-picker was added have no native side,
+ * and importing it there throws at module scope, taking the whole app down on
+ * startup. Same guard as googleSignIn.ts: load it only if it really exists. */
+const loadDocumentPicker = () => {
+  if (documentPicker === undefined) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- must not load on builds without the native module.
+      documentPicker = require("expo-document-picker") as DocumentPickerModule;
+    } catch {
+      documentPicker = null;
+    }
+  }
+  return documentPicker;
+};
 
 /** Mirrors the web composer's accept list, which in turn mirrors what Meta
  * takes. Anything outside this is rejected by the backend with UNSUPPORTED_MEDIA. */
@@ -148,7 +165,12 @@ export function AttachmentSheet({
   };
 
   const pickDocument = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
+    const picker = loadDocumentPicker();
+    if (!picker) {
+      setError("Update the app to send documents.");
+      return;
+    }
+    const result = await picker.getDocumentAsync({
       type: DOCUMENT_TYPES,
       copyToCacheDirectory: true,
     });

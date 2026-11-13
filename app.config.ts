@@ -150,9 +150,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       [
         "expo-splash-screen",
         {
-          backgroundColor: "#f8f5fb",
+          backgroundColor: "#f8f7fc",
           dark: {
-            backgroundColor: "#f8f5fb",
+            backgroundColor: "#f8f7fc",
           },
         },
       ],
