@@ -46,6 +46,9 @@ const toReportNumber = (value: unknown): number => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+export type RevenueCategoryKey = "service" | "product" | "membership" | "packages";
+export type RevenueCategoryBreakdown = Record<RevenueCategoryKey, number | null>;
+
 export type GenericReportRequest = Record<string, unknown>;
 export type GenericReportResponse = Record<string, unknown>;
 
@@ -136,14 +139,56 @@ export const reportService = {
       page: 1,
       limit: 1,
     });
-    const stats = response.stats as { receivedAmount?: unknown; totalSale?: unknown } | undefined;
+    const stats = response.stats as { receivedAmount?: unknown; totalSale?: unknown; totalGst?: unknown } | undefined;
     const toAmount = (value: unknown) => {
       const amount = typeof value === "string" ? Number(value) : value;
       return typeof amount === "number" && Number.isFinite(amount) ? amount : null;
     };
     const collected = toAmount(stats?.receivedAmount);
     if (collected === null) throw new Error("Revenue total is unavailable for the selected date range.");
-    return { collected, billed: toAmount(stats?.totalSale) };
+    return { collected, billed: toAmount(stats?.totalSale), gst: toAmount(stats?.totalGst) };
+  },
+  /** Collected revenue split by item type, for the Revenue breakdown sheet.
+   * Each item type has its own salon-wide report; the Sales Summary stats
+   * carry no per-category split. Shares are of the category total, which can
+   * differ slightly from Sales Summary's received amount (different bases).
+   * One failing category must not blank the sheet, so each resolves to null.
+   */
+  async getRevenueCategoryBreakdown(
+    range: { start_date: string; end_date: string },
+    onPartial?: (key: RevenueCategoryKey, value: number | null) => void,
+  ): Promise<RevenueCategoryBreakdown> {
+    const base = { ...range, page: 1, limit: 1 };
+    const amount = (value: unknown) => {
+      const parsed = typeof value === "string" ? Number(value) : value;
+      return typeof parsed === "number" && Number.isFinite(parsed) ? parsed : null;
+    };
+    const pick = async (
+      key: RevenueCategoryKey,
+      endpoint: `/api/report/${string}`,
+      read: (stats: Record<string, unknown>) => unknown,
+    ) => {
+      let value: number | null = null;
+      try {
+        const response = await this.getReport(endpoint, base);
+        value = amount(read((response.stats ?? {}) as Record<string, unknown>));
+      } catch {
+        value = null;
+      }
+      // Report the slice the moment it lands, so the sheet fills in rather
+      // than waiting on the slowest of the four reports.
+      onPartial?.(key, value);
+      return value;
+    };
+
+    const [service, product, membership, packages] = await Promise.all([
+      pick("service", REPORT.SERVICE_SALE, (s) => s.totalRevenue),
+      pick("product", REPORT.PRODUCT_RETAIL, (s) => s.totalRevenue),
+      pick("membership", REPORT.MEMBER_SALE, (s) => s.totalRevenue),
+      // Packages bill up front, so the collected figure is the right one here.
+      pick("packages", REPORT.PACKAGE_SALE, (s) => s.totalReceived ?? s.totalSaleValue),
+    ]);
+    return { service, product, membership, packages };
   },
   /** Same item-level revenue (including GST) as the Staff Performance drill-down.
    * The report endpoint resolves the salon from the authenticated session.
