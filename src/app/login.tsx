@@ -156,18 +156,10 @@ export default function LoginScreen() {
     }
   };
 
-  // TODO(apple-sign-in): connect to the Apple sign-in flow once it is built.
-  const handleAppleLogin = () => {
-    if (busy) return;
-    clearFeedback();
-    toast.showInfo("Sign in with Apple is coming soon. Please sign in with your email for now.");
-  };
-
   const handleSsoRetry = () => {
     const provider = notRegistered?.provider;
     setNotRegistered(null);
     if (provider === "Google") setTimeout(() => void handleGoogleLogin(), 250);
-    else if (provider === "Apple") handleAppleLogin();
   };
 
   // Opens the web registration page in the device browser (not an in-app screen).
@@ -253,14 +245,6 @@ export default function LoginScreen() {
             disabled={busy}
             onPress={handleGoogleLogin}
             left={<SsoIcon><Text translate style={styles.googleG}>G</Text></SsoIcon>}
-            style={styles.flex}
-          />
-          <GlassButton
-            title="Apple"
-            accessibilityLabel="Login with Apple"
-            disabled={busy}
-            onPress={handleAppleLogin}
-            left={<SsoIcon dark><Ionicons name="logo-apple" size={13} color={pearl.white} /></SsoIcon>}
             style={styles.flex}
           />
         </View>
