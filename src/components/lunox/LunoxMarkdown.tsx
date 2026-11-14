@@ -81,11 +81,11 @@ export function LunoxMarkdown({ text }: { text: string }) {
           return (
             <View key={index} style={styles.table}>
               <View style={[styles.row, styles.headRow]}>
-                {block.header.map((cell, c) => <Text key={c} style={[styles.headCell, c === 0 && styles.firstCell]} numberOfLines={2}>{inline(cell)}</Text>)}
+                {block.header.map((cell, c) => <Text key={c} style={[styles.headCell, ...column(c, block.header.length)]} numberOfLines={2}>{inline(cell)}</Text>)}
               </View>
               {block.rows.map((row, r) => (
                 <View key={r} style={[styles.row, r > 0 && styles.rowSep]}>
-                  {row.map((cell, c) => <Text key={c} style={[styles.cell, c === 0 && styles.firstCell]}>{inline(cell)}</Text>)}
+                  {row.map((cell, c) => <Text key={c} style={[styles.cell, ...column(c, block.header.length)]}>{inline(cell)}</Text>)}
                 </View>
               ))}
             </View>
@@ -96,6 +96,18 @@ export function LunoxMarkdown({ text }: { text: string }) {
     </View>
   );
 }
+
+/**
+ * Column layout. Only the final column holds the value, so it is the only one
+ * right-aligned; every column before it reads as a label and stays left-aligned.
+ * A ranking table ("Rank | Service | Money received") also needs its index
+ * column narrow, otherwise the name column is squeezed and wraps.
+ */
+const column = (c: number, count: number) => {
+  if (count <= 2) return [c === 0 ? styles.labelCell : styles.valueCell];
+  if (c === 0) return [styles.indexCell];
+  return [c === count - 1 ? styles.valueCell : styles.nameCell];
+};
 
 const styles = StyleSheet.create({
   wrap: { gap: 10 },
@@ -109,7 +121,13 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", gap: 8, paddingHorizontal: 10, paddingVertical: 7 },
   headRow: { backgroundColor: "rgba(231,222,246,0.7)" },
   rowSep: { borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.8)" },
-  headCell: { flex: 1, fontSize: 10.5, lineHeight: 14, fontWeight: "600", color: pearl.muted, textAlign: "right" },
-  cell: { flex: 1, fontSize: 13, lineHeight: 17, fontWeight: "700", color: pearl.ink, textAlign: "right" },
-  firstCell: { flex: 1.4, textAlign: "left" },
+  headCell: { flex: 1, fontSize: 10.5, lineHeight: 14, fontWeight: "600", color: pearl.muted },
+  cell: { flex: 1, fontSize: 13, lineHeight: 17, fontWeight: "700", color: pearl.ink },
+  // Rank / index: a digit or two, so it only needs a sliver.
+  indexCell: { flex: 0.4, textAlign: "left" },
+  // Service / client names: widest column, and the one that was wrapping.
+  nameCell: { flex: 2.2, textAlign: "left" },
+  // Two-column "label | value" tables keep the original wider first column.
+  labelCell: { flex: 1.4, textAlign: "left" },
+  valueCell: { flex: 1.2, textAlign: "right" },
 });
