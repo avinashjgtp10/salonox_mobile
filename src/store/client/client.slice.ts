@@ -301,6 +301,11 @@ const clientSlice = createSlice({
         const index = state.clients.findIndex((client) => client.id === action.payload.id);
         if (index !== -1) {
           state.clients[index] = action.payload;
+        } else {
+          // Opened straight from a search result (Quick Sale, Calendar) that never loaded the
+          // main Clients list — without this the fetch succeeds but selectClientById still can't
+          // find it, so the profile screen showed "Client not found" despite a successful fetch.
+          state.clients.push(action.payload);
         }
       })
       .addCase(fetchClientByIdThunk.rejected, (state, action) => {

@@ -11,9 +11,10 @@ import { Text, TextInput } from "@/components/ui/AppTypography";
 import { PearlActionFooter } from "@/components/ui/PearlActionFooter";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, BackHandler, Easing, KeyboardAvoidingView, LayoutAnimation, PanResponder, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, UIManager, useWindowDimensions, View } from "react-native";
+import { Animated, BackHandler, Dimensions, Easing, Keyboard, KeyboardAvoidingView, LayoutAnimation, PanResponder, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, UIManager, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { FormFieldFocusContext } from "@/components/ui/KeyboardAwareForm";
 import { Portal } from "@/components/ui/Portal";
 import { AppRadius } from "@/constants/layout";
 import { DashboardRadius as Radius, DashboardSpacing as Spacing } from "@/constants/theme";
@@ -143,6 +144,75 @@ function CheckoutSheetComponent({
   const [customTipVisible, setCustomTipVisible] = useState(Boolean(tipInput));
   const [staffPickerLineId, setStaffPickerLineId] = useState<string | null>(null);
   const [staffValidationAttempted, setStaffValidationAttempted] = useState(false);
+  const [paymentValidationAttempted, setPaymentValidationAttempted] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  // Scrolls whichever field is focused (e.g. tapping Card after Cash in Split Payment) into view
+  // above the keyboard — the sheet's own ScrollView has no such behaviour by default, unlike
+  // KeyboardAwareForm elsewhere in the app, which this mirrors for a sheet with its own animation.
+  const scrollViewportRef = useRef<View>(null);
+  const focusedFieldRef = useRef<Pick<View, "measureInWindow"> | null>(null);
+  const keyboardOpenRef = useRef(false);
+  const scrollOffsetRef = useRef(0);
+  const revealGenerationRef = useRef(0);
+  const keyboardTopRef = useRef<number | null>(null);
+  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const revealFocusedField = useCallback((mode: "comfort" | "ensureVisible") => {
+    const field = focusedFieldRef.current;
+    const viewport = scrollViewportRef.current;
+    if (!keyboardOpenRef.current || !field || !viewport) return;
+    const request = revealGenerationRef.current;
+    viewport.measureInWindow((_vx, viewportY, _vw, viewportHeight) => {
+      field.measureInWindow((_fx, fieldY, _fw, fieldHeight) => {
+        if (!keyboardOpenRef.current || focusedFieldRef.current !== field || revealGenerationRef.current !== request || !fieldHeight) return;
+        const margin = 16;
+        const kbTop = keyboardTopRef.current ?? Dimensions.get("window").height * 0.6;
+        const visibleTop = viewportY + margin;
+        const visibleBottom = Math.min(kbTop - margin, viewportY + viewportHeight);
+        let delta: number;
+        if (mode === "comfort") {
+          delta = fieldY - (visibleTop + Math.max(0, visibleBottom - visibleTop - fieldHeight) * 0.35);
+        } else if (fieldY + fieldHeight > visibleBottom) {
+          delta = fieldY + fieldHeight - visibleBottom;
+        } else if (fieldY < visibleTop) {
+          delta = fieldY - visibleTop;
+        } else {
+          return;
+        }
+        const target = Math.max(0, scrollOffsetRef.current + delta);
+        if (Math.abs(target - scrollOffsetRef.current) > 24) scrollRef.current?.scrollTo({ y: target, animated: true });
+      });
+    });
+  }, []);
+  const scheduleReveal = useCallback((mode: "comfort" | "ensureVisible", delay: number) => {
+    if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+    revealGenerationRef.current += 1;
+    revealTimerRef.current = setTimeout(() => {
+      revealTimerRef.current = null;
+      revealFocusedField(mode);
+    }, delay);
+  }, [revealFocusedField]);
+  const revealField = useCallback((field: Pick<View, "measureInWindow"> | null) => {
+    if (!field || (focusedFieldRef.current === field && keyboardOpenRef.current)) return;
+    focusedFieldRef.current = field;
+    keyboardOpenRef.current = true;
+    scheduleReveal("comfort", keyboardTopRef.current !== null ? 30 : 450);
+  }, [scheduleReveal]);
+  useEffect(() => {
+    const shown = Keyboard.addListener("keyboardDidShow", (event) => {
+      keyboardOpenRef.current = true;
+      const { height: kbHeight, screenY } = event.endCoordinates;
+      keyboardTopRef.current = kbHeight > 0 ? screenY : Dimensions.get("window").height - kbHeight;
+      scheduleReveal("comfort", 40);
+    });
+    const hidden = Keyboard.addListener("keyboardDidHide", () => {
+      keyboardOpenRef.current = false;
+      focusedFieldRef.current = null;
+      keyboardTopRef.current = null;
+      revealGenerationRef.current += 1;
+      if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+    });
+    return () => { shown.remove(); hidden.remove(); };
+  }, [scheduleReveal]);
   const [staffTipsVisible, setStaffTipsVisible] = useState(false);
   const [staffTipInputs, setStaffTipInputs] = useState<Record<string, string>>({});
   // Once the GST card has been shown, keep it visible so the toggle stays reachable after
@@ -192,6 +262,7 @@ function CheckoutSheetComponent({
     setStaffTipsVisible(false);
     setStaffTipInputs({});
     setStaffValidationAttempted(initialStaffValidationAttempted);
+    setPaymentValidationAttempted(false);
     setIsGstSectionPinned(false);
   }, [
     initialStep,
@@ -395,15 +466,18 @@ function CheckoutSheetComponent({
     [items, staffPickerLineId],
   );
   const noPaymentRequired = hasItems && totals.grandTotal <= 0;
-  const canCompleteSale =
+  // Everything the button needs *except* "a payment method is actually chosen" — kept separate so
+  // the button stays pressable with no method picked, and a tap can show the validation message
+  // below instead of just sitting there disabled with no explanation.
+  const canAttemptComplete =
     hasItems &&
     !chargesInvalid &&
     (noPaymentRequired || !partialAmountExceedsTotal) &&
     !isPricingLoading &&
     !pricingError &&
     (noPaymentRequired || (paymentConfig.ready && !paymentConfig.error)) &&
-    (noPaymentRequired || paymentMethod !== null) &&
-    (noPaymentRequired || (paymentMethod === "split" ? splitEntries.length > 0 && !splitMismatch : true));
+    (noPaymentRequired || paymentMethod !== "split" || (splitEntries.length > 0 && !splitMismatch));
+  const showPaymentMethodValidation = paymentValidationAttempted && !noPaymentRequired && paymentMethod === null;
 
   const groupedItems = useMemo(
     () => [
@@ -486,7 +560,13 @@ function CheckoutSheetComponent({
   };
 
   const handleComplete = async () => {
-    if (isBusy || !canCompleteSale || (!noPaymentRequired && !paymentMethod)) {
+    if (isBusy || !canAttemptComplete) {
+      return;
+    }
+
+    if (!noPaymentRequired && paymentMethod === null) {
+      setPaymentValidationAttempted(true);
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
       return;
     }
 
@@ -570,6 +650,12 @@ function CheckoutSheetComponent({
     }
   }, [hasMissingStaff, staffValidationAttempted]);
 
+  useEffect(() => {
+    if (paymentValidationAttempted && paymentMethod !== null) {
+      setPaymentValidationAttempted(false);
+    }
+  }, [paymentMethod, paymentValidationAttempted]);
+
   const animateItemLayout = () => {
     LayoutAnimation.configureNext({
       duration: 150,
@@ -611,7 +697,7 @@ function CheckoutSheetComponent({
         />
         <Pressable accessibilityLabel="Close checkout" onPress={requestClose} style={styles.backdropPressTarget} />
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
           pointerEvents="box-none"
           style={styles.keyboardAvoiding}
         >
@@ -651,17 +737,25 @@ function CheckoutSheetComponent({
               </TouchableOpacity>
             </View>
 
+            <View ref={scrollViewportRef} style={styles.scrollViewport}>
             <ScrollView
               contentContainerStyle={styles.scrollContent}
               keyboardShouldPersistTaps="handled"
+              onScroll={(event) => { scrollOffsetRef.current = event.nativeEvent.contentOffset.y; }}
               pointerEvents={isBusy ? "none" : "auto"}
+              ref={scrollRef}
+              scrollEventThrottle={16}
               showsVerticalScrollIndicator={false}
               style={styles.scroll}
             >
+              <FormFieldFocusContext.Provider value={revealField}>
               {checkoutStep === "payment" ? <View style={{ alignItems: "center", paddingVertical: 14, gap: 6 }}><Text style={{ fontSize: 34, fontWeight: "800", color: Colors.heading }}>{formatCurrency(amountToCollect)}</Text><Text style={{ fontSize: 13, color: Colors.text2 }}>{clientName(selectedClient.name)}</Text></View> : null}
               {checkoutStep === "payment" && !noPaymentRequired ? (
                 <View style={styles.formCard}>
                   <Text translate style={styles.sectionTitle}>Payment Method</Text>
+                  {showPaymentMethodValidation ? (
+                    <Text translate style={styles.errorText}>Please select a payment method.</Text>
+                  ) : null}
                   <View style={styles.methodGrid}>
                     <TouchableOpacity
                       key="payment-mode-single"
@@ -681,7 +775,7 @@ function CheckoutSheetComponent({
                     </TouchableOpacity>
                   </View>
                   {paymentMethod !== "split" ? (
-                    <View style={[styles.methodGrid, styles.methodGridSecondary]}>
+                    <View style={[styles.methodGrid, styles.methodGridSecondary, showPaymentMethodValidation && styles.methodGridError]}>
                       {paymentOptions.map((method) => {
                         const isActive = method.value === paymentMethod;
 
@@ -699,6 +793,58 @@ function CheckoutSheetComponent({
                           </TouchableOpacity>
                         );
                       })}
+                    </View>
+                  ) : null}
+                  {/* Split's own detail fields sit right below the Split button, not scrolled away past
+                      Discount/Coupon/GST/Extra Charges — that's what made them hard to find/use. */}
+                  {paymentMethod === "split" ? (
+                    <View style={styles.paymentDetailCard}>
+                      <Text translate style={styles.inputLabel}>Split Payment</Text>
+                      {paymentOptions.map((method) => {
+                        const methodValue = splitAmountInput(method.value);
+                        const methodAmount = parseAmount(methodValue);
+                        const isUnusedMethodDisabled = splitRemaining === 0 && methodAmount === 0;
+
+                        return (
+                          <View key={`split-${method.value}`} style={styles.inputGroup}>
+                            <Text translate style={styles.inputLabel}>{method.label}</Text>
+                            <TextInput
+                              accessibilityState={{ disabled: isUnusedMethodDisabled }}
+                              editable={!isUnusedMethodDisabled}
+                              keyboardType="decimal-pad"
+                              onChangeText={(value) => setSplitAmounts((current) => ({ ...current, [method.value]: value }))}
+                              placeholder={isUnusedMethodDisabled ? "Fully paid" : "0"}
+                              placeholderTextColor={Colors.placeholder}
+                              style={[styles.input, isUnusedMethodDisabled && styles.inputDisabled]}
+                              value={methodValue}
+                            />
+                            {/* Right under the field being typed into, right-aligned — visible next to the
+                                keyboard instead of only in the Remaining Amount row further down, past the fold. */}
+                            <Text style={[styles.splitFieldRemaining, splitExcess > 0 && styles.errorText]}>
+                              {splitExcess > 0 ? `${formatCurrency(splitExcess)} over` : `${formatCurrency(splitRemaining)} left`}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                      <View style={styles.splitTotalRow}>
+                        <Text translate style={styles.summaryLabel}>Total Paid</Text>
+                        <Text style={[styles.splitTotalText, splitMismatch && styles.errorText]}>
+                          {formatCurrency(splitTotal)} of {formatCurrency(amountToCollect)}
+                        </Text>
+                      </View>
+                      <View style={styles.splitRemainingRow}>
+                        <Text translate style={styles.splitRemainingLabel}>Remaining Amount</Text>
+                        <Text style={[styles.splitRemainingValue, splitExcess > 0 && styles.errorText]}>
+                          {formatCurrency(splitRemaining)}
+                        </Text>
+                      </View>
+                      {splitMismatch ? (
+                        <Text style={styles.errorText}>
+                          {splitExcess > 0
+                            ? `Split amount exceeds the amount to collect by ${formatCurrency(splitExcess)}.`
+                            : `${formatCurrency(splitRemaining)} is still remaining.`}
+                        </Text>
+                      ) : null}
                     </View>
                   ) : null}
                 </View>
@@ -1081,54 +1227,6 @@ function CheckoutSheetComponent({
                 </View>
               ) : null}
 
-              {checkoutStep === "payment" && paymentMethod === "split" ? (
-                <View style={styles.formCard}>
-                  <Text translate style={styles.sectionTitle}>Split Payment</Text>
-                  <View style={styles.paymentDetailCard}>
-                    {paymentOptions.map((method) => {
-                      const methodValue = splitAmountInput(method.value);
-                      const methodAmount = parseAmount(methodValue);
-                      const isUnusedMethodDisabled = splitRemaining === 0 && methodAmount === 0;
-
-                      return (
-                        <View key={`split-${method.value}`} style={styles.inputGroup}>
-                          <Text translate style={styles.inputLabel}>{method.label}</Text>
-                          <TextInput
-                            accessibilityState={{ disabled: isUnusedMethodDisabled }}
-                            editable={!isUnusedMethodDisabled}
-                            keyboardType="decimal-pad"
-                            onChangeText={(value) => setSplitAmounts((current) => ({ ...current, [method.value]: value }))}
-                            placeholder={isUnusedMethodDisabled ? "Fully paid" : "0"}
-                            placeholderTextColor={Colors.placeholder}
-                            style={[styles.input, isUnusedMethodDisabled && styles.inputDisabled]}
-                            value={methodValue}
-                          />
-                        </View>
-                      );
-                    })}
-                    <View style={styles.splitTotalRow}>
-                      <Text translate style={styles.summaryLabel}>Total Paid</Text>
-                      <Text style={[styles.splitTotalText, splitMismatch && styles.errorText]}>
-                        {formatCurrency(splitTotal)} of {formatCurrency(amountToCollect)}
-                      </Text>
-                    </View>
-                    <View style={styles.splitRemainingRow}>
-                      <Text translate style={styles.splitRemainingLabel}>Remaining Amount</Text>
-                      <Text style={[styles.splitRemainingValue, splitExcess > 0 && styles.errorText]}>
-                        {formatCurrency(splitRemaining)}
-                      </Text>
-                    </View>
-                    {splitMismatch ? (
-                      <Text style={styles.errorText}>
-                        {splitExcess > 0
-                          ? `Split amount exceeds the amount to collect by ${formatCurrency(splitExcess)}.`
-                          : `${formatCurrency(splitRemaining)} is still remaining.`}
-                      </Text>
-                    ) : null}
-                  </View>
-                </View>
-              ) : null}
-
               <View style={styles.summaryCard}>
                 <Text translate style={styles.sectionTitle}>{checkoutStep === "payment" ? "Payment Summary" : "Summary"}</Text>
                 <SummaryRow label="Subtotal" value={formatCurrency(totals.lineSubtotal)} />
@@ -1207,7 +1305,9 @@ function CheckoutSheetComponent({
                   </>
                 ) : null}
               </View>
+              </FormFieldFocusContext.Provider>
             </ScrollView>
+            </View>
 
             <PearlActionFooter floating style={styles.footer} contentStyle={{ flexDirection: "column", alignItems: "stretch", paddingHorizontal: Spacing.xl, paddingBottom: Math.max(insets.bottom, 10) + Spacing.sm }}>
               {pricingError ? <Text style={styles.footerError}>Pricing error: {pricingError}</Text> : null}
@@ -1253,7 +1353,7 @@ function CheckoutSheetComponent({
                   accessibilityRole="button"
                   disabled={
                     checkoutStep === "payment"
-                      ? isBusy || !canCompleteSale
+                      ? isBusy || !canAttemptComplete
                       : isBusy || !hasItems || showStaffValidation
                   }
                   onPress={checkoutStep === "payment" ? handleComplete : handleContinueToPayment}
@@ -1261,7 +1361,7 @@ function CheckoutSheetComponent({
                     styles.completeButton,
                     !isSuccess &&
                       (checkoutStep === "payment"
-                        ? isBusy || !canCompleteSale
+                        ? isBusy || !canAttemptComplete
                         : isBusy || !hasItems || showStaffValidation) &&
                       styles.completeButtonDisabled,
                     isSuccess && styles.completeButtonSuccess,
@@ -1919,6 +2019,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     justifyContent: "center",
     width: 42,
   },
+  scrollViewport: {
+    flexShrink: 1,
+  },
   scroll: {
     flexGrow: 0,
   },
@@ -2376,6 +2479,13 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   inputGroup: {
     flex: 1,
   },
+  splitFieldRemaining: {
+    color: Colors.text2,
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 4,
+    textAlign: "right",
+  },
   couponRow: {
     flexDirection: "row",
     gap: Spacing.sm,
@@ -2557,6 +2667,12 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   methodGridSecondary: {
     marginTop: Spacing.sm,
+  },
+  methodGridError: {
+    borderColor: Colors.error,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: Spacing.xs,
   },
   methodCardActive: {
     backgroundColor: Colors.primaryDark,
