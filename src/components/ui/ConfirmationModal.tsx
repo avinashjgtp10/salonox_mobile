@@ -107,7 +107,9 @@ export function ConfirmationModal({
             accessibilityLabel={title}
             accessibilityRole="alert"
             onPress={() => undefined}
-            style={[styles.card, { width: Math.min(width - 40, 420) }]}
+            // Pearl surfaces are glass, which is right for a sheet but leaves a
+            // dialog unreadable over busy content: give this card a solid one.
+            style={[styles.card, pearlStyle && styles.pearlCard, { width: Math.min(width - 40, 420) }]}
           >
             <View style={styles.copy}>
               <Text translate accessibilityRole="header" style={styles.title}>
@@ -196,6 +198,10 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     shadowOpacity: 0.34,
     shadowRadius: 34,
     elevation: 24,
+  },
+  pearlCard: {
+    backgroundColor: "#FBFAFD",
+    borderColor: "rgba(255,255,255,0.9)",
   },
   copy: {
     gap: Spacing.md,
