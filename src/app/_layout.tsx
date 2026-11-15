@@ -22,6 +22,7 @@ import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { AppRatingPrompt } from '@/features/appRating/AppRatingPrompt';
 import { FirstLoginGuide } from '@/features/userGuide/UserGuide';
 import type { ThemeColors } from '@/constants/theme';
+import { useAppTimezone } from '@/hooks/useAppTimezone';
 import { useAppUpdateAnnouncement } from '@/hooks/useAppUpdateAnnouncement';
 import { useIsOnHomeScreen } from '@/hooks/useIsOnHomeScreen';
 import { useOtaUpdate } from '@/hooks/useOtaUpdate';
@@ -361,6 +362,11 @@ function UpdateAnnouncements({ announcement, onHome, ota, ready, showsOtaUpdate 
   );
 }
 
+function AppTimezoneBootstrap() {
+  useAppTimezone();
+  return null;
+}
+
 function BranchBootstrap() {
   const { isAuthenticated, user } = useAuth();
   const dispatch = useAppDispatch();
@@ -477,6 +483,7 @@ function AppShell() {
               <PushNotificationsSetup />
               <RealtimeSyncSetup />
               <RegionalPreferencesSync />
+              <AppTimezoneBootstrap />
               <BranchBootstrap />
               <StaffIdentityBootstrap />
               <OwnerProfilePhotoBootstrap />

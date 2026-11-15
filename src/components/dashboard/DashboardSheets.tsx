@@ -311,7 +311,12 @@ export function SalonSwitchSheet({ visible, onClose }: { visible: boolean; onClo
       {status === "failed" ? (
         <EmptyState icon="alert" title="Couldn’t load your salons" body="Please check your connection and try again."
           action={<View style={{ marginTop: 8 }}><SmallButton title="Try again" icon="repeat" primary onPress={() => void dispatch(fetchBranchesThunk())} /></View>} />
-      ) : !branches.length ? <Skeleton h={180} /> : (
+      ) : !branches.length && status !== "succeeded" ? <Skeleton h={180} /> : !branches.length ? (
+        <EmptyState icon="store" title="No branches yet"
+          body={user?.role === "salon_owner"
+            ? "Add a branch to manage another salon from this account."
+            : "Branches you can open will appear here."} />
+      ) : (
         <Card>
           {branches.map((branch, index) => (
             <Fragment key={branch.id}>

@@ -10,7 +10,7 @@ import { maskPhone } from "@/utils/maskPhone";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, type Href } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { BackHandler, FlatList, TouchableOpacity, View } from "react-native";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { hasCustomPermission } from "@/utils/permissions";
@@ -98,8 +98,15 @@ export default function InboxListScreen({
     }, [user?.salonId]),
   );
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [unreadFirst, setUnreadFirst] = useState(false);
+  // Filtering every conversation on each keystroke makes typing drop characters
+  // on large inboxes, so the list follows the query one pause behind the input.
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => clearTimeout(timeout);
+  }, [search]);
   const unread = inbox.conversations.reduce(
     (sum, item) => sum + item.unreadCount,
     0,
@@ -107,10 +114,10 @@ export default function InboxListScreen({
   const items = useMemo(
     () =>
       sortInboxConversations(
-        filterInboxConversations(inbox.conversations, search, unreadOnly),
+        filterInboxConversations(inbox.conversations, debouncedSearch, unreadOnly),
         unreadFirst,
       ),
-    [inbox.conversations, search, unreadOnly, unreadFirst],
+    [inbox.conversations, debouncedSearch, unreadOnly, unreadFirst],
   );
   const refresh = useCallback(() => {
     void dispatch(fetchInboxConversationsThunk({ refresh: true }));
@@ -190,7 +197,7 @@ export default function InboxListScreen({
             <InboxIcon
               name="close"
               label="Clear search"
-              onPress={() => setSearch("")}
+              onPress={() => { setSearch(""); setDebouncedSearch(""); }}
             />
           ) : (
             <View style={{ width: 12 }} />
@@ -286,14 +293,14 @@ export default function InboxListScreen({
                     color={p.accent}
                   />
                   <Text translate style={s.heading}>
-                    {search
+                    {debouncedSearch
                       ? "No chats found"
                       : unreadOnly
                         ? "You’re all caught up"
                         : "Your chats start here"}
                   </Text>
                   <Text translate style={s.emptyText}>
-                    {search || unreadOnly
+                    {debouncedSearch || unreadOnly
                       ? "Try another search or switch to All."
                       : "Client replies to your WhatsApp messages will appear here."}
                   </Text>

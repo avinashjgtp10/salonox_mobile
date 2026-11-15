@@ -1,9 +1,10 @@
 import { pearl } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
+import { InfiniteScrollLoader } from "@/components/ui/InfiniteScrollLoader";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState, type ReactNode } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, View } from "react-native";
 
 import { ClientOptionRow } from "@/features/quickSale/components/ClientOptionRow";
 import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
@@ -15,7 +16,10 @@ import type { ClientListItem } from "@/types/client";
 import { maskPhone } from "@/utils/maskPhone";
 
 const MIN_QUERY_LENGTH = 1;
-const RESULT_LIMIT = 5;
+// A page at a time, loaded more on scroll — not an arbitrary cap. Matches
+// web's Calendar/Quick Sale client dropdown (ClientPanel.tsx: 10 per page).
+const PAGE_SIZE = 10;
+const RESULTS_MAX_HEIGHT = 260;
 
 // Same Quick Sale reference tokens as QuickSaleForm.
 const c = { bg: "#FAF6F8", line: "#E9DFE5", fg: "#000000", muted: "#6B5D66", plum: "#A3467F" };
@@ -35,6 +39,8 @@ export function ClientSearchField({ onAddClient, onSelect, pearlStyle = false, t
   const debouncedQuery = useDebouncedValue(query.trim(), 300);
   const [results, setResults] = useState<ClientListItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [pagination, setPagination] = useState({ hasMore: false, nextOffset: 0 });
   const [error, setError] = useState<string | null>(null);
   const isQueryReady = debouncedQuery.length >= MIN_QUERY_LENGTH;
 
@@ -43,6 +49,7 @@ export function ClientSearchField({ onAddClient, onSelect, pearlStyle = false, t
       setResults([]);
       setError(null);
       setIsSearching(false);
+      setPagination({ hasMore: false, nextOffset: 0 });
       return;
     }
 
@@ -51,11 +58,13 @@ export function ClientSearchField({ onAddClient, onSelect, pearlStyle = false, t
     setError(null);
     clientService
       .searchClients(
-        { inactive: false, limit: RESULT_LIMIT, offset: 0, search: debouncedQuery, sort_by: "created_at", sort_order: "desc" },
+        { inactive: false, limit: PAGE_SIZE, offset: 0, search: debouncedQuery, sort_by: "created_at", sort_order: "desc" },
         salonId,
       )
       .then((response) => {
-        if (!cancelled) setResults(uniqueById(response.clients).slice(0, RESULT_LIMIT));
+        if (cancelled) return;
+        setResults(uniqueById(response.clients));
+        setPagination({ hasMore: response.pagination.hasMore, nextOffset: response.pagination.nextOffset });
       })
       .catch((searchError) => {
         if (!cancelled) {
@@ -71,6 +80,22 @@ export function ClientSearchField({ onAddClient, onSelect, pearlStyle = false, t
       cancelled = true;
     };
   }, [debouncedQuery, isQueryReady, salonId]);
+
+  const handleLoadMore = () => {
+    if (!isQueryReady || isSearching || loadingMore || !pagination.hasMore) return;
+    setLoadingMore(true);
+    clientService
+      .searchClients(
+        { inactive: false, limit: PAGE_SIZE, offset: pagination.nextOffset, search: debouncedQuery, sort_by: "created_at", sort_order: "desc" },
+        salonId,
+      )
+      .then((response) => {
+        setResults((current) => uniqueById([...current, ...response.clients]));
+        setPagination({ hasMore: response.pagination.hasMore, nextOffset: response.pagination.nextOffset });
+      })
+      .catch(() => { /* a failed page-2 fetch keeps whatever's already shown */ })
+      .finally(() => setLoadingMore(false));
+  };
 
   return (
     <View style={s.wrap}>
@@ -112,21 +137,28 @@ export function ClientSearchField({ onAddClient, onSelect, pearlStyle = false, t
         </Pressable>
       ) : null}
       {results.length > 0 ? (
-        <View style={s.results}>
-          {results.map((client, index) => (
+        <FlatList
+          data={results}
+          keyboardShouldPersistTaps="handled"
+          keyExtractor={(item) => item.id}
+          ListFooterComponent={<InfiniteScrollLoader loading={loadingMore} />}
+          nestedScrollEnabled
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          renderItem={({ item, index }) => (
             <ClientOptionRow
-              initials={client.initials}
-              key={client.id}
+              initials={item.initials}
               onPress={() => {
                 setQuery("");
-                onSelect(client);
+                onSelect(item);
               }}
-              phone={`${maskPhone(client.phone)}${client.membership ? ` - ${client.membership}` : ""}`}
-              title={client.fullName}
+              phone={`${maskPhone(item.phone)}${item.membership ? ` - ${item.membership}` : ""}`}
+              title={item.fullName}
               withBorder={index < results.length - 1}
             />
-          ))}
-        </View>
+          )}
+          style={s.results}
+        />
       ) : null}
     </View>
   );
@@ -158,7 +190,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
   },
   addText: { color: "#000000", fontSize: 13, fontWeight: "700" },
-  results: { borderColor: c.line, borderRadius: 14, borderWidth: 1, overflow: "hidden" },
+  results: { borderColor: c.line, borderRadius: 14, borderWidth: 1, maxHeight: RESULTS_MAX_HEIGHT, overflow: "hidden" },
   empty: { alignItems: "center", flexDirection: "row", flexWrap: "wrap", paddingVertical: 4 },
   muted: { color: c.muted, fontSize: 13 },
   link: { color: c.plum, fontSize: 13, fontWeight: "700" },

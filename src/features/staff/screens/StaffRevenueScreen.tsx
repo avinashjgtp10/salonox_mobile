@@ -13,7 +13,7 @@ import { useAppSelector } from "@/store/hooks";
 import { selectCurrentStaff } from "@/store/staff/staff.slice";
 import { usePearlColors as useThemeColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { formatCurrency } from "@/utils/currency";
-import { getDateRangePreset } from "@/utils/dateRangePresets";
+import { dateRangeLabel, getDateRangePreset } from "@/utils/dateRangePresets";
 import { formatAppDate } from "@/utils/dateTime";
 import type { StaffRevenueItemType } from "@/features/staff/screens/StaffRevenueItemsScreen";
 import { Ionicons } from "@expo/vector-icons";
@@ -65,7 +65,8 @@ export function StaffRevenueScreen() {
   const staff = useAppSelector(selectCurrentStaff);
 
   const [customOpen, setCustomOpen] = useState(false);
-  const [range, setRange] = useState<Range>(() => getDateRangePreset("today"));
+  // Opens on the current month, like the owner-side revenue and reports.
+  const [range, setRange] = useState<Range>(() => thisMonthToDate());
   const [revenue, setRevenue] = useState<StaffRevenue | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -107,6 +108,17 @@ export function StaffRevenueScreen() {
           <Text style={styles.subtitle}>{staff?.name ? `${staff.name} · ` : ""}{formatAppDate(toDate(range.startDate))} – {formatAppDate(toDate(range.endDate))}</Text>
         </View>
 
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Revenue date range"
+          disabled={loading}
+          onPress={() => setCustomOpen(true)}
+          style={styles.rangeButton}
+        >
+          <Ionicons name="calendar-outline" size={18} color={Colors.primaryText} />
+          <Text style={styles.rangeButtonText}>{dateRangeLabel(range.startDate, range.endDate)}</Text>
+          <Ionicons name="chevron-down" size={16} color={Colors.text2} />
+        </TouchableOpacity>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:8}}>
           {QUICK_RANGES.map(({key,label})=><TouchableOpacity key={key} disabled={loading} onPress={()=>setRange(key==="this_month"?thisMonthToDate():getDateRangePreset(key))} style={[styles.quickChip,activeQuick===key&&{backgroundColor:Colors.backgroundSelected,borderColor:Colors.primary}]}><Text translate style={[styles.quickChipText,{color:activeQuick===key?Colors.primaryText:Colors.text2}]}>{label}</Text></TouchableOpacity>)}
           <TouchableOpacity onPress={()=>setCustomOpen(true)} disabled={loading} style={[styles.quickChip,!activeQuick&&{backgroundColor:Colors.backgroundSelected,borderColor:Colors.primary}]}><Text translate style={styles.quickChipText}>Custom</Text></TouchableOpacity>
@@ -115,7 +127,7 @@ export function StaffRevenueScreen() {
 
         <View style={styles.totalCard}>
           <Text translate style={styles.totalLabel}>Sales I billed</Text>
-          {loading ? <ActivityIndicator color={Colors.primaryText} /> : <Text style={styles.totalAmount}>{error ? "—" : formatCurrency(revenue?.totalRevenue ?? 0)}</Text>}
+          {loading ? <ActivityIndicator color={Colors.primaryText} /> : <Text style={styles.totalAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{error ? "—" : formatCurrency(revenue?.totalRevenue ?? 0)}</Text>}
           {!loading && revenue && !isEmpty ? (
             <Text style={styles.totalMeta}>
               {revenue.invoiceCount} {revenue.invoiceCount === 1 ? "invoice" : "invoices"} · Avg bill {formatCurrency(revenue.avgBill)}
@@ -177,6 +189,8 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   content: { gap: 16, paddingBottom: 140, paddingTop: Spacing.md },
   eyebrow: { color: Colors.text2, fontSize: 12, fontWeight: "800", letterSpacing: 1.8 },
   header: { gap: 6 },
+  rangeButton: { alignItems: "center", backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: 16, borderWidth: 1, flexDirection: "row", gap: 10, minHeight: 52, paddingHorizontal: 16 },
+  rangeButtonText: { color: Colors.heading, flex: 1, fontSize: 15, fontWeight: "700" },
   quickChip: { backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: 999, borderWidth: 1, paddingHorizontal: 16, paddingVertical: 9 },
   quickChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   quickChipText: { color: Colors.text2, fontSize: 13, fontWeight: "700" },
@@ -195,7 +209,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   stateTitle: { color: Colors.heading, fontSize: 16, fontWeight: "800" },
   subtitle: { color: Colors.text2, fontSize: 15, fontWeight: "600" },
   title: { color: Colors.heading, fontWeight: "900" },
-  totalAmount: { color: Colors.heading, fontSize: 34, fontWeight: "900" },
+  totalAmount: { color: Colors.heading, fontSize: 26, lineHeight: 33, fontWeight: "800", letterSpacing: -0.4 },
   totalCard: { alignItems: "flex-start", backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: 24, borderWidth: 1, gap: 6, padding: 20 },
   totalIcon: { alignItems: "center", backgroundColor: Colors.bg2, borderRadius: 18, height: 44, justifyContent: "center", marginBottom: 4, width: 44 },
   totalLabel: { color: Colors.text2, fontSize: 13, fontWeight: "800", letterSpacing: 0.6, textTransform: "uppercase" },

@@ -5,28 +5,43 @@ import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { getAppointmentInvoiceLabel } from "@/utils/clientPrivacy";
 import { appAlert as Alert } from "@/services/appAlert";
 import { salesService } from "@/services/sales.service";
-import { createStyles } from "@/features/appointments/styles/appointmentStyles";
+import { pearl, pearlGradients, pearlTones, type PearlTone } from "@/components/auth/pearl/tokens";
+import { Icon, type IconName } from "@/components/pearl/Icon";
+import { Ionicons } from "@expo/vector-icons";
+import { Avatar, IconButton, StatusPill, type PillTone } from "@/components/pearl/ui";
+import { LinearGradient } from "expo-linear-gradient";
 import { formatCurrency } from "@/features/appointments/utils/appointmentForm";
-import { formatBusinessDate, formatBusinessTime, formatItemTime, getAppointmentEndValue, getAppointmentGrandTotal, getAppointmentPaymentStatus, getAppointmentSalesSummary, getAppointmentStaffNames, getPartialBillAmounts, getAppointmentWebStatus, getPaymentStatusStyles, maskPhone, toInvoiceSequence } from "@/features/appointments/utils/appointmentScreenHelpers";
+import { formatBusinessDate, formatBusinessTime, formatItemTime, getAppointmentEndValue, getAppointmentGrandTotal, getAppointmentPaymentStatus, getAppointmentSalesSummary, getAppointmentStaffNames, getPartialBillAmounts, getAppointmentWebStatus, maskPhone, toInvoiceSequence } from "@/features/appointments/utils/appointmentScreenHelpers";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentStaff } from "@/store/staff/staff.slice";
-import { useThemeColors } from "@/theme/ThemeProvider";
 import type { AppointmentBilledItem, AppointmentListItem } from "@/types/appointment";
 import { formatInvoiceNumber } from "@/utils/receipt";
 import { isOwnBillingItem } from "@/utils/staffBilling";
-import { Ionicons } from "@expo/vector-icons";
 import type { Href } from "expo-router";
 import { router } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { useState } from "react";
+import { Linking, Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-// Same item-type tags as the web's View Appointment cards.
-const ITEM_TAGS: Record<AppointmentBilledItem["type"], { bg: string; color: string; label: string }> = {
-  membership: { bg: "#F0FDF4", color: "#15803D", label: "MEMBERSHIP" },
-  package: { bg: "#FEF3C7", color: "#92400E", label: "PACKAGE" },
-  product: { bg: "#DBEAFE", color: "#1D4ED8", label: "PRODUCT" },
-  service: { bg: "#EDE9FE", color: "#5B21B6", label: "SERVICE" },
+// Same item-type tags as the web's View Appointment cards, in the pearl tones.
+const ITEM_TONES: Record<AppointmentBilledItem["type"], PearlTone> = {
+  membership: "success",
+  package: "warning",
+  product: "sky",
+  service: "lavender",
 };
+const ITEM_LABELS: Record<AppointmentBilledItem["type"], string> = {
+  membership: "MEMBERSHIP",
+  package: "PACKAGE",
+  product: "PRODUCT",
+  service: "SERVICE",
+};
+
+const AVATAR_TONES: PearlTone[] = ["rose", "lilac", "peach"];
+const avatarTone = (id: string) =>
+  AVATAR_TONES[Array.from(id).reduce((sum, letter) => sum + letter.charCodeAt(0), 0) % AVATAR_TONES.length];
+const initialsOf = (name: string) =>
+  name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("") || "?";
 
 export function AppointmentPreviewSheet({
   appointment,
@@ -43,21 +58,12 @@ export function AppointmentPreviewSheet({
   "use no memo";
   useRegionalPreferences();
   const { staffMode, clientName, billLabel } = useClientPrivacy();
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const [stage, setStage] = useState<"actions" | "details">("actions");
-  const [detailsTab, setDetailsTab] = useState<"appointment" | "notes">("appointment");
+  const insets = useSafeAreaInsets();
   const [findingSale, setFindingSale] = useState(false);
   const currentStaff = useAppSelector(selectCurrentStaff);
 
-  useEffect(() => {
-    setStage("actions");
-    setDetailsTab("appointment");
-  }, [appointment?.id]);
-
   if (!appointment) return null;
   const paymentStatus = getAppointmentPaymentStatus(appointment);
-  const paymentColors = getPaymentStatusStyles(Colors)[paymentStatus];
   // Paid and partially-paid bills can be edited and printed, as on the web.
   const hasBill = paymentStatus !== "Unpaid" && appointment.status !== "Cancelled";
   const start = formatBusinessTime(appointment.startTime || appointment.scheduledAt);
@@ -72,6 +78,11 @@ export function AppointmentPreviewSheet({
   const billedTotal = getAppointmentGrandTotal(appointment);
   const partialBill = paymentStatus === "Partial" ? getPartialBillAmounts(appointment, billedTotal) : null;
   const grandTotal = partialBill?.total ?? billedTotal;
+  const displayName = staffMode ? billLabel(appointment) : appointment.clientName;
+  const statusTone: PillTone = appointment.status === "Cancelled" || appointment.status === "No Show"
+    ? "danger"
+    : appointment.status === "Completed" || appointment.status === "Confirmed" ? "success" : "warning";
+  const paymentTone: PillTone = paymentStatus === "Paid" ? "success" : paymentStatus === "Partial" ? "warning" : "neutral";
   // Staff only ever see prices on their own rows; the bill summary stays owner-side.
   const showItemPrice = (item: AppointmentBilledItem) =>
     !staffMode || isOwnBillingItem(currentStaff, item.staffId ?? (item.type === "service" ? appointment.staffId : null));
@@ -83,15 +94,17 @@ export function AppointmentPreviewSheet({
     ...(!staffMode ? [["Invoice", invoiceNumber ?? "Not billed yet"] as [string, string]] : []),
   ];
 
-  const openEditor = () => {
-    onClose();
-    requestAnimationFrame(() => router.push(`/appointments/${appointment.id}/edit` as Href));
+  const go = (href: Href) => { onClose(); requestAnimationFrame(() => router.push(href)); };
+  const openEditor = () => go(`/appointments/${appointment.id}/edit` as Href);
+
+  const call = () => {
+    const phone = appointment.phone.replace(/[^+\d]/g, "");
+    if (!phone) return Alert.alert("Phone unavailable", "This client has no phone number.");
+    void Linking.openURL(`tel:${phone}`).catch(() => Alert.alert("Unable to call", "No phone app is available."));
   };
 
   // A bill saved as pending from the Calendar's Quick Sale: reopen that draft
   // straight at its Payment screen.
-  // Any unpaid booking can be billed: one without a pending sale yet gets it
-  // billed directly in Quick Sale when this is tapped (see CalendarPreview).
   const canContinueToPayment = Boolean(onContinueToPayment) && appointment.status !== "Cancelled";
   const handleContinueToPayment = () => {
     onClose();
@@ -112,246 +125,263 @@ export function AppointmentPreviewSheet({
       return;
     }
 
-    onClose();
-    requestAnimationFrame(() => router.push({
-      pathname: "/quick-sale/checkout",
-      params: { openReceipt: "1", saleId },
-    } as Href));
+    go({ pathname: "/quick-sale/checkout", params: { openReceipt: "1", saleId } } as Href);
   };
 
+  const quickActions: { label: string; icon: IconName; onPress: () => void }[] = [
+    { label: "WhatsApp", icon: "chat", onPress: () => go("/inbox" as Href) },
+    { label: "Call", icon: "phone", onPress: call },
+    ...(readOnly ? [] : [{ label: "Reschedule", icon: "calendar" as IconName, onPress: openEditor }]),
+    {
+      label: "Profile",
+      icon: "user",
+      onPress: () => appointment.clientId
+        ? go(`/clients/${appointment.clientId}` as Href)
+        : Alert.alert("Client profile unavailable", "This appointment has no linked client profile."),
+    },
+  ];
+
   return (
-    <Modal animationType="fade" onRequestClose={onClose} transparent visible>
-      <View style={styles.previewBackdrop}>
-        {/* Tap-outside-to-close sits BEHIND the cards as a sibling. Wrapping the
-            cards in a Pressable (to stop taps propagating) made it keep the touch
-            once a press passed the long-press delay, so a press-and-drag never
-            reached the ScrollView and the details wouldn't scroll. */}
+    <Modal animationType="slide" onRequestClose={onClose} transparent visible>
+      <View style={s.backdrop}>
         <Pressable accessibilityLabel="Close appointment" onPress={onClose} style={StyleSheet.absoluteFill} />
-        {stage === "actions" ? (
-          <View style={styles.calendarActionsModal}>
-            <View style={styles.calendarActionsHeader}>
-              <Text translate style={styles.calendarActionsTitle}>Actions</Text>
-              <TouchableOpacity accessibilityLabel="Close actions" onPress={onClose} style={styles.calendarActionsClose}>
-                <Ionicons name="close-circle-outline" size={28} color={Colors.appointmentText} />
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity activeOpacity={0.82} onPress={() => setStage("details")} style={styles.calendarActionPrimary}>
-              <Text translate style={styles.calendarActionText}>View Appointment Details</Text>
-            </TouchableOpacity>
+        <View accessibilityViewIsModal style={[s.sheet, { paddingBottom: readOnly ? Math.max(insets.bottom, 12) : 0 }]}>
+          <View style={s.handle} />
+          <View style={s.header}>
+            <Text translate style={s.title}>Appointment</Text>
+            <IconButton icon="x" label="Close appointment" onPress={onClose} size={36} />
           </View>
-        ) : (
-          <View style={styles.appointmentDetailsModal}>
-            <View style={styles.appointmentModalHeader}>
-              <View style={styles.appointmentModalHeading}>
-                <Text numberOfLines={1} style={styles.appointmentModalTitle}>Appointment - {formatBusinessDate(appointment.scheduledAt)}</Text>
+
+          <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+            <View style={s.clientRow}>
+              <Avatar initials={initialsOf(displayName)} size={48} tone={avatarTone(appointment.clientId || appointment.id)} />
+              <View style={s.clientCopy}>
+                <Text numberOfLines={1} style={s.clientName}>{displayName}</Text>
+                {staffMode && getAppointmentInvoiceLabel(appointment) ? <Text numberOfLines={1} style={s.muted}>{clientName(appointment.clientName)}</Text> : null}
+                <Text style={s.muted}>{maskPhone(appointment.phone)}</Text>
+                {!staffMode && clientEmail ? <Text numberOfLines={1} style={s.muted}>{clientEmail}</Text> : null}
               </View>
-              <TouchableOpacity accessibilityLabel="Close appointment details" onPress={onClose}>
-                <Ionicons name="close" size={28} color={Colors.appointmentTextSecondary} />
-              </TouchableOpacity>
+              <StatusPill tone={statusTone} label={webStatus.label} />
             </View>
-            {/* One scroll area for everything under the title: with only the tab
-                body scrolling, the client band + tabs ate half the card and a
-                swipe anywhere there did nothing. Tabs (child 1) stay pinned; the
-                sticky wrapper takes over its child's style, so the row style sits
-                on an inner View to keep the tabs side by side. */}
-            <ScrollView
-              contentContainerStyle={[styles.appointmentModalScrollContent, !readOnly && styles.appointmentScrollFooterSpace]}
-              stickyHeaderIndices={[1]}
-              style={styles.appointmentModalScroll}
-            >
-            <View style={styles.appointmentClientBand}>
-              <View style={styles.appointmentClientAvatar}><Ionicons name="person-outline" size={26} color={Colors.primaryText} /></View>
-              <View style={styles.appointmentClientCopy}>
-                <Text style={styles.appointmentClientName}>{staffMode ? billLabel(appointment) : appointment.clientName}</Text>
-                {staffMode && getAppointmentInvoiceLabel(appointment) ? <Text style={styles.appointmentClientPhone}>{clientName(appointment.clientName)}</Text> : null}
-                <Text style={styles.appointmentClientPhone}>{maskPhone(appointment.phone)}</Text>
-                {!staffMode && clientEmail ? <Text numberOfLines={1} style={styles.appointmentClientPhone}>{clientEmail}</Text> : null}
-                {!readOnly ? (
-                  <View style={[styles.appointmentPaymentBadge, { backgroundColor: paymentColors.bg }]}>
-                    <Text style={[styles.appointmentPaymentBadgeText, { color: paymentColors.color }]}>{paymentStatus}</Text>
-                  </View>
-                ) : null}
-              </View>
-              <View style={[styles.appointmentStatusPill, { backgroundColor: webStatus.bg }]}>
-                <Text translate numberOfLines={1} style={styles.appointmentStatusPillText}>{webStatus.label}</Text>
-              </View>
-            </View>
-            <View>
-            <View style={styles.appointmentTabs}>
-              <TouchableOpacity
-                accessibilityLabel="Open appointment information"
-                accessibilityRole="tab"
-                accessibilityState={{ selected: detailsTab === "appointment" }}
-                activeOpacity={0.76}
-                hitSlop={6}
-                onPress={() => setDetailsTab("appointment")}
-                style={styles.appointmentTabButton}
-              >
-                <Text translate style={detailsTab === "appointment" ? styles.appointmentTabActive : styles.appointmentTab}>Appointment</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                accessibilityLabel="Open appointment notes"
-                accessibilityRole="tab"
-                accessibilityState={{ selected: detailsTab === "notes" }}
-                activeOpacity={0.76}
-                hitSlop={6}
-                onPress={() => setDetailsTab("notes")}
-                style={styles.appointmentTabButton}
-              >
-                <Text translate style={detailsTab === "notes" ? styles.appointmentTabActive : styles.appointmentTab}>Notes</Text>
-              </TouchableOpacity>
-            </View>
-            </View>
-            {detailsTab === "appointment" ? (
-              <View style={styles.appointmentModalContent}>
-                <View style={styles.appointmentInfoCard}>
-                  {infoRows.map(([label, value]) => (
-                    <View key={label} style={styles.appointmentInfoRow}>
-                      <Text translate style={styles.appointmentInfoLabel}>{label}</Text>
-                      <Text style={styles.appointmentInfoValue}>{value}</Text>
-                    </View>
-                  ))}
+
+            <View style={s.card}>
+              {infoRows.map(([label, value], index) => (
+                <View key={label} style={[s.kv, index > 0 && s.kvDivided]}>
+                  <Text translate style={s.kvLabel}>{label}</Text>
+                  <Text style={s.kvValue}>{value}</Text>
                 </View>
-                {staffAlert ? (
-                  <View style={styles.appointmentAlertCard}>
-                    <Text translate style={styles.appointmentAlertLabel}>Staff Alert</Text>
-                    <Text style={styles.appointmentNotesText}>{staffAlert}</Text>
+              ))}
+              {!readOnly ? (
+                <View style={[s.kv, s.kvDivided]}>
+                  <Text translate style={s.kvLabel}>Payment</Text>
+                  <StatusPill tone={paymentTone} label={paymentStatus} />
+                </View>
+              ) : null}
+              {!staffMode ? (
+                <View style={[s.kv, s.kvDivided]}>
+                  <Text translate style={s.kvLabel}>Estimate</Text>
+                  <Text style={s.kvValue}>{formatCurrency(grandTotal)}</Text>
+                </View>
+              ) : null}
+            </View>
+
+            <View style={s.quickActions}>
+              {quickActions.map((action) => (
+                <Pressable accessibilityRole="button" key={action.label} onPress={action.onPress} style={s.quickAction}>
+                  <View style={s.quickIcon}>
+                    {/* WhatsApp keeps its own brand mark; the rest use the pearl icon set. */}
+                    {action.label === "WhatsApp"
+                      ? <Ionicons name="logo-whatsapp" size={21} color="#25D366" />
+                      : <Icon name={action.icon} size={20} color={pearl.accentDeep} />}
                   </View>
-                ) : null}
-                <Text style={styles.appointmentServiceHeading}>Booking Details ({appointment.billedItems.length})</Text>
-                {appointment.billedItems.map((item, index) => {
-                  const tag = ITEM_TAGS[item.type];
-                  const priced = showItemPrice(item);
-                  return (
-                    <View key={item.id ?? `${item.type}-${item.name}-${index}`} style={[styles.appointmentServiceCard, styles.appointmentItemCard]}>
-                      <View style={styles.appointmentServiceTop}>
-                        <Text numberOfLines={2} style={styles.appointmentServiceName}>{item.name}</Text>
-                        {priced ? <Text style={styles.appointmentServiceTime}>{formatCurrency((item.totalAmount ?? item.price) + item.tax)}</Text> : null}
-                      </View>
-                      <View style={styles.appointmentItemSub}>
-                        <View style={[styles.appointmentItemTag, { backgroundColor: tag.bg }]}>
-                          <Text translate style={[styles.appointmentItemTagText, { color: tag.color }]}>{tag.label}</Text>
-                        </View>
-                        <Text style={styles.appointmentWith}>
-                          {[item.staffName ?? (item.type === "service" ? appointment.staffName : null), formatItemTime(item.time)].filter(Boolean).join(" · ")}
-                        </Text>
-                      </View>
-                      {priced ? (
-                        <Text style={styles.appointmentItemPills}>
-                          {`Qty: ${item.quantity} · Price: ${formatCurrency(item.price)} · Disc: ${formatCurrency(item.discount)} · Tax: ${formatCurrency(item.tax)}`}
-                        </Text>
-                      ) : null}
-                    </View>
-                  );
-                })}
-                {!staffMode ? (
-                  <View style={[styles.appointmentInfoCard, styles.appointmentSalesCard]}>
-                    <Text translate style={styles.appointmentSalesTitle}>Sales Summary</Text>
-                    <SummaryRow label="Subtotal" styles={styles} value={formatCurrency(salesSummary.subtotal)} />
-                    {salesSummary.discount > 0 ? <SummaryRow label="Discount" styles={styles} value={`-${formatCurrency(salesSummary.discount)}`} /> : null}
-                    {salesSummary.couponDiscount > 0 ? (
-                      <SummaryRow
-                        label={salesSummary.couponCode ? `Coupon (${salesSummary.couponCode})` : "Coupon"}
-                        styles={styles}
-                        value={`-${formatCurrency(salesSummary.couponDiscount)}`}
-                      />
-                    ) : null}
-                    {salesSummary.totalTax > 0 ? (
-                      <>
-                        <SummaryRow label={salesSummary.taxLabel} styles={styles} value={`+${formatCurrency(salesSummary.totalTax)}`} />
-                        <SummaryRow label="Total Tax" styles={styles} value={formatCurrency(salesSummary.totalTax)} />
-                      </>
-                    ) : null}
-                    <SummaryRow label="Extra Charges" styles={styles} value={`+${formatCurrency(salesSummary.exCharges)}`} />
-                    <View style={styles.appointmentSalesDivider} />
-                    <View style={styles.appointmentSummaryRow}>
-                      <Text translate style={styles.appointmentSummaryTotal}>Grand Total</Text>
-                      <Text style={styles.appointmentSummaryTotal}>{formatCurrency(grandTotal)}</Text>
-                    </View>
-                    <View style={styles.appointmentSummaryRow}>
-                      <Text translate style={styles.appointmentSummaryPaid}>Paid</Text>
-                      <Text style={styles.appointmentSummaryPaid}>{formatCurrency(appointment.paidAmount)}</Text>
-                    </View>
-                    {salesSummary.paymentMethods.length ? (
-                      <>
-                        <Text translate style={styles.appointmentSalesSection}>Payment Method</Text>
-                        {salesSummary.paymentMethods.map((entry) => (
-                          <View key={entry.method} style={[styles.appointmentSummaryRow, styles.appointmentSalesSubRow]}>
-                            <Text style={styles.appointmentSalesMuted}>{entry.method}</Text>
-                            <Text style={styles.appointmentSalesMuted}>{formatCurrency(entry.amount)}</Text>
-                          </View>
-                        ))}
-                      </>
-                    ) : null}
-                    {partialBill ? (
-                      <View style={styles.appointmentSummaryRow}>
-                        <Text translate style={styles.appointmentSummaryDue}>Balance Due</Text>
-                        <Text style={styles.appointmentSummaryDue}>{formatCurrency(partialBill.due)}</Text>
-                      </View>
-                    ) : null}
-                    {salesSummary.tipAmount > 0 ? (
-                      <SummaryRow label="Staff Tip (included above)" styles={styles} value={formatCurrency(salesSummary.tipAmount)} />
-                    ) : null}
-                  </View>
-                ) : null}
+                  <Text translate style={s.quickLabel}>{action.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {staffAlert ? (
+              <View style={s.alertCard}>
+                <Text translate style={s.alertLabel}>Staff Alert</Text>
+                <Text style={s.body}>{staffAlert}</Text>
               </View>
-            ) : (
-              <View style={styles.appointmentModalContent}>
-                <Text translate style={styles.appointmentNotesHeading}>Client Notes</Text>
-                <Text style={[styles.appointmentNotesText, !appointment.notes.trim() && styles.appointmentNotesEmpty]}>
+            ) : null}
+
+            <Text translate style={s.sectionTitle}>Booking details ({appointment.billedItems.length})</Text>
+            {appointment.billedItems.map((item, index) => {
+              const priced = showItemPrice(item);
+              const tone = pearlTones[ITEM_TONES[item.type]];
+              return (
+                <View key={item.id ?? `${item.type}-${item.name}-${index}`} style={s.card}>
+                  <View style={s.itemBody}>
+                    <View style={s.itemTop}>
+                      <Text numberOfLines={2} style={s.itemName}>{item.name}</Text>
+                      {priced ? <Text style={s.itemPrice}>{formatCurrency((item.totalAmount ?? item.price) + item.tax)}</Text> : null}
+                    </View>
+                    <View style={s.itemMeta}>
+                      <View style={[s.tag, { backgroundColor: tone.bg }]}>
+                        <Text translate style={[s.tagText, { color: tone.fg }]}>{ITEM_LABELS[item.type]}</Text>
+                      </View>
+                      <Text style={s.muted}>
+                        {[item.staffName ?? (item.type === "service" ? appointment.staffName : null), formatItemTime(item.time)].filter(Boolean).join(" · ")}
+                      </Text>
+                    </View>
+                    {priced ? (
+                      <Text style={s.itemBreakdown}>
+                        {`Qty: ${item.quantity} · Price: ${formatCurrency(item.price)} · Disc: ${formatCurrency(item.discount)} · Tax: ${formatCurrency(item.tax)}`}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              );
+            })}
+
+            {!staffMode ? (
+              <>
+                <Text translate style={s.sectionTitle}>Sales summary</Text>
+                <View style={s.card}>
+                  <SummaryRow label="Subtotal" value={formatCurrency(salesSummary.subtotal)} />
+                  {salesSummary.discount > 0 ? <SummaryRow divided label="Discount" value={`-${formatCurrency(salesSummary.discount)}`} /> : null}
+                  {salesSummary.couponDiscount > 0 ? (
+                    <SummaryRow divided label={salesSummary.couponCode ? `Coupon (${salesSummary.couponCode})` : "Coupon"} value={`-${formatCurrency(salesSummary.couponDiscount)}`} />
+                  ) : null}
+                  {salesSummary.totalTax > 0 ? (
+                    <>
+                      <SummaryRow divided label={salesSummary.taxLabel} value={`+${formatCurrency(salesSummary.totalTax)}`} />
+                      <SummaryRow divided label="Total Tax" value={formatCurrency(salesSummary.totalTax)} />
+                    </>
+                  ) : null}
+                  <SummaryRow divided label="Extra Charges" value={`+${formatCurrency(salesSummary.exCharges)}`} />
+                  <View style={[s.kv, s.kvDivided]}>
+                    <Text translate style={s.totalLabel}>Grand Total</Text>
+                    <Text style={s.totalLabel}>{formatCurrency(grandTotal)}</Text>
+                  </View>
+                  <View style={[s.kv, s.kvDivided]}>
+                    <Text translate style={s.paidLabel}>Paid</Text>
+                    <Text style={s.paidLabel}>{formatCurrency(appointment.paidAmount)}</Text>
+                  </View>
+                  {salesSummary.paymentMethods.map((entry) => (
+                    <SummaryRow divided key={entry.method} label={entry.method} value={formatCurrency(entry.amount)} />
+                  ))}
+                  {partialBill ? (
+                    <View style={[s.kv, s.kvDivided]}>
+                      <Text translate style={s.dueLabel}>Balance Due</Text>
+                      <Text style={s.dueLabel}>{formatCurrency(partialBill.due)}</Text>
+                    </View>
+                  ) : null}
+                  {salesSummary.tipAmount > 0 ? (
+                    <SummaryRow divided label="Staff Tip (included above)" value={formatCurrency(salesSummary.tipAmount)} />
+                  ) : null}
+                </View>
+              </>
+            ) : null}
+
+            <Text translate style={s.sectionTitle}>Client notes</Text>
+            <View style={s.card}>
+              <View style={s.itemBody}>
+                <Text style={[s.body, !appointment.notes.trim() && s.muted]}>
                   {appointment.notes.trim() || "No client notes added."}
                 </Text>
-                {!readOnly && <TouchableOpacity activeOpacity={0.84} onPress={openEditor} style={styles.appointmentNotesButton}>
-                  <Ionicons name="create-outline" size={18} color={Colors.onPrimary} />
-                  <Text translate style={styles.appointmentNotesButtonText}>{appointment.notes.trim() ? "Edit Client Note" : "Add Client Note"}</Text>
-                </TouchableOpacity>}
+                {!readOnly ? (
+                  <Pressable accessibilityRole="button" onPress={openEditor} style={s.noteButton}>
+                    <Icon name="edit" size={16} color={pearl.accentDeep} />
+                    <Text translate style={s.noteButtonText}>{appointment.notes.trim() ? "Edit Client Note" : "Add Client Note"}</Text>
+                  </Pressable>
+                ) : null}
               </View>
-            )}
-            </ScrollView>
-            {/* Buttons float over the scroll content — no strip behind them. */}
-            {!readOnly && <View pointerEvents="box-none" style={styles.appointmentFloatingFooter}>{hasBill ? (
-              <View style={styles.appointmentBillActions}>
-                <TouchableOpacity accessibilityRole="button" activeOpacity={0.88} onPress={openEditor} style={[styles.appointmentInvoiceButton, styles.appointmentBillButton, styles.appointmentEditButton]}>
-                  <Ionicons name="create-outline" size={20} color={Colors.appointmentText} />
-                  <Text translate style={[styles.appointmentInvoiceText, styles.appointmentEditText]}>Edit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity accessibilityRole="button" accessibilityState={{ busy: findingSale }} activeOpacity={0.88} disabled={findingSale} onPress={() => void handleViewInvoice()} style={[styles.appointmentInvoiceButton, styles.appointmentBillButton]}>
-                  {findingSale ? <ActivityIndicator color={Colors.onPrimary} size="small" /> : <Ionicons name="print-outline" size={20} color={Colors.onPrimary} />}
-                  <Text translate style={styles.appointmentInvoiceText}>Print Bill</Text>
-                </TouchableOpacity>
-              </View>
-            ) : canContinueToPayment ? (
-              <View style={styles.appointmentBillActions}>
-                <TouchableOpacity accessibilityRole="button" activeOpacity={0.88} onPress={openEditor} style={[styles.appointmentInvoiceButton, styles.appointmentBillButton, styles.appointmentEditButton]}>
-                  <Ionicons name="create-outline" size={20} color={Colors.appointmentText} />
-                  <Text translate style={[styles.appointmentInvoiceText, styles.appointmentEditText, styles.appointmentPairText]}>Edit</Text>
-                </TouchableOpacity>
-                {/* "Continue to Payment" can't fit half the card at a readable size. */}
-                <TouchableOpacity accessibilityLabel="Continue to Payment" accessibilityRole="button" activeOpacity={0.88} onPress={handleContinueToPayment} style={[styles.appointmentInvoiceButton, styles.appointmentBillButton, styles.appointmentPayButton]}>
-                  <Ionicons name="card-outline" size={20} color={Colors.onPrimary} />
-                  <Text translate numberOfLines={1} style={[styles.appointmentInvoiceText, styles.appointmentPairText]}>Pay Now</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <TouchableOpacity activeOpacity={0.88} disabled style={[styles.appointmentInvoiceButton, styles.appointmentInvoiceDisabled]}>
-                <Ionicons name="receipt-outline" size={20} color={Colors.onPrimary} />
-                <Text translate style={styles.appointmentInvoiceText}>Invoice available after payment</Text>
-              </TouchableOpacity>
-            )}</View>}
-          </View>
-        )}
+            </View>
+          </ScrollView>
+
+          {readOnly ? null : (
+            <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 16) + 10 }]}>
+              <Pressable accessibilityRole="button" onPress={openEditor} style={s.secondary}>
+                <Icon name="edit" size={18} color={pearl.accentDeep} />
+                <Text translate style={s.secondaryText}>Edit</Text>
+              </Pressable>
+              {hasBill ? (
+                <Pressable accessibilityRole="button" accessibilityState={{ busy: findingSale }} disabled={findingSale} onPress={() => void handleViewInvoice()} style={s.primaryWrap}>
+                  <LinearGradient colors={pearlGradients.primary} end={{ x: 1, y: 1 }} start={{ x: 0, y: 0 }} style={s.primary}>
+                    {findingSale ? <ActivityIndicator color="#fff" size="small" /> : <Icon name="receipt" size={18} color="#fff" />}
+                    <Text translate style={s.primaryText}>Print Bill</Text>
+                  </LinearGradient>
+                </Pressable>
+              ) : canContinueToPayment ? (
+                <Pressable accessibilityLabel="Continue to Payment" accessibilityRole="button" onPress={handleContinueToPayment} style={s.primaryWrap}>
+                  <LinearGradient colors={pearlGradients.primary} end={{ x: 1, y: 1 }} start={{ x: 0, y: 0 }} style={s.primary}>
+                    <Icon name="bolt" size={18} color="#fff" />
+                    <Text translate style={s.primaryText}>Start sale</Text>
+                  </LinearGradient>
+                </Pressable>
+              ) : (
+                <View style={[s.primaryWrap, s.primaryDisabled]}>
+                  <View style={s.primary}>
+                    <Icon name="receipt" size={18} color={pearl.muted} />
+                    <Text translate style={[s.primaryText, { color: pearl.muted }]}>Invoice after payment</Text>
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
       </View>
     </Modal>
   );
 }
 
-function SummaryRow({ label, styles, value }: { label: string; styles: ReturnType<typeof createStyles>; value: string }) {
+function SummaryRow({ divided, label, value }: { divided?: boolean; label: string; value: string }) {
   "use no memo";
   useRegionalPreferences();
   return (
-    <View style={styles.appointmentSummaryRow}>
-      <Text translate style={styles.appointmentSalesMuted}>{label}</Text>
-      <Text style={styles.appointmentSalesMuted}>{value}</Text>
+    <View style={[s.kv, divided && s.kvDivided]}>
+      <Text translate style={s.kvLabel}>{label}</Text>
+      <Text style={s.kvValue}>{value}</Text>
     </View>
   );
 }
+
+const s = StyleSheet.create({
+  backdrop: { backgroundColor: "rgba(35,33,52,0.35)", flex: 1, justifyContent: "flex-end", paddingBottom: 8 },
+  // Floats clear of the screen edge so the bottom corners (and the footer behind
+  // the buttons) read as rounded, like the prototype's sheet panel.
+  sheet: { backgroundColor: "#F7F6FA", borderRadius: 28, marginHorizontal: 8, maxHeight: "90%", overflow: "hidden" },
+  handle: { alignSelf: "center", backgroundColor: pearl.divider, borderRadius: 2, height: 4, marginTop: 10, width: 36 },
+  header: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 18, paddingVertical: 12 },
+  title: { color: pearl.ink, fontSize: 18, fontWeight: "800" },
+  content: { gap: 14, paddingBottom: 18, paddingHorizontal: 18 },
+  clientRow: { alignItems: "center", flexDirection: "row", gap: 12 },
+  clientCopy: { flex: 1, minWidth: 0 },
+  clientName: { color: pearl.ink, fontSize: 18, fontWeight: "800" },
+  muted: { color: pearl.muted, fontSize: 13, marginTop: 2 },
+  body: { color: pearl.ink, fontSize: 14, lineHeight: 21 },
+  card: { backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderRadius: 22, borderWidth: 1, overflow: "hidden" },
+  kv: { alignItems: "center", flexDirection: "row", gap: 14, justifyContent: "space-between", minHeight: 46, paddingHorizontal: 16, paddingVertical: 11 },
+  kvDivided: { borderTopColor: pearl.divider, borderTopWidth: 1 },
+  kvLabel: { color: pearl.muted, flexShrink: 1, fontSize: 13 },
+  kvValue: { color: pearl.ink, flexShrink: 1, fontSize: 13, fontWeight: "700", maxWidth: "70%", textAlign: "right" },
+  totalLabel: { color: pearl.ink, fontSize: 15, fontWeight: "800" },
+  paidLabel: { color: pearl.successText, fontSize: 13, fontWeight: "700" },
+  dueLabel: { color: pearl.dangerText, fontSize: 13, fontWeight: "700" },
+  quickActions: { flexDirection: "row", gap: 8 },
+  quickAction: { alignItems: "center", flex: 1, gap: 7 },
+  quickIcon: { alignItems: "center", backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderRadius: 16, borderWidth: 1, height: 46, justifyContent: "center", width: 46 },
+  quickLabel: { color: pearl.ink, fontSize: 11.5, fontWeight: "600" },
+  alertCard: { backgroundColor: pearl.warningBg, borderColor: pearl.warningBorder, borderRadius: 18, borderWidth: 1, gap: 4, padding: 14 },
+  alertLabel: { color: pearl.warningText, fontSize: 12, fontWeight: "800", letterSpacing: 0.4, textTransform: "uppercase" },
+  sectionTitle: { color: pearl.ink, fontSize: 15, fontWeight: "800", marginBottom: -4, marginTop: 2 },
+  itemBody: { gap: 8, padding: 16 },
+  itemTop: { alignItems: "flex-start", flexDirection: "row", gap: 10, justifyContent: "space-between" },
+  itemName: { color: pearl.ink, flex: 1, fontSize: 15, fontWeight: "700" },
+  itemPrice: { color: pearl.ink, fontSize: 14, fontWeight: "800" },
+  itemMeta: { alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  tag: { borderRadius: 7, paddingHorizontal: 7, paddingVertical: 2 },
+  tagText: { fontSize: 10, fontWeight: "800", letterSpacing: 0.2 },
+  itemBreakdown: { color: pearl.muted, fontSize: 12 },
+  noteButton: { alignItems: "center", alignSelf: "flex-start", backgroundColor: pearl.glassStrong, borderColor: pearl.glassBorder, borderRadius: 12, borderWidth: 1, flexDirection: "row", gap: 7, marginTop: 6, minHeight: 38, paddingHorizontal: 12 },
+  noteButtonText: { color: pearl.accentDeep, fontSize: 13, fontWeight: "700" },
+  footer: { backgroundColor: "#F7F6FA", borderTopColor: pearl.divider, borderTopWidth: 1, flexDirection: "row", gap: 10, paddingHorizontal: 18, paddingTop: 12 },
+  secondary: { alignItems: "center", backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderRadius: 16, borderWidth: 1, flexDirection: "row", gap: 7, justifyContent: "center", minHeight: 50, paddingHorizontal: 18 },
+  secondaryText: { color: pearl.accentDeep, fontSize: 14, fontWeight: "700" },
+  primaryWrap: { flex: 1 },
+  primaryDisabled: { backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderRadius: 16, borderWidth: 1 },
+  primary: { alignItems: "center", borderRadius: 16, flexDirection: "row", gap: 7, justifyContent: "center", minHeight: 50 },
+  primaryText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+});

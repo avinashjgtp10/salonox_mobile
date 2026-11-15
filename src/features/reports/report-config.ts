@@ -264,29 +264,29 @@ export const getReportConfig = (slug: string) =>
 
 export const createDefaultReportFilters = (slug: ReportSlug): ReportFilters => {
   const today = new Date();
-  const start = new Date(today);
-  start.setDate(start.getDate() - 30);
+  // Every dated report opens on the current month, so the picker shows
+  // "This month" rather than a rolling 30-day window.
+  const { startDate: monthStart, endDate: monthEnd } = getDateRangePreset("this_month", today);
   const date = (value: Date) =>
     `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
   if (NO_DATE_REPORTS.has(slug)) return { page: 1, limit: 10 };
-  if (DATE_FROM_REPORTS.has(slug)) return { date_from: date(start), date_to: date(today), page: 1, limit: 10 };
-  if (slug === "consumable-analytics") return { from: date(start), to: date(today), page: 1, limit: 10 };
-  if (slug === "membership-opportunity") return { last_visit_from: date(start), last_visit_to: date(today), page: 1, limit: 10 };
-  const base = { start_date: date(start), end_date: date(today), page: 1, limit: 10 };
+  if (DATE_FROM_REPORTS.has(slug)) return { date_from: monthStart, date_to: monthEnd, page: 1, limit: 10 };
+  if (slug === "consumable-analytics") return { from: monthStart, to: monthEnd, page: 1, limit: 10 };
+  if (slug === "membership-opportunity") return { last_visit_from: monthStart, last_visit_to: monthEnd, page: 1, limit: 10 };
+  const base = { start_date: monthStart, end_date: monthEnd, page: 1, limit: 10 };
   if (slug === "staff-performance") {
-    const range = getDateRangePreset("this_month", today);
-    return { start_date: range.startDate, end_date: range.endDate, page: 1, limit: 10 };
+    return { start_date: monthStart, end_date: monthEnd, page: 1, limit: 10 };
   }
   if (["product-inventory", "wa-marketing-campaign", "open-rate", "reply-rate"].includes(slug)) {
-    return { date_from: date(start), date_to: date(today), page: 1, limit: 10 };
+    return { date_from: monthStart, date_to: monthEnd, page: 1, limit: 10 };
   }
 
   if (slug === "daily-sheet") return { date: date(today), page: 1, limit: 10 };
   if (slug === "appointment-detail" || slug === "upcoming-appointments") {
-    return { from: date(start), to: date(today), page: 1, limit: 10 };
+    return { from: monthStart, to: monthEnd, page: 1, limit: 10 };
   }
   if (slug === "ewallet") {
-    return { start_date: date(today), end_date: date(today), page: 1, limit: 10 };
+    return { start_date: monthStart, end_date: monthEnd, page: 1, limit: 10 };
   }
   if (slug === "reward" || slug === "supplier-report") {
     return { page: 1, limit: 10 };

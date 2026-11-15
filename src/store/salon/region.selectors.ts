@@ -7,6 +7,12 @@ function activeRegion(state: RootState) {
 }
 
 export const selectSalonTimezone = (state: RootState) => validSalonTimezone(activeRegion(state)?.timezone);
+// null (not the default) until a salon/branch is actually known, so the app-wide
+// timezone shim doesn't force Asia/Kolkata on a signed-out device before any salon loads.
+export const selectAppTimezoneSetting = (state: RootState) => {
+  const region = activeRegion(state);
+  return region ? validSalonTimezone(region.timezone) : null;
+};
 export const selectSalonCountry = (state: RootState) => {
   const region = activeRegion(state);
   // No region yet: keep ordinary suggestions until branch metadata arrives.

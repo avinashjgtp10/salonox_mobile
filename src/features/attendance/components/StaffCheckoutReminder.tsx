@@ -41,6 +41,7 @@ export function StaffCheckoutReminder({ state, refresh, busy, unavailable }: {
 
   const dismiss = () => { if (key) setDismissed(previous => [...previous, key]); };
   return <ConfirmationModal
+    pearlStyle
     visible={active && !busy && !unavailable && !!reminder?.due && !alreadyDismissed && (receivedAt ?? 0) >= foregroundAt}
     title="You haven't checked out"
     description={`Your scheduled shift ended at ${formatAttendanceTime(state?.shift_end)}. It's been at least 15 minutes and your checkout hasn't been recorded. Please check out when you've finished for the day.`}
