@@ -229,6 +229,27 @@ export const createCalendarGridStyles = (Colors: ThemeColors) => StyleSheet.crea
     top: 0,
     zIndex: 1,
   },
+  // Owner-blocked slot (web DayView's striped overlay) — not bookable, sits above the
+  // quick-sale tap layer but below appointment chips.
+  dinggBlockedOverlay: {
+    backgroundColor: "rgba(148,163,184,0.22)",
+    borderColor: "rgba(148,163,184,0.45)",
+    borderRadius: 4,
+    borderWidth: 1,
+    justifyContent: "flex-start",
+    left: 2,
+    overflow: "hidden",
+    paddingHorizontal: 6,
+    paddingTop: 3,
+    position: "absolute",
+    right: 2,
+    zIndex: 2,
+  },
+  dinggBlockedLabel: {
+    color: Colors.error,
+    fontSize: 11,
+    fontWeight: "700",
+  },
   dinggGridLines: {
     bottom: 0,
     position: "absolute",

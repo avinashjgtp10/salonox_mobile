@@ -2,6 +2,8 @@ import { useFooterClearance } from "@/hooks/useFooterClearance";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { fetchBlockedTimesThunk } from "@/middleware/staff/staffBlockedTimes.thunk";
 import { AppointmentPreviewSheet } from "@/features/appointments/components/calendar/AppointmentPreviewSheet";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { ANY_STAFF_COLUMN_ID, getAppointmentItemSegments, getAppointmentRange, getCalendarAppointmentTitle, getWebCalendarChipStyle, hasCalendarInteractionFlag, isAnyStaffAppointment, isReadonlyCalendarAppointment } from "@/features/appointments/utils/appointmentCalendar";
@@ -218,6 +220,38 @@ export function CalendarPreview({
       return !segments.length && leadStaffId === column.staffId ? [whole] : [];
     })));
   }, [appointments, canonicalStaffId, columns, resolveStaffId]);
+
+  // Owner-blocked slots (web DayView's "Add Block Time"): fetched per staff column, like web's
+  // SchedulerContext, and loaded once per staff id rather than re-fetched on every date change.
+  const dispatch = useAppDispatch();
+  const blockedTimesByStaffId = useAppSelector((state) => state.staffBlockedTimes.blockedTimesByStaffId);
+  const blockedLoadedStaffIds = useAppSelector((state) => state.staffBlockedTimes.loadedStaffIds);
+  const blockedLoadingStaffIds = useAppSelector((state) => state.staffBlockedTimes.loadingStaffIds);
+  useEffect(() => {
+    if (viewMode !== "day") return;
+    columns.forEach((column) => {
+      const staffId = column.staffId;
+      if (!staffId || staffId === ANY_STAFF_COLUMN_ID) return;
+      if (blockedLoadedStaffIds.includes(staffId) || blockedLoadingStaffIds.includes(staffId)) return;
+      void dispatch(fetchBlockedTimesThunk(staffId));
+    });
+  }, [blockedLoadedStaffIds, blockedLoadingStaffIds, columns, dispatch, viewMode]);
+  const blockedByColumn = useMemo(() => {
+    if (viewMode !== "day") return columns.map(() => []);
+    return columns.map((column) => {
+      if (!column.staffId || column.staffId === ANY_STAFF_COLUMN_ID) return [];
+      const entries = blockedTimesByStaffId[column.staffId] ?? [];
+      return entries.flatMap((entry) => {
+        if (!entry.startAt || !entry.endAt || entry.startAt.slice(0, 10) !== column.key) return [];
+        const start = new Date(entry.startAt);
+        const end = new Date(entry.endAt);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return [];
+        const startMin = start.getHours() * 60 + start.getMinutes();
+        const endMin = Math.max(end.getHours() * 60 + end.getMinutes(), startMin + 1);
+        return [{ endMin, id: entry.id, reason: entry.reason, startMin }];
+      });
+    });
+  }, [blockedTimesByStaffId, columns, viewMode]);
   const now = new Date();
   const currentMinuteOffset = now.getHours() * 60 + now.getMinutes() - START_HOUR * 60;
   const showCurrentTime = viewMode === "day" && date === todayIsoDate() && currentMinuteOffset >= 0 && currentMinuteOffset < HOURS.length * 60;
@@ -343,6 +377,7 @@ export function CalendarPreview({
                 const columnChips = chipsByColumn[columnIndex];
                 return (
                   <CalendarDayColumn
+                    blocked={blockedByColumn[columnIndex]}
                     chips={columnChips}
                     column={column}
                     highlightedId={previewId && columnChips.some((chip) => chip.appointment.id === previewId) ? previewId : null}
@@ -468,6 +503,7 @@ const CalendarGridLines = memo(function CalendarGridLines({
 });
 
 const CalendarDayColumn = memo(function CalendarDayColumn({
+  blocked,
   chips,
   column,
   highlightedId,
@@ -477,6 +513,7 @@ const CalendarDayColumn = memo(function CalendarDayColumn({
   styles,
   width,
 }: {
+  blocked: { endMin: number; id: string; reason: string | null; startMin: number }[];
   chips: CalendarChip[];
   column: CalendarColumn;
   highlightedId: string | null;
@@ -503,6 +540,23 @@ const CalendarDayColumn = memo(function CalendarDayColumn({
         onPress={handleSlotPress}
         style={styles.dinggQuickSaleLayer}
       />}
+      {blocked.map((block) => {
+        const offsetMinutes = block.startMin - START_HOUR * 60;
+        if (offsetMinutes < 0 || offsetMinutes >= HOURS.length * 60) return null;
+        const height = Math.max(((block.endMin - block.startMin) / 60) * HOUR_HEIGHT, SLOT_HEIGHT);
+        const top = (offsetMinutes / 60) * HOUR_HEIGHT;
+        return (
+          // Absorbs taps so a blocked slot can't be booked, matching web (not bookable while blocked).
+          <Pressable
+            accessibilityLabel={`Blocked, ${block.reason || "Blocked"}, ${column.label}`}
+            key={block.id}
+            onPress={() => {}}
+            style={[styles.dinggBlockedOverlay, { height, top }]}
+          >
+            <Text numberOfLines={2} style={styles.dinggBlockedLabel}>🚫 {block.reason || "Blocked"}</Text>
+          </Pressable>
+        );
+      })}
       {chips.map((chip) => {
         const { appointment } = chip;
         const offsetMinutes = chip.startMin - START_HOUR * 60;
