@@ -8,6 +8,7 @@ export function AppAlertHost() {
   const cancel = () => { appAlert.dismiss(request.id, "cancel"); };
   return <ConfirmationModal
     key={request.id}
+    pearlStyle
     visible
     title={request.title}
     description={request.message}

@@ -62,25 +62,12 @@ export const createCalendarGridStyles = (Colors: ThemeColors) => StyleSheet.crea
     borderTopWidth: 1,
     borderTopColor: Colors.appointmentDivider,
   },
-  calendarActionPrimary: {
-    backgroundColor: Colors.appointmentAccentSoft,
-    borderTopColor: Colors.appointmentDivider,
-    borderTopWidth: 1,
-    justifyContent: "center",
-    minHeight: 68,
-    paddingHorizontal: 20,
-  },
   calendarActionRow: {
     borderTopColor: Colors.appointmentDivider,
     borderTopWidth: 1,
     justifyContent: "center",
     minHeight: 68,
     paddingHorizontal: 20,
-  },
-  calendarActionText: {
-    color: Colors.appointmentText,
-    fontSize: 20,
-    fontWeight: "500",
   },
   calendarMenuBackdrop: {
     alignItems: "center",
@@ -285,33 +272,4 @@ export const createCalendarGridStyles = (Colors: ThemeColors) => StyleSheet.crea
     paddingHorizontal: 4,
     paddingVertical: 2,
   },
-  calendarActionsModal: {
-    backgroundColor: Colors.appointmentSurface,
-    borderRadius: 16,
-    elevation: 20,
-    overflow: "hidden",
-    shadowColor: Colors.shadow,
-    shadowOffset: { height: 8, width: 0 },
-    shadowOpacity: 0.24,
-    shadowRadius: 18,
-    width: "100%",
-  },
-  calendarActionsHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    minHeight: 66,
-    paddingHorizontal: 20,
-  },
-  calendarActionsTitle: {
-    color: Colors.appointmentText,
-    fontSize: 25,
-    fontWeight: "900",
-  },
-  calendarActionsClose: {
-    alignItems: "center",
-    height: 38,
-    justifyContent: "center",
-    width: 38,
-  }
 });
