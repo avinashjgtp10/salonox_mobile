@@ -9,6 +9,7 @@ import {
   BrandHeader,
   GlassButton,
   GlassCard,
+  GoogleLogo,
   NotRegisteredModal,
   OutlineButton,
   PrimaryButton,
@@ -244,7 +245,7 @@ export default function LoginScreen() {
             loading={ssoLoading === "Google"}
             disabled={busy}
             onPress={handleGoogleLogin}
-            left={<SsoIcon><Text translate style={styles.googleG}>G</Text></SsoIcon>}
+            left={<SsoIcon><GoogleLogo /></SsoIcon>}
             style={styles.flex}
           />
         </View>
@@ -287,6 +288,5 @@ const styles = StyleSheet.create({
   line: { flex: 1, height: 1, backgroundColor: pearl.divider },
   ssoRow: { flexDirection: "row", gap: pearlSpace.sm },
   flex: { flex: 1 },
-  googleG: { fontSize: 13, fontWeight: "800", color: pearl.ink2 },
   register: { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 22, paddingVertical: 14, paddingLeft: 16, paddingRight: 14 },
 });

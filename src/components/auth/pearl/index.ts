@@ -2,7 +2,7 @@ export { AuthScreen } from "./AuthScreen";
 export { authMessages, getAuthErrorCode, getAuthErrorMessage, getNotRegisteredEmail, tooManyAttemptsMessage } from "./authMessages";
 export { BrandHeader, HeroIcon, TopBar } from "./AuthHeader";
 export { Banner, type BannerKind } from "./Banner";
-export { GlassButton, OutlineButton, PrimaryButton, SsoIcon, TextButton } from "./Buttons";
+export { GlassButton, GoogleLogo, OutlineButton, PrimaryButton, SsoIcon, TextButton } from "./Buttons";
 export { GlassCard } from "./GlassCard";
 export { NotRegisteredModal, type SsoProvider } from "./NotRegisteredModal";
 export { OtpInput } from "./OtpInput";
