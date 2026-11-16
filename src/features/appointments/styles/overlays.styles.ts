@@ -19,13 +19,15 @@ export const createOverlaysStyles = (Colors: ThemeColors) => StyleSheet.create({
     backgroundColor: "rgba(35, 33, 52, 0.35)",
     flex: 1,
     justifyContent: "flex-end",
-    paddingBottom: 8,
   },
   bookingModalSurface: {
     backgroundColor: pearl.bgMid,
-    borderRadius: 28,
+    // Edge to edge and flush with the bottom: any side or bottom gap shows the
+    // calendar behind, including its red "now" marker, which reads as a stray
+    // red background once a sheet opens on top.
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     elevation: 6,
-    marginHorizontal: 8,
     // An explicit height, not maxHeight: the form inside is flex:1, so against a
     // bounded-but-unsized parent it would collapse to nothing.
     height: "94%",
