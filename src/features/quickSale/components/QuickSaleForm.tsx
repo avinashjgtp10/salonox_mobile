@@ -37,7 +37,7 @@ type Props = { totals: CheckoutSheetProps["totals"] } & Pick<CheckoutSheetProps,
   saleDate?: string;
   onChangeSaleDate?: (date: string) => void;
   /** Opens the new-client form. */
-  onAddClient: () => void;
+  onAddClient: (prefill?: string) => void;
   /** Drops the chosen client so another can be searched. */
   onClearClient: () => void;
   onSelectClient: (client: ClientListItem) => void;

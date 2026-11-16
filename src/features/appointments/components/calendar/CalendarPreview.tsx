@@ -441,14 +441,14 @@ export function CalendarPreview({
         </View>
       </Modal>
       <Modal
-        animationType="fade"
+        animationType="slide"
         onRequestClose={closeAppointmentForm}
         statusBarTranslucent
         transparent
         visible={Boolean(appointmentSlot)}
       >
-        <View style={styles.quickSaleModalBackdrop}>
-          <View style={styles.quickSaleModalSurface}>
+        <View style={styles.bookingModalBackdrop}>
+          <View style={styles.bookingModalSurface}>
             {appointmentSlot ? (
               <AppointmentFormScreen initialSlot={appointmentSlot} mode="create" onRequestClose={closeAppointmentForm} />
             ) : null}
