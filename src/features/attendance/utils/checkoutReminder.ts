@@ -1,7 +1,7 @@
 import type { StaffSelfAttendance } from "@/services/staffSelfAttendance.service";
 import { parseAttendanceDateTime } from "./attendanceStatus";
 
-export const CHECKOUT_REMINDER_DELAY_MS = 15 * 60 * 1000;
+export const CHECKOUT_REMINDER_DELAY_MS = 10 * 60 * 1000;
 
 /** Use the authenticated self-attendance shift, including overnight/date overrides. */
 export function getCheckoutReminder(state: StaffSelfAttendance | null) {
