@@ -243,6 +243,7 @@ function OwnerQuickSaleScreen({
   const [isClientDatesVisible, setIsClientDatesVisible] = useState(false);
   const [isEmbeddedStaffPickerVisible, setIsEmbeddedStaffPickerVisible] = useState(false);
   const [clientPickerStartsInCreateMode, setClientPickerStartsInCreateMode] = useState(false);
+  const [clientPickerPrefill, setClientPickerPrefill] = useState("");
   const [changeServiceLineId, setChangeServiceLineId] = useState<string | null>(null);
   const [isCheckoutVisible, setIsCheckoutVisible] = useState(false);
   const [pendingCheckoutPayment, setPendingCheckoutPayment] = useState<PendingCheckoutPayment | null>(null);
@@ -1581,6 +1582,7 @@ function OwnerQuickSaleScreen({
     if (embedded && !selectedClient.id) {
       setPendingCheckoutPayment(payment);
       setIsCheckoutVisible(false);
+      setClientPickerPrefill("");
       setClientPickerStartsInCreateMode(true);
       setIsClientPickerVisible(true);
       return;
@@ -1920,7 +1922,7 @@ function OwnerQuickSaleScreen({
           notes={saleNotes} onChangeNotes={setSaleNotes}
           pricingError={pricingError} isPricingLoading={isPricingLoading}
           showStaffErrors={showFormStaffErrors}
-          onAddClient={() => { setClientPickerStartsInCreateMode(true); setIsClientPickerVisible(true); }}
+          onAddClient={(prefill) => { setClientPickerPrefill(prefill ?? ""); setClientPickerStartsInCreateMode(true); setIsClientPickerVisible(true); }}
           onClearClient={() => { setSelectedClient(WALK_IN_CLIENT); setHasClientStepSelection(false); }}
           onSelectClient={handleClientPickerSelect}
           onEditClientDates={() => setIsClientDatesVisible(true)}
@@ -2030,6 +2032,7 @@ function OwnerQuickSaleScreen({
             }
           }}
           onSelect={handleClientPickerSelect}
+          prefillQuery={clientPickerPrefill}
           renderInline={embedded}
           selectedClientId={hasClientStepSelection ? selectedClient.id : null}
           startInCreateMode={clientPickerStartsInCreateMode}
@@ -2142,6 +2145,7 @@ function OwnerQuickSaleScreen({
             ? () => {
                 setShouldResumeCheckoutAtCharges(true);
                 setIsCheckoutVisible(false);
+                setClientPickerPrefill("");
                 setClientPickerStartsInCreateMode(true);
                 setIsClientPickerVisible(true);
               }

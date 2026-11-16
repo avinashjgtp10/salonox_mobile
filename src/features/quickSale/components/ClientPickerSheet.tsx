@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { maskPhone } from "@/utils/maskPhone";
 import { Text, TextInput } from "@/components/ui/AppTypography";
@@ -7,7 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { AppRadius } from "@/constants/layout";
-import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardRadius as Radius, DashboardSpacing as Spacing } from "@/constants/theme";
 import { ClientOptionRow } from "@/features/quickSale/components/ClientOptionRow";
 import { EmptyState, ErrorState } from "@/features/quickSale/components/StateViews";
 import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
@@ -24,7 +25,6 @@ import {
   selectClientCreating,
 } from "@/store/client/client.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ClientListItem } from "@/types/client";
 import {
   isValidPersonName,
@@ -35,7 +35,34 @@ import {
   sanitizePhoneDigits,
 } from "@/utils/validation";
 
+// Pearl palette for this sheet. The sheet chrome is already pearl (StaffBottomSheet
+// passes pearlStyle); the body used the old theme, so the fields and buttons inside
+// came out in the previous colours.
+const PICKER_COLORS = {
+  bg2: pearl.field,
+  border: pearl.fieldBorder,
+  error: pearl.dangerText,
+  heading: pearl.ink,
+  onPrimary: pearl.white,
+  placeholder: pearl.placeholder,
+  primary: pearl.accent,
+  primaryText: pearl.accentDeep,
+  text2: pearl.ink2,
+} as const;
+
 const normalizePhoneForCompare = (value: string) => value.replace(/\D/g, "");
+// Quick Sale hands over whatever was typed in the client search. Digits (and the
+// punctuation people type into a number) mean a phone was searched; anything else
+// is a name, first word first.
+const splitPrefill = (value: string) => {
+  const text = value.trim();
+  if (!text) return { firstName: "", lastName: "", phone: "" };
+  if (/^[+()\d\s-]+$/.test(text)) {
+    return { firstName: "", lastName: "", phone: sanitizePhoneDigits(text).slice(0, PHONE_INPUT_MAX_LENGTH) };
+  }
+  const [first, ...rest] = text.split(/\s+/);
+  return { firstName: first, lastName: rest.join(" "), phone: "" };
+};
 const GENDER_OPTIONS = ["Female", "Male", "Other"] as const;
 type GenderOption = (typeof GENDER_OPTIONS)[number];
 type ClientFormErrors = Partial<Record<"anniversary" | "dob" | "firstName" | "gender" | "lastName" | "phone" | "form", string>>;
@@ -43,6 +70,8 @@ type ClientFormErrors = Partial<Record<"anniversary" | "dob" | "firstName" | "ge
 type ClientPickerSheetProps = {
   onClose: () => void;
   onSelect: (client: ClientListItem | null) => void;
+  // What the caller's search box held when "Add client" was tapped.
+  prefillQuery?: string;
   renderInline?: boolean;
   selectedClientId?: string | null;
   startInCreateMode?: boolean;
@@ -52,12 +81,13 @@ type ClientPickerSheetProps = {
 export function ClientPickerSheet({
   onClose,
   onSelect,
+  prefillQuery,
   renderInline = false,
   selectedClientId,
   startInCreateMode,
   visible,
 }: ClientPickerSheetProps) {
-  const Colors = useThemeColors();
+  const Colors = PICKER_COLORS;
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const salonId = useAppSelector(selectActiveBranchId);
@@ -86,11 +116,22 @@ export function ClientPickerSheet({
   const trimmedQuery = debouncedQuery.trim();
   const visibleClients = useMemo(() => uniqueById(clients), [clients]);
 
+  const applyPrefill = useCallback((value: string) => {
+    const { firstName, lastName, phone } = splitPrefill(value);
+    setNewFirstName(firstName);
+    setNewLastName(lastName);
+    setNewPhone(phone);
+    setFormErrors({});
+  }, []);
+
   useEffect(() => {
     if (visible) {
       setIsCreating(Boolean(startInCreateMode));
+      // Carry the search term into the form, so the name or number the user
+      // already typed isn't lost when they tap "Add client".
+      if (startInCreateMode) applyPrefill(prefillQuery ?? "");
     }
-  }, [startInCreateMode, visible]);
+  }, [applyPrefill, prefillQuery, startInCreateMode, visible]);
 
   const loadClients = useCallback(async (offset = 0, append = false) => {
     const search = trimmedQuery;
@@ -217,7 +258,9 @@ export function ClientPickerSheet({
 
   return (
     <StaffBottomSheet
-      centered={renderInline}
+      // Always bottom-attached, including inside the Calendar pop-up, so the sheet
+      // sits on the footer instead of floating in the middle of the form.
+      centered={false}
       onClose={handleClose}
       renderInline={renderInline}
       // The new-client form scrolls (and keeps the focused field above the
@@ -368,7 +411,7 @@ export function ClientPickerSheet({
 
           <TouchableOpacity
             activeOpacity={0.84}
-            onPress={() => setIsCreating(true)}
+            onPress={() => { applyPrefill(query); setIsCreating(true); }}
             style={styles.newClientButton}
           >
             <Ionicons name="person-add-outline" size={16} color={Colors.primaryText} />
@@ -419,7 +462,7 @@ export function ClientPickerSheet({
   );
 }
 
-const createStyles = (Colors: ThemeColors) => StyleSheet.create({
+const createStyles = (Colors: typeof PICKER_COLORS) => StyleSheet.create({
   listWrap: {
     minHeight: 260,
     maxHeight: 480,

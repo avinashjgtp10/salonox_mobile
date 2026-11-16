@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import type { ThemeColors } from '@/constants/theme';
 import { DashboardSpacing as Spacing } from "@/constants/theme";
@@ -11,6 +12,28 @@ export const createOverlaysStyles = (Colors: ThemeColors) => StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 12,
     paddingVertical: 28,
+  },
+  // The booking form is a bottom-attached sheet, like the appointment detail
+  // overlay — not a floating card centred in the screen.
+  bookingModalBackdrop: {
+    backgroundColor: "rgba(35, 33, 52, 0.35)",
+    flex: 1,
+    justifyContent: "flex-end",
+    paddingBottom: 8,
+  },
+  bookingModalSurface: {
+    backgroundColor: pearl.bgMid,
+    borderRadius: 28,
+    elevation: 6,
+    marginHorizontal: 8,
+    // An explicit height, not maxHeight: the form inside is flex:1, so against a
+    // bounded-but-unsized parent it would collapse to nothing.
+    height: "94%",
+    overflow: "hidden",
+    shadowColor: "#000000",
+    shadowOffset: { height: -8, width: 0 },
+    shadowOpacity: 0.16,
+    shadowRadius: 20,
   },
   quickSalePaymentOnly: {
     flex: 1,
