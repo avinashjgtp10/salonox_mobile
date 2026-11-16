@@ -11,7 +11,7 @@ import {
   notificationPreferencesStorage,
 } from "@/services/notificationPreferencesStorage";
 
-const ANDROID_CHANNEL_ID = "salonox";
+export const ANDROID_CHANNEL_ID = "salonox";
 
 export class PushPermissionDeniedError extends Error {
   constructor() {

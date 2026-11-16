@@ -3,7 +3,10 @@ import { AppState } from "react-native";
 import { router } from "expo-router";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import type { StaffSelfAttendance } from "@/services/staffSelfAttendance.service";
+import { selectCurrentUser } from "@/store/user/user.slice";
+import { useAppSelector } from "@/store/hooks";
 import { getCheckoutReminder } from "../utils/checkoutReminder";
+import { cancelCheckoutReminderNotification, syncCheckoutReminderNotification } from "../utils/checkoutReminderNotification";
 import { formatAttendanceTime } from "../utils/attendanceStatus";
 
 /** Mounted only for the current staff login; never schedules an unchecked background alert. */
@@ -16,6 +19,7 @@ export function StaffCheckoutReminder({ state, refresh, busy, unavailable }: {
   const [active, setActive] = useState(AppState.currentState === "active");
   const [foregroundAt, setForegroundAt] = useState(0);
   const [dismissed, setDismissed] = useState<string[]>([]);
+  const userId = useAppSelector(selectCurrentUser)?.id;
   const reminder = getCheckoutReminder(state);
   const key = reminder?.key;
   const dueAt = reminder?.dueAt;
@@ -39,12 +43,21 @@ export function StaffCheckoutReminder({ state, refresh, busy, unavailable }: {
     return () => clearTimeout(timer);
   }, [active, busy, alreadyDismissed, dueAt, serverNow, receivedAt, refresh]);
 
+  // The dialog above only reaches staff with the app open; this keeps the matching
+  // local notification pending so the reminder still arrives once they close it.
+  useEffect(() => {
+    if (unavailable) return;
+    void syncCheckoutReminderNotification(state, userId);
+  }, [state, unavailable, userId]);
+
+  useEffect(() => () => { void cancelCheckoutReminderNotification(); }, []);
+
   const dismiss = () => { if (key) setDismissed(previous => [...previous, key]); };
   return <ConfirmationModal
     pearlStyle
     visible={active && !busy && !unavailable && !!reminder?.due && !alreadyDismissed && (receivedAt ?? 0) >= foregroundAt}
     title="You haven't checked out"
-    description={`Your scheduled shift ended at ${formatAttendanceTime(state?.shift_end)}. It's been at least 15 minutes and your checkout hasn't been recorded. Please check out when you've finished for the day.`}
+    description={`Your scheduled shift ended at ${formatAttendanceTime(state?.shift_end)}. It's been at least 10 minutes and your checkout hasn't been recorded. Please check out when you've finished for the day.`}
     cancelLabel="Dismiss"
     confirmLabel="Go to checkout"
     confirmVariant="default"
