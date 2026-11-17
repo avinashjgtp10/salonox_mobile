@@ -21,10 +21,12 @@ import { selectStaffLoading, selectStaffMembers } from "@/store/staff/staff.slic
 import type { AttendanceRecord } from "@/types/attendance";
 import { useStaffLeaveStatus } from "@/features/staff/hooks/useStaffLeaveStatus";
 import { applyApprovedLeaveToAttendance, applyApprovedLeaveToSummary } from "../utils/approvedLeaveAttendance";
+import { getDailyStaffSchedule } from "../utils/dailyStaffSchedule";
 
 export type AttendanceStaffRowData = {
   record: AttendanceRecord | null;
   staffMember: StaffMember;
+  schedule: ReturnType<typeof getDailyStaffSchedule>;
 };
 
 const shiftDate = (dateKey: string, days: number) => {
@@ -45,7 +47,8 @@ export const useAttendanceScreen = () => {
 
   const rawStaffMembers = useAppSelector(selectStaffMembers);
   const staffLoading = useAppSelector(selectStaffLoading);
-  const attendanceRecords = useAppSelector(selectAttendanceRecords);
+  const storedAttendanceRecords = useAppSelector(selectAttendanceRecords);
+  const attendanceDate = useAppSelector(state => state.attendance.date);
   const summary = useAppSelector(selectAttendanceSummary);
   const isInitialLoading = useAppSelector(selectAttendanceIsInitialLoading);
   const recordsError = useAppSelector(selectAttendanceRecordsError);
@@ -54,15 +57,16 @@ export const useAttendanceScreen = () => {
   const checkingOutStaffIds = useAppSelector(selectAttendanceCheckingOutStaffIds);
 
   const [selectedDate, setSelectedDate] = useState(getTodayAttendanceDateKey);
+  const attendanceRecords = useMemo(() => attendanceDate === selectedDate ? storedAttendanceRecords : [], [attendanceDate, selectedDate, storedAttendanceRecords]);
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const [search, setSearch] = useState("");
-  const leaveStatus = useStaffLeaveStatus(rawStaffMembers, selectedDate);
+  const leaveStatus = useStaffLeaveStatus(rawStaffMembers, selectedDate, true);
   const refreshLeaves = leaveStatus.refresh;
 
   const refresh = useCallback(async (includeLeaves = true) => {
     await Promise.all([
       dispatch(fetchAttendanceOverviewThunk(selectedDate)),
-      dispatch(fetchStaffThunk({ reset: true })),
+      dispatch(fetchStaffThunk({ reset: true, all: true })),
       includeLeaves ? refreshLeaves() : Promise.resolve(),
     ]);
   }, [dispatch, selectedDate, refreshLeaves]);
@@ -88,7 +92,7 @@ export const useAttendanceScreen = () => {
   }, [refresh]);
 
   const activeStaffMembers = useMemo(
-    () => rawStaffMembers.filter((member) => member.status !== "Inactive"),
+    () => rawStaffMembers,
     [rawStaffMembers],
   );
 
@@ -111,8 +115,11 @@ export const useAttendanceScreen = () => {
       filteredStaffMembers.map((staffMember) => ({
         record: findAttendanceRecordForStaff(attendanceRecords, staffMember) ?? null,
         staffMember,
-      })).map(row => ({ ...row, record: applyApprovedLeaveToAttendance(row.record, row.staffMember, selectedDate, leaveStatus.approvedLeaves[row.staffMember.id]) })),
-    [attendanceRecords, filteredStaffMembers, selectedDate, leaveStatus.approvedLeaves],
+      })).map(row => {
+        const record = applyApprovedLeaveToAttendance(row.record, row.staffMember, selectedDate, leaveStatus.approvedLeaves[row.staffMember.id]);
+        return { ...row, record, schedule: getDailyStaffSchedule(leaveStatus.schedules?.[row.staffMember.id], selectedDate, record) };
+      }),
+    [attendanceRecords, filteredStaffMembers, selectedDate, leaveStatus.approvedLeaves, leaveStatus.schedules],
   );
 
   const isStaffBusy = useCallback(
@@ -131,7 +138,7 @@ export const useAttendanceScreen = () => {
     onSearchChange: setSearch,
     onSelectDate: setSelectedDate,
     onToday: () => setSelectedDate(getTodayAttendanceDateKey()),
-    recordsError: recordsError || (leaveStatus.error ? "Could not refresh staff leave status. Pull down to retry." : null),
+    recordsError: recordsError || (leaveStatus.error ? "Could not refresh staff leave or schedule status. Pull down to retry." : null),
     refresh,
     rows,
     search,
