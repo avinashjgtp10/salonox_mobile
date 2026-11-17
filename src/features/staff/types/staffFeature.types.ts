@@ -41,8 +41,8 @@ export type StaffProfileFormValues = {
   fixedSalary: string;
   fullName: string;
   gender: string;
-  holidays: string;
-  hourlyRate: string;
+  startTime: string;
+  endTime: string;
   isLoginEnabled: boolean;
   joiningDate: string;
   notes: string;

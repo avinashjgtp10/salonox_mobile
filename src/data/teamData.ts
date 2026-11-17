@@ -28,6 +28,8 @@ export type StaffMember = {
   gender: string;
   joiningDate: string;
   workingHours: string;
+  workStartTime?: string;
+  workEndTime?: string;
   status: StaffStatus;
   availability: StaffAvailability;
   todayAppointments: number;
