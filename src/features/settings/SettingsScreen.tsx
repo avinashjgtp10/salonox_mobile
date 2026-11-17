@@ -264,6 +264,9 @@ export default function SettingsScreen() {
                 icon="storefront-outline"
                 onPress={() => go("/salon-settings")}
               />
+              {can("view_settings_currency") && (
+                <SettingsRow title="Region" subtitle="Country, currency, timezone & language" icon="globe-outline" onPress={() => go("/region-settings")} />
+              )}
                 {(can("manage_payment_methods") || can("view_settings_payment_methods")) && (
                   <SettingsRow title="Payment methods" subtitle="Default & custom payment options" icon="card-outline" onPress={() => go("/payment-methods")} />
                 )}
