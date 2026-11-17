@@ -115,15 +115,16 @@ export const mapStaffFormToRequest = (
 
 export const mapStaffWagesToRequest = (values: StaffProfileFormValues): SetStaffWagesRequest | null => {
   const fixedSalary = values.fixedSalary.trim();
+  const hourlyRate = values.hourlyRate.trim();
 
-  if (!fixedSalary) {
+  if (!values.payType || (values.payType === "Hourly" ? !hourlyRate : !fixedSalary)) {
     return null;
   }
 
   return {
-    compensationType: "salary",
-    fixedSalary: Number(fixedSalary),
-    hourlyRate: null,
+    compensationType: values.payType === "Hourly" ? "hourly" : "salary",
+    fixedSalary: values.payType === "Fixed salary" ? Number(fixedSalary) : null,
+    hourlyRate: values.payType === "Hourly" ? Number(hourlyRate) : null,
     wagesEnabled: true,
   };
 };
