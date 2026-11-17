@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useMemo } from "react";
 import { StyleSheet, View } from "react-native";
 
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 
 export type IconBadgeAccent = "blue" | "sky" | "indigo" | "green";
 
@@ -20,7 +20,7 @@ const ACCENT_KEYS = {
 } as const;
 
 export function IconBadge({ icon, accent, size = "md" }: IconBadgeProps) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const [colorKey, softKey] = ACCENT_KEYS[accent];
   const styles = useMemo(() => createStyles(size), [size]);
 

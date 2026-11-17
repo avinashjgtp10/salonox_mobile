@@ -2,7 +2,7 @@ import { Text } from "@/components/ui/AppTypography";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { clearAppointmentToast, selectAppointmentToast } from "@/store/appointment/appointment.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo } from "react";
 import { TouchableOpacity } from "react-native";
@@ -10,7 +10,7 @@ import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { ToastOverlay } from "@/components/ui/ToastOverlay";
 
 export function AppointmentSnackbar() {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const toast = useAppSelector(selectAppointmentToast);

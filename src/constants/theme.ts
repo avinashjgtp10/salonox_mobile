@@ -147,7 +147,15 @@ export function getDashboardColors(scheme: AppColorScheme) {
   } as const;
 }
 
-export type ThemeColors = ReturnType<typeof getDashboardColors>;
+// Widened to `string` per colour key. getDashboardColors infers literal unions
+// (from its `scheme === "dark" ? a : b` expressions), which would make any other
+// palette of the same shape — notably the pearl one — fail to type-check when
+// passed to a createStyles(Colors: ThemeColors) helper.
+export type ThemeColors = {
+  [Key in keyof ReturnType<typeof getDashboardColors>]: ReturnType<typeof getDashboardColors>[Key] extends string
+    ? string
+    : ReturnType<typeof getDashboardColors>[Key];
+};
 
 export const DashboardTypography = {
   fontFamilies: {

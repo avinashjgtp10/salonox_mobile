@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { Text } from "@/components/ui/AppTypography";
 import { DateRangePickerSheet } from "./DateRangePickerSheet";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import { dateRangeLabel } from "@/utils/dateRangePresets";
 
 export function DateRangeField({ startDate, endDate, onChange, onClear, label = "Date range", disabled = false, maximumDate, minimumDate }: {
@@ -11,7 +11,7 @@ export function DateRangeField({ startDate, endDate, onChange, onClear, label = 
   label?: string; disabled?: boolean; maximumDate?: Date; minimumDate?: Date;
   onClear?: () => void;
 }) {
-  const colors = useThemeColors();
+  const colors = usePearlColors();
   const [open, setOpen] = useState(false);
   return (
     <View style={{ marginBottom: 14, gap: 8 }}>

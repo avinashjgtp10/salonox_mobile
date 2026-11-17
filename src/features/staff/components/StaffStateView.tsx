@@ -9,7 +9,7 @@ import {
   DashboardSpacing as Spacing,
   type ThemeColors,
 } from "@/constants/theme";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 
 type StaffStateViewProps = {
   actionLabel?: string;
@@ -28,7 +28,7 @@ export function StaffStateView({
   title,
   variant = "empty",
 }: StaffStateViewProps) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (

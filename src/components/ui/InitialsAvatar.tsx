@@ -2,7 +2,7 @@ import { Text } from "@/components/ui/AppTypography";
 import { Image } from "expo-image";
 import { StyleSheet, View } from "react-native";
 
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 
 type InitialsAvatarProps = {
   bg?: string;
@@ -19,7 +19,7 @@ export function InitialsAvatar({
   initials,
   size = 40,
 }: InitialsAvatarProps) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const resolvedBg = bg ?? Colors.backgroundElement;
   const resolvedColor = color ?? Colors.heading;
   const dimension = { borderRadius: size / 2, height: size, width: size };
