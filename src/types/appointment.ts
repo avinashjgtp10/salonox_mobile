@@ -230,6 +230,8 @@ export type AppointmentListItem = {
   cancelledAt: string | null;
   cancellationReason: string;
   clientEmail: string;
+  /** Salon-scoped client code (web: client_code); shown to staff in place of the invoice number. */
+  clientCode: string | null;
   clientId: string;
   clientName: string;
   createdAt: string | null;

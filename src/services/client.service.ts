@@ -341,6 +341,7 @@ const normalizeClient = (client: ClientApiItem): ClientListItem => {
     anniversary: toSafeString(client.anniversary).slice(0, 10) || null,
     birthdayDayMonth: toSafeString(client.birthday_day_month) || null,
     birthdayYear: birthdayYear > 0 ? birthdayYear : null,
+    clientCode: toSafeString(client.client_code) || null,
     createdAt,
     createdDateLabel: formatCreatedDate(createdAt),
     email: toSafeString(client.email, "-"),
@@ -811,6 +812,7 @@ const normalizeHistoryClient = (
       toSafeString(client.full_name) ||
       [toSafeString(client.first_name), toSafeString(client.last_name)].filter(Boolean).join(" "),
     email: toSafeString(client.email),
+    clientCode: toNullableString(client.client_code),
     phoneNumber: toSafeString(client.phone_number),
     phoneCountryCode: toNullableString(client.phone_country_code),
     avatarUrl: toNullableString(client.avatar_url),

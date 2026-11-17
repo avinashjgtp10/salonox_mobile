@@ -119,7 +119,7 @@ function ClientCard({ client, index, isLast, isDeleting, onBook, onDelete, onEdi
     <TouchableOpacity accessibilityRole="button" onPress={onOpen} style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 14, backgroundColor: pearl.glass, borderBottomWidth: 1, borderBottomColor: pearl.divider }}>
       <LinearGradient colors={tone.avatar} style={{ width: 44, height: 44, borderRadius: 16, alignItems: "center", justifyContent: "center" }}><Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "700" }}>{client.initials}</Text></LinearGradient>
       <View style={{ flex: 1 }}><View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 }}><Text style={clientUi.rowTitle}>{client.fullName}</Text>{client.membership ? <Text style={{ fontSize: 10, color: "#94640F", backgroundColor: pearl.warningBg, borderRadius: 8, paddingHorizontal: 6 }}>{client.membership}</Text> : isCreatedToday(client.createdAt) ? <Text translate style={{ fontSize: 10, color: pearl.successText }}>New</Text> : null}</View>
-        <Text style={clientUi.muted}>{client.totalVisits} {client.totalVisits === 1 ? "visit" : "visits"}</Text>
+        <Text style={clientUi.muted}>{client.clientCode ? `${client.clientCode} · ` : ""}{client.totalVisits} {client.totalVisits === 1 ? "visit" : "visits"}</Text>
         {client.birthdayDayMonth ? <Text style={{ color: pearlTones.lilac.fg, fontSize: 11 }}>Birthday {clientBirthdayLabel(client.birthdayDayMonth)}</Text> : null}
       </View><Ionicons name="chevron-forward" size={18} color={pearl.muted} />
     </TouchableOpacity>

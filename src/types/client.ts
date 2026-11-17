@@ -21,6 +21,7 @@ export type ClientApiMembership =
   | null;
 
 export type ClientApiItem = {
+  client_code?: string | number | null;
   address?: string | null;
   has_whatsapp?: boolean | null;
   sms_notifications?: boolean | null;
@@ -95,6 +96,8 @@ export type ClientListItem = {
   /** MM-DD, stored separately from the year like the web app. */
   birthdayDayMonth?: string | null;
   birthdayYear?: number | null;
+  /** Salon-scoped human-readable code, auto-numbered on create (web: client_code). */
+  clientCode: string | null;
   createdAt: string | null;
   createdDateLabel: string;
   email: string;
@@ -324,6 +327,7 @@ export type ClientHistoryReferrer = {
 
 export type ClientHistoryClientApi = ClientHistorySummaryApi & {
   id?: string | null;
+  client_code?: string | number | null;
   first_name?: string | null;
   last_name?: string | null;
   full_name?: string | null;
@@ -345,6 +349,8 @@ export type ClientHistoryClient = {
   fullName: string;
   email: string;
   phoneNumber: string;
+  /** Salon-scoped human-readable code (web: client_code). */
+  clientCode: string | null;
   phoneCountryCode: string | null;
   avatarUrl: string | null;
   isActive: boolean;
