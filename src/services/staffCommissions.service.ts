@@ -42,6 +42,8 @@ const normalizeHistoryEntry = (entry: UnknownRecord, index: number): CommissionH
     createdAt: toSafeString(firstValue(entry, ["createdAt", "created_at", "earned_at", "earnedAt"])) || null,
     id: toSafeString(firstValue(entry, ["id", "_id"]), `commission-history-${index}`),
     notes: toSafeString(firstValue(entry, ["notes"])) || null,
+    paymentMethod: toSafeString(firstValue(entry, ["payment_method", "paymentMethod"])) || null,
+    revenueAmount: toSafeNumber(firstValue(entry, ["revenue_amount", "revenueAmount"])),
     period: period || null,
     status: toSafeString(firstValue(entry, ["status"]), "pending"),
   };
