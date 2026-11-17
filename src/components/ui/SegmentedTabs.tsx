@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { DashboardRadius as Radius, type ThemeColors } from "@/constants/theme";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 
 export type SegmentedTabOption<TKey extends string> = {
   disabled?: boolean;
@@ -24,7 +24,7 @@ export function SegmentedTabs<TKey extends string>({
   segments,
   renderDisabledAdornment,
 }: SegmentedTabsProps<TKey>) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
