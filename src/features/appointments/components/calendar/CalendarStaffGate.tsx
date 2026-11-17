@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { useCallback, useState, type ReactNode } from "react";
@@ -6,7 +7,7 @@ import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { fetchStaffThunk } from "@/middleware/staff/staff.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import { ScreenShell } from "../shared/ScreenShell";
 
 type Check = { branchId: string | null | undefined; attempt: number; status: "loading" | "empty" | "ready" | "error"; message?: string };
@@ -14,7 +15,7 @@ type Check = { branchId: string | null | undefined; attempt: number; status: "lo
 export function CalendarStaffGate({ children }: { children: ReactNode }) {
   const dispatch = useAppDispatch();
   const branchId = useAppSelector(selectActiveBranchId);
-  const colors = useThemeColors();
+  const colors = usePearlColors();
   const [check, setCheck] = useState<Check>({ branchId, attempt: -1, status: "loading" });
   const [attempt, setAttempt] = useState(0);
 
@@ -37,7 +38,7 @@ export function CalendarStaffGate({ children }: { children: ReactNode }) {
   return (
     <ScreenShell title="Calendar" hideHeader scrollable={false} contentBottomPadding={0} safeAreaEdges={["top"]}>
       <View style={styles.container}>
-        {loading ? <ActivityIndicator accessibilityLabel="Checking staff" color={colors.primaryText} size="large" /> : <>
+        {loading ? <ActivityIndicator accessibilityLabel="Checking staff" color={pearl.accentDeep} size="large" /> : <>
           {check.status === "error" ? <Text accessibilityRole="alert" style={[styles.message, { color: colors.error }]}>{check.message}</Text> : null}
           <TouchableOpacity accessibilityRole="button" style={[styles.button, { backgroundColor: colors.primary }]} onPress={() => {
             if (check.status === "error") setAttempt((value) => value + 1);

@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { pearlBookingFields } from "@/features/appointments/styles/pearlBookingFields";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
@@ -71,7 +72,7 @@ export function TimeSlotSelector({
     <View style={styles.inputGroup}>
       <View style={styles.inputLabelRow}>
         <Text translate style={styles.inputLabel}>Start</Text>
-        {loading ? <ActivityIndicator color={Colors.primaryText} size="small" /> : null}
+        {loading ? <ActivityIndicator color={pearl.accentDeep} size="small" /> : null}
       </View>
       {disabledReason ? <Text style={styles.fieldHint}>{disabledReason}</Text> : null}
       {!loading && !disabledReason && slots.length === 0 ? (

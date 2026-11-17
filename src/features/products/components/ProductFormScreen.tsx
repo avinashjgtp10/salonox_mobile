@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { CatalogFormFooter } from "@/features/catalog/components/CatalogFormFooter";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
@@ -618,7 +619,7 @@ function LoadingScreen({ onBack, title }: { onBack: () => void; title: string })
           <AppBackButton onPress={onBack} />
           <Text translate style={styles.headerTitle}>{title}</Text>
         </View>
-        <View style={styles.loading}><ActivityIndicator size="large" color={Colors.primaryText} /></View>
+        <View style={styles.loading}><ActivityIndicator size="large" color={pearl.accentDeep} /></View>
       </View>
     </SafeAreaView></PearlBackground>
   );

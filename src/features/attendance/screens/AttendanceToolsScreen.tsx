@@ -20,7 +20,7 @@ import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearlGradients, pearl } from "@/components/auth/pearl/tokens";
 import { emitRealtimeEntityChanged } from "@/services/realtimeEvents";
 import { realtimeSocket } from "@/services/realtimeSocket";
 import type { AttendanceSettings, UpdateAttendanceSettingsRequest } from "@/types/attendance";
@@ -201,7 +201,7 @@ export default function AttendanceToolsScreen() {
     <View style={[styles.tabs, { borderColor: colors.border, backgroundColor: colors.card }]}>{(["Rules", "Devices", "Export"] as const).map(item => <TouchableOpacity accessibilityRole="tab" accessibilityState={{ selected: tab === item, disabled: busy }} key={item} disabled={busy} style={[styles.tab, { backgroundColor: tab === item ? colors.primary : "transparent" }]} onPress={() => { setTab(item); setError(""); setMessage(""); setDeviceForm(null); setSelectedDevice(null); }}><Ionicons name={item === "Rules" ? "options-outline" : item === "Devices" ? "hardware-chip-outline" : "download-outline"} size={16} color={tab === item ? colors.onPrimary : colors.text2} /><Text translate style={{ color: tab === item ? colors.onPrimary : colors.text2, fontWeight: "700", fontSize: 13 }}>{item}</Text></TouchableOpacity>)}</View>
     <KeyboardAwareForm autoReveal>
     <View style={styles.content}>
-      {loading || busy ? <ActivityIndicator color={colors.primaryText} /> : null}
+      {loading || busy ? <ActivityIndicator color={pearl.accentDeep} /> : null}
       {error ? <Text translate accessibilityRole="alert" style={{ color: colors.error }}>{error}</Text> : null}
       {error && !busy && !loading ? button("Retry loading", () => void run(async () => {
         if (tab === "Rules") { const result = await attendanceService.getSettings(); setSettings(result); setForm(toForm(result)); await loadStaff(); }

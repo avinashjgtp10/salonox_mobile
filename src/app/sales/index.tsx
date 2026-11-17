@@ -399,10 +399,10 @@ function SalesHistoryScreenContent() {
         onEndReachedThreshold={0.35}
         refreshControl={
           <RefreshControl
-            colors={[Colors.primary]}
+            colors={[pearl.accent]}
             onRefresh={handleRefresh}
             refreshing={salesRefreshing}
-            tintColor={Colors.primary}
+            tintColor={pearl.accent}
           />
         }
         renderItem={({ item, index }) => (

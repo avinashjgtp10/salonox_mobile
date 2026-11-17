@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -175,7 +176,7 @@ export function ConsumablesSection({ disabled = false, onChange, value }: Consum
             </TouchableOpacity>
           </View>
 
-          {loading ? <ActivityIndicator color={Colors.primaryText} style={styles.loadingIndicator} /> : null}
+          {loading ? <ActivityIndicator color={pearl.accentDeep} style={styles.loadingIndicator} /> : null}
 
           {!loading && results.length === 0 ? (
             <Text translate style={styles.noResultsText}>

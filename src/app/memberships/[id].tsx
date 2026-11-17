@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { AppBackButton } from "@/components/ui/AppBackButton";
@@ -331,7 +332,7 @@ export default function MembershipDetailsScreen() {
     return (
       <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
-        <View style={styles.centered}><ActivityIndicator color={Colors.primaryText} size="large" /></View>
+        <View style={styles.centered}><ActivityIndicator color={pearl.accentDeep} size="large" /></View>
       </SafeAreaView></PearlBackground>
     );
   }
@@ -405,7 +406,7 @@ export default function MembershipDetailsScreen() {
 
         <Section title="Assigned Clients">
           {assignedClientsLoading ? (
-            <ActivityIndicator color={Colors.primaryText} />
+            <ActivityIndicator color={pearl.accentDeep} />
           ) : assignedClientsErrorMessage ? (
             <Text style={styles.mutedText}>{assignedClientsErrorMessage}</Text>
           ) : assignedClients.length === 0 ? (
@@ -436,7 +437,7 @@ export default function MembershipDetailsScreen() {
           {deletingIds.includes(membership.id) ? <ActivityIndicator color={Colors.error} /> : <Ionicons name="trash-outline" size={17} color={Colors.error} />}
         </TouchableOpacity>
         <TouchableOpacity activeOpacity={0.88} disabled={assignmentMutating} onPress={() => setClientPickerVisible(true)} style={styles.secondaryAction}>
-          {assignmentMutating ? <ActivityIndicator color={Colors.primaryText} size="small" /> : <Ionicons name="person-add-outline" size={17} color={Colors.primaryText} />}
+          {assignmentMutating ? <ActivityIndicator color={pearl.accentDeep} size="small" /> : <Ionicons name="person-add-outline" size={17} color={Colors.primaryText} />}
         </TouchableOpacity>
       </View>
 
@@ -545,7 +546,7 @@ function ClientPickerModal({
                   <Text numberOfLines={1} style={styles.clientOptionName}>{client.fullName}</Text>
                   <Text numberOfLines={1} style={styles.clientOptionMeta}>{maskPhone(client.phone, client.phoneCountryCode)}</Text>
                 </View>
-                {saving ? <ActivityIndicator color={Colors.primaryText} size="small" /> : null}
+                {saving ? <ActivityIndicator color={pearl.accentDeep} size="small" /> : null}
               </TouchableOpacity>
             ))}
             {clients.length === 0 ? <Text translate style={styles.mutedText}>No clients available.</Text> : null}

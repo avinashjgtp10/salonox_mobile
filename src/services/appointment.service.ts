@@ -451,6 +451,7 @@ export const normalizeAppointment = (
     cancelledAt,
     cancellationReason: toSafeString(appointment.cancellation_reason) || toSafeString(appointment.cancel_reason),
     clientEmail: toSafeString(appointment.client?.email),
+    clientCode: toSafeString(appointment.client_code) || null,
     clientId: toSafeString(appointment.client_id) || toSafeString(appointment.client?.id),
     clientName,
     createdAt: toSafeString(appointment.created_at) || null,

@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,7 +8,7 @@ import { StyleSheet, TouchableOpacity, View } from "react-native";
 import type { IconBadgeAccent } from "@/components/ui/IconBadge";
 import { AppRadius } from "@/constants/layout";
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import type { PearlColors } from "@/components/auth/pearl/usePearlColors";
 
 const ACCENT_KEYS = {
@@ -86,7 +87,7 @@ type EmptyStateProps = {
 };
 
 function EmptyStateComponent({ accent = "blue", description, icon, title }: EmptyStateProps) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
@@ -106,7 +107,7 @@ type ErrorStateProps = {
 };
 
 function ErrorStateComponent({ message, onRetry }: ErrorStateProps) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
@@ -124,12 +125,12 @@ function ErrorStateComponent({ message, onRetry }: ErrorStateProps) {
 export const ErrorState = memo(ErrorStateComponent);
 
 function InlineLoaderComponent({ label }: { label?: string }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
     <View style={styles.inlineLoader}>
-      <ActivityIndicator color={Colors.primaryText} size="small" />
+      <ActivityIndicator color={pearl.accentDeep} size="small" />
       {label ? <Text translate style={styles.inlineLoaderText}>{label}</Text> : null}
     </View>
   );
@@ -138,7 +139,7 @@ function InlineLoaderComponent({ label }: { label?: string }) {
 export const InlineLoader = memo(InlineLoaderComponent);
 
 function SkeletonBlockComponent({ height, width }: { height: number; width: number | `${number}%` }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return <View style={[styles.skeletonBlock, { height, width }]} />;

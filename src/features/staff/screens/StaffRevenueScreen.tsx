@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -101,7 +102,7 @@ export function StaffRevenueScreen() {
       <AppStatusBar />
       <RefreshViewport><ScrollView
         contentContainerStyle={[styles.content, { paddingHorizontal: horizontalPadding }]}
-        refreshControl={<RefreshControl colors={[Colors.primary]} onRefresh={() => void load(true)} refreshing={refreshing} tintColor={Colors.primary} />}
+        refreshControl={<RefreshControl colors={[pearl.accent]} onRefresh={() => void load(true)} refreshing={refreshing} tintColor={Colors.primary} />}
       >
         <View style={styles.header}>
           <Text translate style={[styles.title, { fontSize: 22 }]}>My revenue</Text>
@@ -127,7 +128,7 @@ export function StaffRevenueScreen() {
 
         <View style={styles.totalCard}>
           <Text translate style={styles.totalLabel}>Sales I billed</Text>
-          {loading ? <ActivityIndicator color={Colors.primaryText} /> : <Text style={styles.totalAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{error ? "—" : formatCurrency(revenue?.totalRevenue ?? 0)}</Text>}
+          {loading ? <ActivityIndicator color={pearl.accentDeep} /> : <Text style={styles.totalAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{error ? "—" : formatCurrency(revenue?.totalRevenue ?? 0)}</Text>}
           {!loading && revenue && !isEmpty ? (
             <Text style={styles.totalMeta}>
               {revenue.invoiceCount} {revenue.invoiceCount === 1 ? "invoice" : "invoices"} · Avg bill {formatCurrency(revenue.avgBill)}

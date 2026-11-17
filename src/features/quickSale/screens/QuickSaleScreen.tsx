@@ -1,9 +1,10 @@
+import { canEditPaidBill } from "@/utils/permissions";
 import { clientService } from "@/services/client.service";
 import { LunoxHeaderButton } from "@/components/lunox/LunoxHeaderButton";
 import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { LinearGradient } from "expo-linear-gradient";
-import { pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearlGradients, pearl } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { QuickSaleForm } from "../components/QuickSaleForm";
@@ -243,6 +244,7 @@ function OwnerQuickSaleScreen({
   const [isClientDatesVisible, setIsClientDatesVisible] = useState(false);
   const [isEmbeddedStaffPickerVisible, setIsEmbeddedStaffPickerVisible] = useState(false);
   const [clientPickerStartsInCreateMode, setClientPickerStartsInCreateMode] = useState(false);
+  const [clientPickerPrefill, setClientPickerPrefill] = useState("");
   const [changeServiceLineId, setChangeServiceLineId] = useState<string | null>(null);
   const [isCheckoutVisible, setIsCheckoutVisible] = useState(false);
   const [pendingCheckoutPayment, setPendingCheckoutPayment] = useState<PendingCheckoutPayment | null>(null);
@@ -256,6 +258,9 @@ function OwnerQuickSaleScreen({
   }, [hasItemsMissingStaff]);
   const [isDeletingDraft, setIsDeletingDraft] = useState(false);
   const [isLoadingDraft, setIsLoadingDraft] = useState(isExistingBill);
+  // Editing an already-paid invoice: saving updates it, and Checkout is hidden
+  // because the server only allows a draft to be checked out.
+  const [editingCompletedSale, setEditingCompletedSale] = useState(false);
   // An existing appointment keeps its own booked slot when it is paid.
   const [appointmentSlot, setAppointmentSlot] = useState<QuickSaleSlot | null>(null);
   const loadedAppointmentRef = useRef<AppointmentListItem | null>(null);
@@ -481,11 +486,23 @@ function OwnerQuickSaleScreen({
     }
 
     const sale: SaleDetail = result.payload;
-    if (sale.status !== "draft") {
-      setDraftLoadError("Only draft sales can be edited.");
+    // A completed invoice can be edited too, exactly as on the web: the items
+    // and charges are updated in place and the recorded payment is left alone
+    // (the server only refuses a second checkout, not an update). Cancelled and
+    // refunded bills stay read-only.
+    const saleStatus = sale.status.toLowerCase();
+    if (!["draft", "pending", "completed", "partial"].includes(saleStatus)) {
+      setDraftLoadError("This invoice can no longer be edited.");
       setIsLoadingDraft(false);
       return;
     }
+    const paidBill = !["draft", "pending"].includes(saleStatus);
+    if (paidBill && !canEditPaidBill(user)) {
+      setDraftLoadError("You do not have permission to edit a paid bill.");
+      setIsLoadingDraft(false);
+      return;
+    }
+    setEditingCompletedSale(paidBill);
 
     const restoredItems = mapDraftSaleToCartItems(sale);
 
@@ -534,7 +551,7 @@ function OwnerQuickSaleScreen({
 
     await restoreProductStock(restoredItems);
     setIsLoadingDraft(false);
-  }, [dispatch, hydrateCart, loadAppointmentBill, params.appointmentId, params.draftId, restoreProductStock]);
+  }, [dispatch, hydrateCart, loadAppointmentBill, params.appointmentId, params.draftId, restoreProductStock, user]);
 
   useEffect(() => {
     void loadDraft();
@@ -1581,6 +1598,7 @@ function OwnerQuickSaleScreen({
     if (embedded && !selectedClient.id) {
       setPendingCheckoutPayment(payment);
       setIsCheckoutVisible(false);
+      setClientPickerPrefill("");
       setClientPickerStartsInCreateMode(true);
       setIsClientPickerVisible(true);
       return;
@@ -1818,7 +1836,7 @@ function OwnerQuickSaleScreen({
           <AppStatusBar />
           <QuickSaleHeader onBack={handleBack} title="Edit Draft" />
           <View style={styles.initLoader}>
-            <ActivityIndicator color={Colors.primaryText} size="large" />
+            <ActivityIndicator color={pearl.accentDeep} size="large" />
             <Text translate style={styles.initLoaderText}>Loading saved sale...</Text>
           </View>
         </SafeAreaView>
@@ -1920,7 +1938,7 @@ function OwnerQuickSaleScreen({
           notes={saleNotes} onChangeNotes={setSaleNotes}
           pricingError={pricingError} isPricingLoading={isPricingLoading}
           showStaffErrors={showFormStaffErrors}
-          onAddClient={() => { setClientPickerStartsInCreateMode(true); setIsClientPickerVisible(true); }}
+          onAddClient={(prefill) => { setClientPickerPrefill(prefill ?? ""); setClientPickerStartsInCreateMode(true); setIsClientPickerVisible(true); }}
           onClearClient={() => { setSelectedClient(WALK_IN_CLIENT); setHasClientStepSelection(false); }}
           onSelectClient={handleClientPickerSelect}
           onEditClientDates={() => setIsClientDatesVisible(true)}
@@ -1954,7 +1972,7 @@ function OwnerQuickSaleScreen({
           <View style={styles.contentPane}>
             {initLoading && !initData ? (
               <View style={styles.initLoader}>
-                <ActivityIndicator color={Colors.primaryText} size="large" />
+                <ActivityIndicator color={pearl.accentDeep} size="large" />
                 <Text translate style={styles.initLoaderText}>Preparing checkout...</Text>
               </View>
             ) : activeTab === "services" && isGlobalSearchActive && isServiceSearchOpen ? (
@@ -2017,6 +2035,7 @@ function OwnerQuickSaleScreen({
             onCheckout={() => { if (ensureClientSelected()) openCheckout("payment"); }}
             onSavePending={() => { if (ensureClientSelected()) guardSave(() => void handleSavePending()); }}
             savePendingDisabled={cart.items.length === 0 || checkoutSubmission.isSaving || checkoutSubmission.isCheckingOut}
+            saveOnly={editingCompletedSale}
           />
         ) : null}
 
@@ -2030,6 +2049,7 @@ function OwnerQuickSaleScreen({
             }
           }}
           onSelect={handleClientPickerSelect}
+          prefillQuery={clientPickerPrefill}
           renderInline={embedded}
           selectedClientId={hasClientStepSelection ? selectedClient.id : null}
           startInCreateMode={clientPickerStartsInCreateMode}
@@ -2142,6 +2162,7 @@ function OwnerQuickSaleScreen({
             ? () => {
                 setShouldResumeCheckoutAtCharges(true);
                 setIsCheckoutVisible(false);
+                setClientPickerPrefill("");
                 setClientPickerStartsInCreateMode(true);
                 setIsClientPickerVisible(true);
               }

@@ -63,6 +63,9 @@ type CatalogItem = FilterableCatalogItem & {
   id: string;
   meta: string;
   name: string;
+  // Set only for the tabs that have an edit screen; the actions sheet shows
+  // Edit when it is present.
+  editRoute?: Href;
   route?: Href;
 };
 
@@ -85,6 +88,7 @@ const serviceToItem = (item: ServiceListItem): CatalogItem => ({
   meta: item.durationMinutes ? `${item.durationMinutes} min` : "Duration not set",
   name: item.name,
   price: item.price,
+  editRoute: `/services/${item.id}/edit` as Href,
   route: `/services/${item.id}` as Href,
 });
 
@@ -98,6 +102,7 @@ const productToItem = (item: Product): CatalogItem => ({
   name: item.name,
   price: item.retailPrice ?? item.price,
   productType: item.productType,
+  editRoute: `/stock/${item.id}/edit` as Href,
   route: `/stock/${item.id}` as Href,
   stockQuantity: item.stockQuantity,
 });
@@ -458,7 +463,7 @@ export default function CatalogScreen() {
   );
 
   const listEmpty = loading && itemsByTab[activeTab].length === 0
-    ? <View style={styles.state}><ActivityIndicator color={Colors.primaryText} size="large" /><Text translate style={styles.stateText}>Loading catalog...</Text></View>
+    ? <View style={styles.state}><ActivityIndicator color={pearl.accentDeep} size="large" /><Text translate style={styles.stateText}>Loading catalog...</Text></View>
     : error && !loading
       ? <View style={styles.state}><Ionicons color={Colors.error} name="alert-circle-outline" size={32} /><Text style={styles.stateTitle}>Unable to load {activeTab}</Text><Text translate style={styles.stateText}>{error}</Text><TouchableOpacity onPress={() => void loadCatalog(true)} style={styles.retryButton}><Text translate style={styles.retryText}>Retry</Text></TouchableOpacity></View>
       : !loading && !error
@@ -482,7 +487,7 @@ export default function CatalogScreen() {
         ListHeaderComponent={listHeader}
         maxToRenderPerBatch={CATALOG_PAGE_SIZE}
         numColumns={isGrid ? 2 : 1}
-        refreshControl={<RefreshControl colors={[Colors.primary]} onRefresh={() => void refresh()} refreshing={refreshing} tintColor={Colors.primary} />}
+        refreshControl={<RefreshControl colors={[pearl.accent]} onRefresh={() => void refresh()} refreshing={refreshing} tintColor={Colors.primary} />}
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
         windowSize={7}
@@ -508,7 +513,24 @@ export default function CatalogScreen() {
         ] as const).map((choice) => <TouchableOpacity key={choice.label} style={styles.choice} onPress={() => { setAddVisible(false); router.push(choice.route as Href); }}><View style={[styles.itemIcon, { backgroundColor: pearlTones.rose.bg }]}><Ionicons name={choice.icon} size={20} color={pearl.accentDeep} /></View><View style={{ flex: 1 }}><Text translate style={styles.tableName}>{choice.label}</Text><Text style={styles.tableCell}>{choice.hint}</Text></View><Ionicons name="chevron-forward" size={18} color={pearl.muted} /></TouchableOpacity>)}</View>
       </BottomSheet>
       <BottomSheet pearlStyle centered={false} title={actionItem?.name ?? "Item actions"} visible={!!actionItem} onClose={() => setActionItem(null)}>
-        {actionItem ? <View style={{ gap: 12 }}><TouchableOpacity style={styles.choice} onPress={() => { const item = actionItem; setActionItem(null); onOpen(item); }}><Text translate style={styles.tableName}>View details</Text></TouchableOpacity><TouchableOpacity style={styles.choice} onPress={() => { const item = actionItem; setActionItem(null); confirmDelete(item); }}><Ionicons name="trash-outline" size={18} color={Colors.error} /><Text translate style={{ color: Colors.error }}>Delete</Text></TouchableOpacity></View> : null}
+        {actionItem ? (
+          <View style={{ gap: 12 }}>
+            <TouchableOpacity style={styles.choice} onPress={() => { const item = actionItem; setActionItem(null); onOpen(item); }}>
+              <Ionicons name="eye-outline" size={18} color={pearl.accentDeep} />
+              <Text translate style={styles.tableName}>View details</Text>
+            </TouchableOpacity>
+            {actionItem.editRoute ? (
+              <TouchableOpacity style={styles.choice} onPress={() => { const route = actionItem.editRoute; setActionItem(null); if (route) router.push(route); }}>
+                <Ionicons name="create-outline" size={18} color={pearl.accentDeep} />
+                <Text translate style={styles.tableName}>Edit</Text>
+              </TouchableOpacity>
+            ) : null}
+            <TouchableOpacity style={styles.choice} onPress={() => { const item = actionItem; setActionItem(null); confirmDelete(item); }}>
+              <Ionicons name="trash-outline" size={18} color={Colors.error} />
+              <Text translate style={{ color: Colors.error }}>Delete</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </BottomSheet>
       <CatalogFilterSheet brands={brands} categories={categories} label={activeTabLabel} onApply={applyFilters} onClose={() => setFilterVisible(false)} onReset={clearFilters} serviceOptions={serviceOptions} suppliers={suppliers} tab={activeTab} validForOptions={validForOptions} value={activeFilters} visible={filterVisible} />
     </SafeAreaView></PearlBackground>

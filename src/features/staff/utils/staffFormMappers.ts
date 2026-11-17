@@ -95,7 +95,8 @@ export const mapStaffFormToRequest = (
     email: trimValue(values.email)?.toLowerCase(),
     first_name: name.first_name,
     gender: trimValue(values.gender),
-    holidays: values.holidays.trim() ? Number(values.holidays) : undefined,
+    work_start_time: values.startTime.trim(),
+    work_end_time: values.endTime.trim(),
     job_title: trimValue(values.designation),
     joined_date: trimValue(values.joiningDate),
     last_name: name.last_name,
@@ -113,17 +114,17 @@ export const mapStaffFormToRequest = (
 };
 
 export const mapStaffWagesToRequest = (values: StaffProfileFormValues): SetStaffWagesRequest | null => {
-  const hourlyRate = values.hourlyRate.trim();
   const fixedSalary = values.fixedSalary.trim();
+  const hourlyRate = values.hourlyRate.trim();
 
-  if (!hourlyRate && !fixedSalary) {
+  if (!values.payType || (values.payType === "Hourly" ? !hourlyRate : !fixedSalary)) {
     return null;
   }
 
   return {
-    compensationType: hourlyRate ? "hourly" : "salary",
-    fixedSalary: !hourlyRate && fixedSalary ? Number(fixedSalary) : null,
-    hourlyRate: hourlyRate ? Number(hourlyRate) : null,
+    compensationType: values.payType === "Hourly" ? "hourly" : "salary",
+    fixedSalary: values.payType === "Fixed salary" ? Number(fixedSalary) : null,
+    hourlyRate: values.payType === "Hourly" ? Number(hourlyRate) : null,
     wagesEnabled: true,
   };
 };

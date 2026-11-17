@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { AppBackButton } from "@/components/ui/AppBackButton";
@@ -140,7 +141,7 @@ export default function ConsumableDetailScreen() {
         <AppStatusBar />
         {header}
         <View style={styles.loadingWrap}>
-          <ActivityIndicator color={Colors.primaryText} size="large" />
+          <ActivityIndicator color={pearl.accentDeep} size="large" />
         </View>
       </SafeAreaView></PearlBackground>
     );
@@ -226,7 +227,7 @@ export default function ConsumableDetailScreen() {
             <Text translate style={styles.sectionTitle}>Assigned Services</Text>
           </View>
           {state.assignedServicesLoading ? (
-            <ActivityIndicator color={Colors.primaryText} />
+            <ActivityIndicator color={pearl.accentDeep} />
           ) : state.assignedServicesError ? (
             <Text style={styles.errorInlineText}>{state.assignedServicesError}</Text>
           ) : state.assignedServices.length === 0 ? (
@@ -255,7 +256,7 @@ export default function ConsumableDetailScreen() {
             ) : null}
           </View>
           {state.unitConversionsLoading ? (
-            <ActivityIndicator color={Colors.primaryText} />
+            <ActivityIndicator color={pearl.accentDeep} />
           ) : state.unitConversionsError ? (
             <Text style={styles.errorInlineText}>{state.unitConversionsError}</Text>
           ) : state.unitConversions.length === 0 ? (

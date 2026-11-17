@@ -62,10 +62,12 @@ export const validateStaffForm = (
   if (!isPresent(values.fullName)) {
     errors.fullName = "Staff name is required.";
   }
+  if (!isPresent(values.joiningDate)) errors.joiningDate = "Joined on is required.";
 
   if (!isPresent(values.email)) {
+    // Prototype's step 2 requires a Login email on every new staff member.
     if (values.isLoginEnabled) {
-      errors.email = "Email is required to enable Staff Login.";
+      errors.email = "Login email is required.";
     }
   } else if (!isValidEmail(values.email!)) {
     errors.email = EMAIL_INVALID_MESSAGE;
@@ -102,22 +104,25 @@ export const validateStaffForm = (
     }
   }
 
-  const hourlyRatePresent = isPresent(values.hourlyRate);
-  const fixedSalaryPresent = isPresent(values.fixedSalary);
-
-  if (hourlyRatePresent && !(Number(values.hourlyRate) > 0)) {
-    errors.hourlyRate = "Hourly rate must be greater than 0.";
+  for (const [field, label] of [["startTime", "Start Time"], ["endTime", "End Time"]] as const) {
+    if (!isPresent(values[field])) {
+      errors[field] = `${label} is required.`;
+    } else if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(values[field]!)) {
+      errors[field] = `Select a valid ${label.toLowerCase()}.`;
+    }
+  }
+  if (!errors.startTime && !errors.endTime && values.endTime! <= values.startTime!) {
+    errors.endTime = "End Time must be later than Start Time.";
   }
 
-  if (fixedSalaryPresent && !(Number(values.fixedSalary) > 0)) {
+  if (isPresent(values.fixedSalary) && !(Number(values.fixedSalary) > 0)) {
     errors.fixedSalary = "Fixed salary must be greater than 0.";
   }
-
-  if (hourlyRatePresent && fixedSalaryPresent && !errors.hourlyRate && !errors.fixedSalary) {
-    errors.hourlyRate =
-      "A Fixed Salary is already set below — clear it to switch this staff member to an Hourly Rate.";
-    errors.fixedSalary =
-      "An Hourly Rate is already set above — clear it to switch this staff member to a Fixed Salary.";
+  if (values.payType === "Fixed salary" && (!isPresent(values.fixedSalary) || !Number.isFinite(Number(values.fixedSalary)) || Number(values.fixedSalary) <= 0)) {
+    errors.fixedSalary = "Enter a monthly salary greater than 0.";
+  }
+  if (values.payType === "Hourly" && (!isPresent(values.hourlyRate) || !Number.isFinite(Number(values.hourlyRate)) || Number(values.hourlyRate) <= 0)) {
+    errors.hourlyRate = "Enter an hourly rate greater than 0.";
   }
 
   if (isPresent(values.workingHoursPerDay)) {
@@ -127,23 +132,21 @@ export const validateStaffForm = (
       errors.workingHoursPerDay = "Must be between 0 and 24.";
     }
   }
-
-  if (isPresent(values.holidays)) {
-    const holidays = Number(values.holidays);
-
-    if (!Number.isInteger(holidays) || holidays < 0) {
-      errors.holidays = "Holidays cannot be negative.";
-    }
-  }
-
   if (values.isLoginEnabled) {
     const password = values.password?.trim() ?? "";
 
-    if (password && password.length < PASSWORD_MIN_LENGTH) {
+    if (!password) {
+      errors.password = "Password is required.";
+    } else if (password.length < PASSWORD_MIN_LENGTH) {
       errors.password = `Password must be at least ${PASSWORD_MIN_LENGTH} characters`;
     }
+    else if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/\d/.test(password)) {
+      errors.password = "Use a number and both upper- and lower-case letters.";
+    }
 
-    if (password && values.confirmPassword !== values.password) {
+    if (!isPresent(values.confirmPassword)) {
+      errors.confirmPassword = "Confirm the password.";
+    } else if (values.confirmPassword !== values.password) {
       errors.confirmPassword = "Passwords do not match";
     }
   }

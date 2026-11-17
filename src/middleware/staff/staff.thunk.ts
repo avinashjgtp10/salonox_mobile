@@ -42,6 +42,7 @@ import { isStaffExperienceUser } from "@/utils/routeResolver";
 const isOwnStaffRead = (state: RootState) => isStaffExperienceUser(selectCurrentUser(state));
 
 export type FetchStaffArgs = {
+  all?: boolean;
   limit?: number;
   page?: number;
   refresh?: boolean;
@@ -298,7 +299,17 @@ export const fetchStaffThunk = createAsyncThunk<
   try {
     const salonId = selectActiveBranchId(getState());
 
-    return await staffService.getStaff(nextQuery, salonId);
+    const response = await staffService.getStaff(args?.all ? { limit: 100, page: 1 } : nextQuery, salonId);
+    if (args?.all) {
+      let pagination = response.pagination;
+      while (pagination.hasMore && pagination.nextPage > pagination.page) {
+        const next = await staffService.getStaff({ limit: 100, page: pagination.nextPage }, salonId);
+        response.staffMembers.push(...next.staffMembers);
+        pagination = next.pagination;
+      }
+      response.pagination = pagination;
+    }
+    return response;
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 

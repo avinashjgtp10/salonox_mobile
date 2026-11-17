@@ -28,7 +28,6 @@ import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { DateRangePickerSheet } from "@/components/ui/DateRangePickerSheet";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { pearl } from "@/components/auth/pearl/tokens";
-import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import {
   StaffHeader,
   StaffAvatar,
@@ -40,6 +39,7 @@ import {
   commissionUi as ui,
 } from "@/features/staff/components/CommissionPearl";
 import { CommissionSettlementSheet } from "@/features/staff/components/CommissionSettlementSheet";
+import { CommissionStaffHistorySheet } from "@/features/staff/components/CommissionStaffHistorySheet";
 import {
   formatExportMonth,
   shareCommissionExport,
@@ -114,7 +114,6 @@ function getRejectedMessage(payload: unknown, fallback: string) {
 export default function SalonCommissionsScreen() {
   "use no memo";
   useRegionalPreferences();
-  const Colors = usePearlColors(true);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
@@ -137,6 +136,10 @@ export default function SalonCommissionsScreen() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
+  // Tapping a staff name opens their commission detail overlay, scoped to
+  // this record only — never another staff member's.
+  const [historyRecord, setHistoryRecord] =
+    useState<SalonCommissionRecord | null>(null);
   const [settlementRecord, setSettlementRecord] =
     useState<SalonCommissionRecord | null>(null);
   const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
@@ -196,6 +199,7 @@ export default function SalonCommissionsScreen() {
         setSettlementBalanceLoading(false);
         setIsSettlementModalOpen(false);
         setSettlementRecord(null);
+        setHistoryRecord(null);
       };
     }, [loadCommissions]),
   );
@@ -390,7 +394,13 @@ export default function SalonCommissionsScreen() {
     const opening =
       settlementBalanceLoading && settlementRecord?.staffId === record.staffId;
     return (
-      <View style={ui.card}>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={`View ${record.staffName}'s commission details`}
+        activeOpacity={0.85}
+        onPress={() => setHistoryRecord(record)}
+        style={ui.card}
+      >
         <View style={ui.row}>
           <StaffAvatar
             size={40}
@@ -457,7 +467,7 @@ export default function SalonCommissionsScreen() {
             <Text translate style={ui.muted}>All paid ✓</Text>
           ) : null}
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -623,8 +633,8 @@ export default function SalonCommissionsScreen() {
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
-                colors={[Colors.primary]}
-                tintColor={Colors.primary}
+                colors={[pearl.accent]}
+                tintColor={pearl.accent}
                 onRefresh={() => void handleRefresh()}
                 refreshing={refreshing}
               />
@@ -655,6 +665,12 @@ export default function SalonCommissionsScreen() {
           staffName={settlementRecord?.staffName ?? ""}
           totalUnpaidCommission={settlementBalance ?? 0}
           isLoading={settlementLoading}
+        />
+        <CommissionStaffHistorySheet
+          month={exportMonth}
+          onClose={() => setHistoryRecord(null)}
+          record={historyRecord}
+          visible={!!historyRecord}
         />
       </SafeAreaView>
     </PearlBackground>

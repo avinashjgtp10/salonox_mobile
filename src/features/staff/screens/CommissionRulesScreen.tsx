@@ -471,10 +471,10 @@ export function CommissionRulesScreen() {
             ListFooterComponent={footer}
             refreshControl={
               <RefreshControl
-                colors={[Colors.primary]}
+                colors={[pearl.accent]}
                 onRefresh={() => void refresh()}
                 refreshing={refreshing}
-                tintColor={Colors.primary}
+                tintColor={pearl.accent}
               />
             }
             renderItem={renderGroup}

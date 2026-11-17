@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearlGradients, pearl } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -82,7 +82,7 @@ export function FilterSheet({ fields, selected, visible, onClose, onApply, loadi
         </TouchableOpacity>
       </>
     }>
-      {loading ? <ActivityIndicator color={colors.primaryText} accessibilityLabel="Loading filter options" /> : null}
+      {loading ? <ActivityIndicator color={pearl.accentDeep} accessibilityLabel="Loading filter options" /> : null}
       {error ? <View style={styles.notice}><Text translate style={styles.error}>{error}</Text><TouchableOpacity accessibilityRole="button" onPress={onRetry}><Text translate style={styles.clearText}>Retry</Text></TouchableOpacity></View> : null}
       {validationError ? <Text accessibilityRole="alert" style={styles.error}>{validationError}</Text> : null}
       <View style={[styles.body, { height: Math.min(350, height * 0.48) }]}>

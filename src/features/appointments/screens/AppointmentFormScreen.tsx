@@ -4,6 +4,8 @@ import { NoteBox } from "@/components/pearl/Page";
 import { formatAppDate } from "@/utils/dateTime";
 import { Text } from "@/components/ui/AppTypography";
 import { BottomSheet } from "@/components/ui/BottomSheet";
+import { ClientDatesSheet } from "@/features/quickSale/components/ClientDatesSheet";
+import { ClientPickerSheet } from "@/features/quickSale/components/ClientPickerSheet";
 import { StaffPickerSheet } from "@/features/quickSale/components/StaffPickerSheet";
 import { itemTimeLabel, localItemTime } from "@/features/quickSale/utils/itemTime";
 import { useState } from "react";
@@ -92,6 +94,12 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
     mutating,
     handleSubmit,
   } = useAppointmentForm(mode, embedded);
+  // Owned here, not inside the client card: the Calendar pop-up renders these
+  // sheets inline, and an inline sheet fills its parent — which must be the
+  // whole form, not the small client section.
+  const [clientPickerVisible, setClientPickerVisible] = useState(false);
+  const [clientPickerPrefill, setClientPickerPrefill] = useState("");
+  const [clientDatesVisible, setClientDatesVisible] = useState(false);
   const [staffItemId, setStaffItemId] = useState<string | null>(null);
   const [timeItemId, setTimeItemId] = useState<string | null>(null);
   const [pickerTab, setPickerTab] = useState<PickerTab>("service");
@@ -153,7 +161,9 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
               clientId={form.clientId}
               error={errors.clientId}
               fallbackName={mode === "edit" ? clientSearch : undefined}
+              onAddClient={(prefill) => { setClientPickerPrefill(prefill); setClientPickerVisible(true); }}
               onClear={() => handleClientSearchChange("")}
+              onEditDates={() => setClientDatesVisible(true)}
               onSelect={handleSelectClient}
               renderInline={Boolean(embedded)}
               selectedClient={selectedClient}
@@ -238,7 +248,7 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
 
           <View style={styles.appointmentDeliverySection}>
             <View style={styles.appointmentDeliveryTitleRow}>
-              <Ionicons name="document-text-outline" size={17} color={Colors.appointmentTextSecondary} />
+              <Ionicons name="document-text-outline" size={17} color={pearl.ink2} />
               <Text translate style={styles.appointmentDeliveryTitle}>Send appointment details on</Text>
             </View>
             <View style={styles.appointmentDeliveryOptions}>
@@ -252,7 +262,7 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
                 <Ionicons
                   name={sendAppointmentSms ? "checkbox" : "square-outline"}
                   size={20}
-                  color={sendAppointmentSms ? Colors.primaryText : Colors.appointmentMuted}
+                  color={sendAppointmentSms ? pearl.accentDeep : pearl.muted}
                 />
                 <Text translate style={styles.appointmentDeliveryOptionText}>SMS</Text>
               </TouchableOpacity>
@@ -266,7 +276,7 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
                 <Ionicons
                   name={sendAppointmentEmail ? "checkbox" : "square-outline"}
                   size={20}
-                  color={sendAppointmentEmail ? Colors.primaryText : Colors.appointmentMuted}
+                  color={sendAppointmentEmail ? pearl.accentDeep : pearl.muted}
                 />
                 <Text translate style={styles.appointmentDeliveryOptionText}>Email</Text>
               </TouchableOpacity>
@@ -296,6 +306,24 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
       </KeyboardAwareScrollView>
       <BookingBottomBar serviceCount={selectedServices.length} totalServiceDuration={totalServiceDuration} totalServicePrice={totalServicePrice} mutating={mutating} mode={mode} onSubmit={handleSubmit} />
       <AppointmentSnackbar />
+      <ClientPickerSheet
+        onClose={() => setClientPickerVisible(false)}
+        onSelect={(client) => { if (client) handleSelectClient(client); }}
+        prefillQuery={clientPickerPrefill}
+        renderInline={Boolean(embedded)}
+        selectedClientId={form.clientId || null}
+        startInCreateMode
+        visible={clientPickerVisible}
+      />
+      {form.clientId ? (
+        <ClientDatesSheet
+          clientId={form.clientId}
+          clientName={selectedClient?.fullName ?? (mode === "edit" ? clientSearch : "")}
+          onClose={() => setClientDatesVisible(false)}
+          renderInline={Boolean(embedded)}
+          visible={clientDatesVisible}
+        />
+      ) : null}
       <StaffPickerSheet
         onClose={() => setStaffItemId(null)}
         onSelect={(staffId, staffName) => {

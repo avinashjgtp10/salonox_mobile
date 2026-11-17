@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { CatalogFormFooter } from "@/features/catalog/components/CatalogFormFooter";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { AppBackButton } from "@/components/ui/AppBackButton";
@@ -243,7 +244,7 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
     return (
       <PearlBackground><SafeAreaView edges={["top"]} style={styles.safeArea}>
         <AppStatusBar />
-        <View style={styles.centered}><ActivityIndicator color={Colors.primaryText} size="large" /></View>
+        <View style={styles.centered}><ActivityIndicator color={pearl.accentDeep} size="large" /></View>
       </SafeAreaView></PearlBackground>
     );
   }
@@ -306,7 +307,7 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
               <View style={styles.servicePicker}>
                 {servicesLoading && services.length === 0 ? (
                   <View style={styles.serviceLoadingRow}>
-                    <ActivityIndicator color={Colors.primaryText} size="small" />
+                    <ActivityIndicator color={pearl.accentDeep} size="small" />
                     <Text translate style={styles.serviceLoadingText}>Loading services...</Text>
                   </View>
                 ) : services.length > 0 ? (

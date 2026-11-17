@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { useFooterClearance } from "@/hooks/useFooterClearance";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
@@ -13,7 +14,7 @@ import { maskPhone } from "@/features/appointments/utils/appointmentScreenHelper
 import type { CalendarStaffOption } from "@/features/appointments/utils/calendarStaff";
 import type { QuickSaleSlot } from "@/features/quickSale/screens/QuickSaleScreen";
 import QuickSaleScreen from "@/features/quickSale/screens/QuickSaleScreen";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import type { AppointmentListItem } from "@/types/appointment";
 import { formatAppDate, formatAppTime } from "@/utils/dateTime";
 import { Ionicons } from "@expo/vector-icons";
@@ -136,7 +137,7 @@ export function CalendarPreview({
   expandSingleColumn?: boolean;
 }) {
   const { staffMode, clientName, billLabel } = useClientPrivacy();
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [previewAppointment, setPreviewAppointment] = useState<AppointmentListItem | null>(null);
   const [quickSaleSlot, setQuickSaleSlot] = useState<QuickSaleSlot | null>(null);
@@ -362,7 +363,7 @@ export function CalendarPreview({
             ref={verticalScrollRef}
             contentContainerStyle={{ paddingBottom: footerClearance }}
             removeClippedSubviews={false}
-            refreshControl={onRefresh ? <RefreshControl colors={[Colors.primary]} onRefresh={onRefresh} refreshing={refreshing} tintColor={Colors.primary} /> : undefined}
+            refreshControl={onRefresh ? <RefreshControl colors={[pearl.accent]} onRefresh={onRefresh} refreshing={refreshing} tintColor={pearl.accent} /> : undefined}
             showsVerticalScrollIndicator
             style={styles.dinggVerticalScroller}
           >
@@ -441,14 +442,14 @@ export function CalendarPreview({
         </View>
       </Modal>
       <Modal
-        animationType="fade"
+        animationType="slide"
         onRequestClose={closeAppointmentForm}
         statusBarTranslucent
         transparent
         visible={Boolean(appointmentSlot)}
       >
-        <View style={styles.quickSaleModalBackdrop}>
-          <View style={styles.quickSaleModalSurface}>
+        <View style={styles.bookingModalBackdrop}>
+          <View style={styles.bookingModalSurface}>
             {appointmentSlot ? (
               <AppointmentFormScreen initialSlot={appointmentSlot} mode="create" onRequestClose={closeAppointmentForm} />
             ) : null}

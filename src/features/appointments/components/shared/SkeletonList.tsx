@@ -1,10 +1,10 @@
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import { useMemo } from "react";
 import { View } from "react-native";
 
 export function SkeletonList() {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (

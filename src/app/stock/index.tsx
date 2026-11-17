@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
@@ -141,7 +142,7 @@ export default function ProductsScreen() {
         }
         onEndReached={loadMore}
         onEndReachedThreshold={0.35}
-        refreshControl={<RefreshControl refreshing={state.refreshing} onRefresh={refresh} colors={[Colors.primary]} tintColor={Colors.primary} />}
+        refreshControl={<RefreshControl refreshing={state.refreshing} onRefresh={refresh} colors={[pearl.accent]} tintColor={pearl.accent} />}
         renderItem={({ item }) => <ProductCard deleting={state.deletingProductIds.includes(item.id)} item={item} onDelete={() => remove(item)} />}
         showsVerticalScrollIndicator={false}
       /></RefreshViewport>

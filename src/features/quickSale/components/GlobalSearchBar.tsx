@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { TextInput } from "@/components/ui/AppTypography";
@@ -52,7 +53,7 @@ function GlobalSearchBarComponent({
         value={query}
       />
       {isLoading ? (
-        <ActivityIndicator color={Colors.primaryText} size="small" />
+        <ActivityIndicator color={pearl.accentDeep} size="small" />
       ) : query ? (
         <Pressable accessibilityLabel="Clear search" hitSlop={10} onPress={onClear} style={styles.clearButton}>
           <Ionicons name="close-circle" size={20} color={Colors.text2} />

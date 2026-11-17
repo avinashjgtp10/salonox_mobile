@@ -22,12 +22,14 @@ const PAGE_SIZE = 10;
 const RESULTS_MAX_HEIGHT = 260;
 
 // Same Quick Sale reference tokens as QuickSaleForm.
-const c = { bg: "#FAF6F8", line: "#E9DFE5", fg: "#000000", muted: "#6B5D66", plum: "#A3467F" };
+const c = { bg: "#FAF6F8", line: "#E9DFE5", fg: "#000000", muted: "#6B5D66", plum: pearl.accentDeep };
 
 type ClientSearchFieldProps = {
   trailingAction?: ReactNode;
   pearlStyle?: boolean;
-  onAddClient: () => void;
+  // Receives whatever the user typed, so the new-client form opens pre-filled
+  // with that name or phone instead of blank.
+  onAddClient: (prefill?: string) => void;
   onSelect: (client: ClientListItem) => void;
 };
 
@@ -121,7 +123,7 @@ export function ClientSearchField({ onAddClient, onSelect, pearlStyle = false, t
           ) : null}
         </View>
         <View style={s.row}>
-        <Pressable accessibilityRole="button" onPress={onAddClient} style={[s.addButton, pearlStyle && { alignSelf: "flex-start", borderRadius: 12, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, minHeight: 36 }]}>
+        <Pressable accessibilityRole="button" onPress={() => onAddClient(query.trim())} style={[s.addButton, pearlStyle && { alignSelf: "flex-start", borderRadius: 12, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, minHeight: 36 }]}>
           <Ionicons color="#000000" name="person-add-outline" size={16} />
           <Text translate style={[s.addText, pearlStyle && { color: pearl.accentDeep, fontSize: 13 }]}>{pearlStyle ? "New client" : "Add Client"}</Text>
         </Pressable>
@@ -131,7 +133,7 @@ export function ClientSearchField({ onAddClient, onSelect, pearlStyle = false, t
 
       {error ? <Text translate style={s.error}>{error}</Text> : null}
       {isQueryReady && !isSearching && !error && results.length === 0 ? (
-        <Pressable onPress={onAddClient} style={s.empty}>
+        <Pressable onPress={() => onAddClient(query.trim())} style={s.empty}>
           <Text translate style={s.muted}>No clients found. </Text>
           <Text translate style={s.link}>Add a new client</Text>
         </Pressable>
@@ -182,7 +184,7 @@ const s = StyleSheet.create({
   searchInput: { color: c.fg, flex: 1, fontSize: 14, paddingVertical: 10 },
   addButton: {
     alignItems: "center",
-    backgroundColor: "#EAC8E3",
+    backgroundColor: pearl.accentTint,
     borderRadius: 999,
     flexDirection: "row",
     gap: 6,

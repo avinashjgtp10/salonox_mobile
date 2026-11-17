@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { maskPhone } from "@/utils/maskPhone";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
@@ -148,7 +149,7 @@ export function SearchableClientField({
                   </View>
                 ) : resultsLoading ? (
                   <View style={styles.serviceDropdownState}>
-                    <ActivityIndicator color={Colors.primaryText} size="small" />
+                    <ActivityIndicator color={pearl.accentDeep} size="small" />
                     <Text translate style={styles.fieldHint}>Searching clients...</Text>
                   </View>
                 ) : results.length === 0 ? (

@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
@@ -48,7 +49,7 @@ export function CompleteAppointmentAction({ appointment }: { appointment: Appoin
         style={[styles.actionButton, completing && styles.disabledButton]}
       >
         {completing ? (
-          <ActivityIndicator color={Colors.primaryText} size="small" />
+          <ActivityIndicator color={pearl.accentDeep} size="small" />
         ) : (
           <Ionicons name="checkmark-done-circle-outline" size={18} color={Colors.primaryText} />
         )}

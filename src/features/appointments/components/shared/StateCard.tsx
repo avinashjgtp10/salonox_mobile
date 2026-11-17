@@ -1,7 +1,7 @@
 import { Text } from "@/components/ui/AppTypography";
 import { StateIllustration } from "@/components/ui/StateViews";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo } from "react";
 import { TouchableOpacity } from "react-native";
@@ -22,7 +22,7 @@ export function StateCard({
   title: string;
   tone?: "default" | "error";
 }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (

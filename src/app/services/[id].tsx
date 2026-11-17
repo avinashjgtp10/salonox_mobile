@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { AppBackButton } from "@/components/ui/AppBackButton";
@@ -116,7 +117,7 @@ export default function ServiceDetailsScreen() {
             <View style={styles.backButtonPlaceholder} />
           </View>
           <View style={styles.centeredContent}>
-            <ActivityIndicator size="large" color={Colors.primaryText} />
+            <ActivityIndicator size="large" color={pearl.accentDeep} />
           </View>
         </View>
       </SafeAreaView></PearlBackground>

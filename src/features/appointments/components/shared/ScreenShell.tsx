@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
@@ -99,10 +100,10 @@ export function ScreenShell({
           refreshControl={
             onRefresh ? (
               <RefreshControl
-                colors={[Colors.primary]}
+                colors={[pearl.accent]}
                 onRefresh={onRefresh}
                 refreshing={Boolean(refreshing)}
-                tintColor={Colors.primary}
+                tintColor={pearl.accent}
               />
             ) : undefined
           }

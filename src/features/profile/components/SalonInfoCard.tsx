@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { useMemo } from "react";
@@ -56,7 +57,7 @@ export function SalonInfoCard({ isLoading, onEdit, profile, salon }: SalonInfoCa
     >
       {isLoading && !salon ? (
         <View style={styles.loadingRow}>
-          <ActivityIndicator color={Colors.primaryText} size="small" />
+          <ActivityIndicator color={pearl.accentDeep} size="small" />
           <Text translate style={styles.loadingText}>Loading salon information...</Text>
         </View>
       ) : null}

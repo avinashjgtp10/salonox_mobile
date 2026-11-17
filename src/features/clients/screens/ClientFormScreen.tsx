@@ -7,7 +7,7 @@ import { maskPhone } from "@/utils/maskPhone";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
-import { isValidPhoneNumber, parsePhoneNumber, type CountryCode } from "libphonenumber-js";
+import { getCountryCallingCode, isValidPhoneNumber, parsePhoneNumber, type CountryCode } from "libphonenumber-js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Keyboard, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
@@ -42,7 +42,7 @@ import {
 } from "@/store/client/client.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
-import { EMAIL_INVALID_MESSAGE, isValidEmail, PHONE_DIGIT_COUNT, PHONE_INVALID_MESSAGE } from "@/utils/validation";
+import { EMAIL_INVALID_MESSAGE, isValidEmail } from "@/utils/validation";
 import { splitFullName } from "@/utils/name";
 import { useValidationScroll } from "@/hooks/useValidationScroll";
 
@@ -221,10 +221,11 @@ export default function NewClientScreen() {
     const nextErrors: ClientFieldErrors = {};
     if (!trimmedFirstName) nextErrors.firstName = "First name is required.";
     const parsedPhone = isValidPhoneNumber(trimmedPhone) ? parsePhoneNumber(trimmedPhone) : null;
-    if (!trimmedPhone) {
+    const phoneChanged = !isEditMode || replacingPhone;
+    if (phoneChanged && !trimmedPhone) {
       nextErrors.phone = "Phone number is required.";
-    } else if (!parsedPhone || parsedPhone.nationalNumber.length !== PHONE_DIGIT_COUNT) {
-      nextErrors.phone = PHONE_INVALID_MESSAGE;
+    } else if (phoneChanged && (!parsedPhone || parsedPhone.countryCallingCode !== getCountryCallingCode(phoneCountry))) {
+      nextErrors.phone = "Enter a valid phone number for the selected country.";
     }
     if (trimmedEmail && !isValidEmail(trimmedEmail)) {
       nextErrors.email = EMAIL_INVALID_MESSAGE;
@@ -252,8 +253,7 @@ export default function NewClientScreen() {
       email_marketing: promotionChannels.includes("Email"),
       whatsapp_marketing: promotionChannels.includes("Whatsapp"),
       last_name: trimmedLastName,
-      phone_country_code: phoneParts.phoneCountryCode,
-      phone_number: phoneParts.phoneNumber,
+      ...(phoneChanged ? { phone_country_code: phoneParts.phoneCountryCode, phone_number: phoneParts.phoneNumber } : {}),
     };
 
     if (id) {
@@ -327,7 +327,7 @@ export default function NewClientScreen() {
       <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.loadingState}>
-          <ActivityIndicator color={Colors.primaryText} size="large" />
+          <ActivityIndicator color={pearl.accentDeep} size="large" />
         </View>
       </SafeAreaView></PearlBackground>
     );
@@ -370,7 +370,7 @@ export default function NewClientScreen() {
                 >
                   <Text style={styles.inputLabel}>{maskPhone(phone)}</Text>
                 </TouchableOpacity>
-              ) : <PhoneInput pearlStyle
+              ) : <PhoneInput pearlStyle countryAware
                 ref={(input) => { phoneInput.current = input; setFieldRef("phone", input); }}
                 onSubmitEditing={() => emailInput.current?.focus()}
                 country={phoneCountry}

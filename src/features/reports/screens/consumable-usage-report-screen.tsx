@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { FilterSheet } from "@/components/ui/FilterSheet";
@@ -199,10 +200,10 @@ export default function ConsumableUsageReportScreen({ config }: { config: Report
         onEndReachedThreshold={0.35}
         refreshControl={
           <RefreshControl
-            colors={[Colors.primary]}
+            colors={[pearl.accent]}
             onRefresh={refresh}
             refreshing={Boolean(entry?.refreshing)}
-            tintColor={Colors.primary}
+            tintColor={pearl.accent}
           />
         }
         removeClippedSubviews

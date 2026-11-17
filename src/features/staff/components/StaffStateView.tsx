@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -9,7 +10,7 @@ import {
   DashboardSpacing as Spacing,
   type ThemeColors,
 } from "@/constants/theme";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 
 type StaffStateViewProps = {
   actionLabel?: string;
@@ -28,14 +29,14 @@ export function StaffStateView({
   title,
   variant = "empty",
 }: StaffStateViewProps) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
     <View style={styles.card}>
       <View style={styles.iconWrap}>
         {loading ? (
-          <ActivityIndicator size="small" color={Colors.primaryText} />
+          <ActivityIndicator size="small" color={pearl.accentDeep} />
         ) : (
           <Ionicons
             name={variant === "error" ? "alert-circle-outline" : "file-tray-outline"}

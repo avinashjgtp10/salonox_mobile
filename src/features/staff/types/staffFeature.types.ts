@@ -31,6 +31,13 @@ export type StaffModuleSection = {
 
 export type StaffRoleLevel = "Staff" | "Manager";
 
+export type StaffPayType = "Fixed salary" | "Hourly";
+export const STAFF_PAY_TYPE_OPTIONS: StaffPayType[] = ["Fixed salary", "Hourly"];
+export const STAFF_WEEKLY_OFF_OPTIONS = [
+  "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "No fixed day",
+] as const;
+export type StaffWeeklyOff = (typeof STAFF_WEEKLY_OFF_OPTIONS)[number];
+
 export type StaffProfileFormValues = {
   address: string;
   avatarUrl: string;
@@ -41,8 +48,11 @@ export type StaffProfileFormValues = {
   fixedSalary: string;
   fullName: string;
   gender: string;
-  holidays: string;
   hourlyRate: string;
+  payType: StaffPayType | "";
+  weeklyOff: StaffWeeklyOff | "";
+  startTime: string;
+  endTime: string;
   isLoginEnabled: boolean;
   joiningDate: string;
   notes: string;

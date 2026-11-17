@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -156,7 +157,7 @@ export function CategorySelectModal({
 
           {categoriesLoading && categories.length === 0 ? (
             <View style={styles.centerContainer}>
-              <ActivityIndicator color={Colors.primaryText} size="small" />
+              <ActivityIndicator color={pearl.accentDeep} size="small" />
               <Text translate style={styles.loadingText}>Loading categories...</Text>
             </View>
           ) : categoriesError && categories.length === 0 ? (
