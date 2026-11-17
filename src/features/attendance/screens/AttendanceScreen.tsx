@@ -291,7 +291,7 @@ export default function AttendanceScreen() {
             isInitialLoading ? (
               <ActivityIndicator />
             ) : (
-              <Text translate style={staffUi.muted}>No active staff members found.</Text>
+              <Text translate style={staffUi.muted}>No staff members found.</Text>
             )
           }
           refreshControl={
@@ -304,12 +304,12 @@ export default function AttendanceScreen() {
           renderItem={({ item: row }) => {
             const record = row.record,
               action = getAttendanceAction(record),
-              status = record?.onApprovedLeave
-                ? "On leave"
+              status = row.schedule.tone === "leave" || row.schedule.tone === "off"
+                ? row.schedule.label
                 : record?.activity?.current_status === "ON_BREAK"
                   ? "On break"
                   : record?.statusKey === "notMarked" || !record
-                    ? "Not marked"
+                    ? row.schedule.label
                     : record.statusKey === "halfDay"
                       ? "Half day"
                       : record.statusKey.charAt(0).toUpperCase() +
@@ -335,26 +335,27 @@ export default function AttendanceScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={staffUi.rowTitle}>{row.staffMember.name}</Text>
                     <Text style={staffUi.muted}>
-                      {row.staffMember.workingHours &&
-                      row.staffMember.workingHours !== "-"
-                        ? "Shift " + row.staffMember.workingHours
-                        : "Shift not set"}
+                      {row.schedule.tone === "working" ? "Shift " + row.schedule.hours : row.schedule.hours}
                     </Text>
                   </View>
-                  <Text
+                  <Text translate
                     style={{
                       fontSize: 11,
                       paddingHorizontal: 8,
                       paddingVertical: 5,
                       borderRadius: 20,
                       backgroundColor:
-                        status === "Present"
+                        status === "On Leave" ? pearlTones.lilac.bg
+                          : status === "Day Off" ? pearl.warningBg
+                          : status === "Present" || status === "Working"
                           ? pearl.successBg
                           : status === "Late"
                             ? pearl.warningBg
                             : pearl.glass,
                       color:
-                        status === "Present" ? pearl.successText : pearl.ink2,
+                        status === "On Leave" ? pearlTones.lilac.fg
+                        : status === "Day Off" ? pearl.warningText
+                        : status === "Present" || status === "Working" ? pearl.successText : pearl.ink2,
                     }}
                   >
                     {status}
@@ -389,7 +390,7 @@ export default function AttendanceScreen() {
                       </View>
                     ))}
                   </View>
-                  {canManageAttendance ? (
+                  {canManageAttendance && row.staffMember.status !== "Inactive" && (row.schedule.tone !== "leave" || Boolean(record?.checkInTime || record?.checkOutTime)) ? (
                     <TouchableOpacity
                       disabled={isStaffBusy(row.staffMember.id)}
                       onPress={() => void handlePrimaryAction(row)}
