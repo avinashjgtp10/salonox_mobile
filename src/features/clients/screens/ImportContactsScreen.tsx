@@ -316,7 +316,7 @@ export default function ImportContactsScreen() {
 
       {stage === "checking" ? (
         <View style={styles.centerFill}>
-          <ActivityIndicator color={Colors.primaryText} size="large" />
+          <ActivityIndicator color={pearl.accentDeep} size="large" />
         </View>
       ) : null}
 
@@ -352,7 +352,7 @@ export default function ImportContactsScreen() {
 
       {stage === "loading" ? (
         <View style={styles.centerFill}>
-          <ActivityIndicator color={Colors.primaryText} size="large" />
+          <ActivityIndicator color={pearl.accentDeep} size="large" />
           <Text translate style={styles.loadingText}>Reading your contacts…</Text>
         </View>
       ) : null}
@@ -432,7 +432,7 @@ export default function ImportContactsScreen() {
 
       {stage === "importing" ? (
         <View style={styles.centerFill}>
-          <ActivityIndicator color={Colors.primaryText} size="large" />
+          <ActivityIndicator color={pearl.accentDeep} size="large" />
           <Text style={styles.progressCount}>
             {importProgress} / {importTotal}
           </Text>

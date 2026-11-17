@@ -22,7 +22,7 @@ const PAGE_SIZE = 10;
 const RESULTS_MAX_HEIGHT = 260;
 
 // Same Quick Sale reference tokens as QuickSaleForm.
-const c = { bg: "#FAF6F8", line: "#E9DFE5", fg: "#000000", muted: "#6B5D66", plum: "#A3467F" };
+const c = { bg: "#FAF6F8", line: "#E9DFE5", fg: "#000000", muted: "#6B5D66", plum: pearl.accentDeep };
 
 type ClientSearchFieldProps = {
   trailingAction?: ReactNode;
@@ -184,7 +184,7 @@ const s = StyleSheet.create({
   searchInput: { color: c.fg, flex: 1, fontSize: 14, paddingVertical: 10 },
   addButton: {
     alignItems: "center",
-    backgroundColor: "#EAC8E3",
+    backgroundColor: pearl.accentTint,
     borderRadius: 999,
     flexDirection: "row",
     gap: 6,

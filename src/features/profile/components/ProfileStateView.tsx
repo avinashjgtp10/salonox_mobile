@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -31,7 +32,7 @@ export function ProfileStateView(props: ProfileStateViewProps) {
         <ProfileHeader />
         {props.kind === "loading" ? (
           <View style={styles.centeredContent}>
-            <ActivityIndicator size="large" color={Colors.primaryText} />
+            <ActivityIndicator size="large" color={pearl.accentDeep} />
           </View>
         ) : (
           <View style={styles.card}>

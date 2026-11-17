@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
@@ -146,7 +147,7 @@ function NotificationRow({
           </View>
         ) : null}
       </View>
-      {isMarking ? <ActivityIndicator color={Colors.primaryText} size="small" /> : null}
+      {isMarking ? <ActivityIndicator color={pearl.accentDeep} size="small" /> : null}
     </TouchableOpacity>
   );
 }
@@ -274,7 +275,7 @@ export default function NotificationsScreen({
             style={[styles.markAllButton, (unreadCount === 0 || markingAllRead) && styles.markAllButtonDisabled]}
           >
             {markingAllRead ? (
-              <ActivityIndicator color={Colors.primaryText} size="small" />
+              <ActivityIndicator color={pearl.accentDeep} size="small" />
             ) : (
               <Text translate style={styles.markAllButtonText}>Mark all read</Text>
             )}
@@ -332,10 +333,10 @@ export default function NotificationsScreen({
           }
           refreshControl={
             <RefreshControl
-              colors={[Colors.primary]}
+              colors={[pearl.accent]}
               onRefresh={() => refresh({ refresh: true })}
               refreshing={refreshing}
-              tintColor={Colors.primary}
+              tintColor={pearl.accent}
             />
           }
           renderItem={({ item }) => (

@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -35,7 +36,7 @@ export function StaffStateView({
     <View style={styles.card}>
       <View style={styles.iconWrap}>
         {loading ? (
-          <ActivityIndicator size="small" color={Colors.primaryText} />
+          <ActivityIndicator size="small" color={pearl.accentDeep} />
         ) : (
           <Ionicons
             name={variant === "error" ? "alert-circle-outline" : "file-tray-outline"}

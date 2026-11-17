@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
@@ -116,7 +117,7 @@ export default function ConsumableUsageHistoryScreen() {
         keyExtractor={(item) => item.id}
         ListEmptyComponent={
           state.usageHistoryLoading ? (
-            <ActivityIndicator color={Colors.primaryText} style={styles.loadingIndicator} />
+            <ActivityIndicator color={pearl.accentDeep} style={styles.loadingIndicator} />
           ) : state.usageHistoryError ? (
             <ErrorState message={state.usageHistoryError} onRetry={refresh} />
           ) : (
@@ -149,10 +150,10 @@ export default function ConsumableUsageHistoryScreen() {
         onEndReachedThreshold={0.35}
         refreshControl={
           <RefreshControl
-            colors={[Colors.primary]}
+            colors={[pearl.accent]}
             onRefresh={refresh}
             refreshing={state.usageHistoryRefreshing}
-            tintColor={Colors.primary}
+            tintColor={pearl.accent}
           />
         }
         renderItem={({ item }) => <UsageHistoryRow item={item} />}

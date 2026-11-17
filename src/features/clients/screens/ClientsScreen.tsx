@@ -529,10 +529,10 @@ function ClientsScreenContent() {
           onEndReachedThreshold={0.35}
           refreshControl={
             <RefreshControl
-              colors={[Colors.primary]}
+              colors={[pearl.accent]}
               onRefresh={handleRefresh}
               refreshing={clientsRefreshing}
-              tintColor={Colors.primary}
+              tintColor={pearl.accent}
             />
           }
           renderItem={({ index, item }) => (
@@ -593,7 +593,7 @@ function ClientsScreenContent() {
 
             {duplicatesLoading ? (
               <View style={styles.centeredLoader}>
-                <ActivityIndicator size="large" color={Colors.primaryText} />
+                <ActivityIndicator size="large" color={pearl.accentDeep} />
                 <Text translate style={styles.loaderText}>Checking for duplicates...</Text>
               </View>
             ) : duplicatesError ? (

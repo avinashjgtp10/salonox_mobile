@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { PearlCatalogRow } from "./PearlCatalogRow";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
@@ -154,14 +155,14 @@ export function MembershipCatalogTab({ clientId, onSelect, salonId, search, sele
           keyExtractor={(item) => `membership-card-${item.id}`}
           refreshControl={
             <RefreshControl
-              colors={[Colors.primary]}
+              colors={[pearl.accent]}
               onRefresh={() => loadMemberships(true)}
               refreshing={refreshing}
-              tintColor={Colors.primary}
+              tintColor={pearl.accent}
             />
           }
           renderItem={({ item, index }) => pearlStyle ? <PearlCatalogRow first={index === 0} last={index === items.length - 1} name={item.name} detail={item.validFor} price={item.price} selected={selectedIds?.has(item.id) ?? false} onPress={() => onSelect(item)} /> : <MembershipCard item={item} onPress={() => onSelect(item)} selected={selectedIds?.has(item.id) ?? false} />}
-          ListFooterComponent={loading ? <ActivityIndicator color={Colors.primaryText} /> : null}
+          ListFooterComponent={loading ? <ActivityIndicator color={pearl.accentDeep} /> : null}
           removeClippedSubviews
           windowSize={7}
         /></RefreshViewport>

@@ -327,7 +327,7 @@ export default function NewClientScreen() {
       <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.loadingState}>
-          <ActivityIndicator color={Colors.primaryText} size="large" />
+          <ActivityIndicator color={pearl.accentDeep} size="large" />
         </View>
       </SafeAreaView></PearlBackground>
     );

@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { maskPhone } from "@/utils/maskPhone";
@@ -162,7 +163,7 @@ export const SalesSummaryDetailSheet = memo(function SalesSummaryDetailSheet({
     >
       {loading && !sale ? (
         <View style={styles.stateCard}>
-          <ActivityIndicator color={Colors.primaryText} size="large" />
+          <ActivityIndicator color={pearl.accentDeep} size="large" />
           <Text translate style={styles.stateTitle}>Loading bill details</Text>
           <Text translate style={styles.stateText}>Fetching the invoice from the current Reports API.</Text>
         </View>

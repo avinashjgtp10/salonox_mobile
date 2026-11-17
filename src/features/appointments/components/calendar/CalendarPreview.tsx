@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { useFooterClearance } from "@/hooks/useFooterClearance";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
@@ -362,7 +363,7 @@ export function CalendarPreview({
             ref={verticalScrollRef}
             contentContainerStyle={{ paddingBottom: footerClearance }}
             removeClippedSubviews={false}
-            refreshControl={onRefresh ? <RefreshControl colors={[Colors.primary]} onRefresh={onRefresh} refreshing={refreshing} tintColor={Colors.primary} /> : undefined}
+            refreshControl={onRefresh ? <RefreshControl colors={[pearl.accent]} onRefresh={onRefresh} refreshing={refreshing} tintColor={pearl.accent} /> : undefined}
             showsVerticalScrollIndicator
             style={styles.dinggVerticalScroller}
           >

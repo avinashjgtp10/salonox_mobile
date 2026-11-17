@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
@@ -151,7 +152,7 @@ export function ClientProfileModal({
     <Modal animationType="slide" onRequestClose={onClose} visible={!!clientId}>
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         {history.loading || (!data && !history.error) ? (
-          <View style={styles.center}><ActivityIndicator color={Colors.primaryText} /><Text translate style={styles.muted}>Loading client profile…</Text></View>
+          <View style={styles.center}><ActivityIndicator color={pearl.accentDeep} /><Text translate style={styles.muted}>Loading client profile…</Text></View>
         ) : history.error || !data || !client || !metrics ? (
           <View style={styles.center}>
             <Ionicons color={Colors.error} name="alert-circle-outline" size={30} />
@@ -484,11 +485,11 @@ function LedgerList({ empty, money = false, rows, styles }: { empty: string; mon
   );
 }
 
-function Lazy<T>({ children, Colors, state, styles }: { children: (data: T) => ReactNode; Colors: ThemeColors; state: Loadable<T>; styles: Styles }) {
+function Lazy<T>({ children, state, styles }: { children: (data: T) => ReactNode; Colors: ThemeColors; state: Loadable<T>; styles: Styles }) {
   "use no memo";
   useRegionalPreferences();
   if (state.error) return <View style={styles.card}><Text style={[styles.errorText, styles.emptyText]}>{state.error}</Text></View>;
-  if (!state.data) return <View style={styles.card}><ActivityIndicator color={Colors.primaryText} /></View>;
+  if (!state.data) return <View style={styles.card}><ActivityIndicator color={pearl.accentDeep} /></View>;
   return <>{children(state.data)}</>;
 }
 

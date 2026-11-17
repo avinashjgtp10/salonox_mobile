@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
@@ -277,7 +278,7 @@ function MembershipsScreenContent() {
         keyExtractor={(item) => item.id}
         onEndReached={loadMore}
         onEndReachedThreshold={0.35}
-        refreshControl={<RefreshControl colors={[Colors.primary]} tintColor={Colors.primary} refreshing={refreshing} onRefresh={refresh} />}
+        refreshControl={<RefreshControl colors={[pearl.accent]} tintColor={pearl.accent} refreshing={refreshing} onRefresh={refresh} />}
         ListHeaderComponent={
           <View>
             <View style={styles.headerRow}>

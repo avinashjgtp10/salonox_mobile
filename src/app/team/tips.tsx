@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
@@ -355,10 +356,10 @@ export default function SalonTipsScreen() {
         ListHeaderComponent={listHeader}
         refreshControl={
           <RefreshControl
-            colors={[Colors.primary]}
+            colors={[pearl.accent]}
             onRefresh={() => void handleRefresh()}
             refreshing={refreshing}
-            tintColor={Colors.primary}
+            tintColor={pearl.accent}
           />
         }
         renderItem={renderItem}

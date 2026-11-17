@@ -262,7 +262,7 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
 
   return <PearlBackground><SafeAreaView edges={["top"]} style={styles.safe}><AppStatusBar />
     <RefreshViewport><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl colors={[Colors.primary]} refreshing={Boolean(entry?.refreshing)} onRefresh={refresh} />}>
+      refreshControl={<RefreshControl colors={[pearl.accent]} refreshing={Boolean(entry?.refreshing)} onRefresh={refresh} />}>
       <View style={styles.header}><AppBackButton onPress={() => router.back()} /><View style={styles.headerCopy}>{staffDetail ? <><Text translate style={styles.eyebrow}>Staff performance</Text><Text style={styles.staffName} numberOfLines={1}>{staffName || config.title}</Text></> : <><Text translate style={styles.title}>{config.title}</Text><Text style={styles.subtitle}>{config.group}</Text></>}</View></View>
       <View style={styles.filterRow}>
         {dateKeys ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="Report date range" onPress={() => setRangeSheetVisible(true)} style={[styles.control, { flex: 1 }]}><Ionicons name="calendar-outline" size={17} color={pearl.accentDeep} /><Text style={[styles.controlText, { flex: 1 }]}>{dateRangeLabel}</Text><Ionicons name="chevron-down" size={15} color={pearl.accentDeep} /></TouchableOpacity> : null}

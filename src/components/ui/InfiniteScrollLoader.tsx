@@ -1,17 +1,16 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { memo } from "react";
 import { StyleSheet, View } from "react-native";
-import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 
 export const InfiniteScrollLoader = memo(function InfiniteScrollLoader({
   loading,
   label = "Loading more items",
 }: { loading: boolean; label?: string }) {
-  const colors = usePearlColors();
   if (!loading) return null;
   return (
     <View accessibilityRole="progressbar" accessibilityLabel={label} accessibilityState={{ busy: true }} accessibilityLiveRegion="polite" style={styles.container}>
-      <ActivityIndicator color={colors.primaryText} size="small" />
+      <ActivityIndicator color={pearl.accentDeep} size="small" />
     </View>
   );
 });

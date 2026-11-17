@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
@@ -113,10 +114,10 @@ export function AppointmentListScreen() {
         onEndReachedThreshold={0.45}
         refreshControl={
           <RefreshControl
-            colors={[Colors.primary]}
+            colors={[pearl.accent]}
             onRefresh={() => void fetchAppointments({ date, refresh: true, search, status })}
             refreshing={refreshing}
-            tintColor={Colors.primary}
+            tintColor={pearl.accent}
           />
         }
         renderItem={({ item }) => <AppointmentCard appointment={item} />}

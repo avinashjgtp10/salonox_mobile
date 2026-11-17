@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
@@ -428,10 +429,10 @@ function ServicesScreenContent() {
         onEndReachedThreshold={0.35}
         refreshControl={
           <RefreshControl
-            colors={[Colors.primary]}
+            colors={[pearl.accent]}
             onRefresh={handleRefresh}
             refreshing={servicesRefreshing}
-            tintColor={Colors.primary}
+            tintColor={pearl.accent}
           />
         }
         renderItem={({ item }) => (

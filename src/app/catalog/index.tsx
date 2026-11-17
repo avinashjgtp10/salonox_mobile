@@ -458,7 +458,7 @@ export default function CatalogScreen() {
   );
 
   const listEmpty = loading && itemsByTab[activeTab].length === 0
-    ? <View style={styles.state}><ActivityIndicator color={Colors.primaryText} size="large" /><Text translate style={styles.stateText}>Loading catalog...</Text></View>
+    ? <View style={styles.state}><ActivityIndicator color={pearl.accentDeep} size="large" /><Text translate style={styles.stateText}>Loading catalog...</Text></View>
     : error && !loading
       ? <View style={styles.state}><Ionicons color={Colors.error} name="alert-circle-outline" size={32} /><Text style={styles.stateTitle}>Unable to load {activeTab}</Text><Text translate style={styles.stateText}>{error}</Text><TouchableOpacity onPress={() => void loadCatalog(true)} style={styles.retryButton}><Text translate style={styles.retryText}>Retry</Text></TouchableOpacity></View>
       : !loading && !error
@@ -482,7 +482,7 @@ export default function CatalogScreen() {
         ListHeaderComponent={listHeader}
         maxToRenderPerBatch={CATALOG_PAGE_SIZE}
         numColumns={isGrid ? 2 : 1}
-        refreshControl={<RefreshControl colors={[Colors.primary]} onRefresh={() => void refresh()} refreshing={refreshing} tintColor={Colors.primary} />}
+        refreshControl={<RefreshControl colors={[pearl.accent]} onRefresh={() => void refresh()} refreshing={refreshing} tintColor={Colors.primary} />}
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
         windowSize={7}

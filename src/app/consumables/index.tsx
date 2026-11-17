@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text, TextInput } from "@/components/ui/AppTypography";
@@ -222,7 +223,7 @@ export default function ConsumablesScreen() {
         onEndReached={loadMore}
         onEndReachedThreshold={0.35}
         refreshControl={
-          <RefreshControl colors={[Colors.primary]} onRefresh={refresh} refreshing={state.refreshing} tintColor={Colors.primary} />
+          <RefreshControl colors={[pearl.accent]} onRefresh={refresh} refreshing={state.refreshing} tintColor={pearl.accent} />
         }
         renderItem={({ item }) => <ConsumableCard item={item} />}
         showsVerticalScrollIndicator={false}

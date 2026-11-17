@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { PearlCatalogRow } from "./PearlCatalogRow";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
@@ -208,10 +209,10 @@ export function ProductCatalogTab({ onSelect, search, selectedIds , pearlStyle =
           onEndReachedThreshold={0.5}
           refreshControl={
             <RefreshControl
-              colors={[Colors.primary]}
+              colors={[pearl.accent]}
               onRefresh={() => fetchFirstPage({ refresh: true })}
               refreshing={refreshing}
-              tintColor={Colors.primary}
+              tintColor={pearl.accent}
             />
           }
           removeClippedSubviews

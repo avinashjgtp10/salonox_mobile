@@ -24,6 +24,8 @@ import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import { selectClients } from "@/store/client/client.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectStaffMembers } from "@/store/staff/staff.slice";
+import { useStaffPresence } from "@/features/attendance/hooks/useStaffPresence";
+import { pickableStaff } from "@/features/attendance/utils/staffPresence";
 import { selectStaffAvailability, selectStaffAvailabilityError, selectStaffAvailabilityLoading } from "@/store/staff/staffAvailability.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { CreateAppointmentRequest, UpdateAppointmentRequest } from "@/types/appointment";
@@ -52,7 +54,7 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
   const mutating = useAppSelector(selectAppointmentMutating);
   const mutationError = useAppSelector(selectAppointmentMutationError);
   const clients = useAppSelector(selectClients);
-  const staffMembers = useAppSelector(selectStaffMembers);
+  const allStaffMembers = useAppSelector(selectStaffMembers);
   const activeBranchId = useAppSelector(selectActiveBranchId);
   const { scrollToField, scrollToFirstError, scrollViewRef, setFieldRef } = useValidationScroll(APPOINTMENT_VALIDATION_FIELD_ORDER);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -87,6 +89,20 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
   const [servicePickerVisible, setServicePickerVisible] = useState(false);
   const [serviceCatalogRetryKey, setServiceCatalogRetryKey] = useState(0);
   const [selectedServices, setSelectedServices] = useState<AppointmentSelectedService[]>([]);
+  // Same rule Quick Sale and the Calendar already follow: with the salon's
+  // "show only checked-in staff" setting on, today's pickers offer only staff
+  // who have checked in. Anyone already assigned on this booking is kept, so an
+  // existing assignment never turns blank, and other dates are never filtered.
+  const { presence: staffPresence } = useStaffPresence();
+  const staffMembers = useMemo(
+    () => pickableStaff(
+      allStaffMembers,
+      staffPresence,
+      [form.staffId, ...selectedServices.map((service) => service.staffId)],
+      form.date,
+    ),
+    [allStaffMembers, form.date, form.staffId, selectedServices, staffPresence],
+  );
   const [sendAppointmentSms, setSendAppointmentSms] = useState(true);
   const [sendAppointmentEmail, setSendAppointmentEmail] = useState(true);
   const [availabilityRefreshKey, setAvailabilityRefreshKey] = useState(0);

@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { PearlCatalogRow } from "./PearlCatalogRow";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
@@ -243,7 +244,7 @@ export function ServiceCatalogTab({ pearlStyle = false,
           onEndReachedThreshold={0.4}
           keyExtractor={(item) => `service-card-${item.id}`}
           ListFooterComponent={loadingMore ? (
-            <ActivityIndicator color={Colors.primaryText} style={styles.loadMoreWrap} />
+            <ActivityIndicator color={pearl.accentDeep} style={styles.loadMoreWrap} />
           ) : error ? (
             <TouchableOpacity accessibilityRole="button" onPress={() => loadMore(true)} style={styles.loadMoreWrap}>
               <Text translate style={styles.loadMoreText}>Couldn?t load more services. Tap to retry.</Text>
@@ -251,10 +252,10 @@ export function ServiceCatalogTab({ pearlStyle = false,
           ) : null}
           refreshControl={
             <RefreshControl
-              colors={[Colors.primary]}
+              colors={[pearl.accent]}
               onRefresh={() => fetchFirstPage({ refresh: true })}
               refreshing={refreshing}
-              tintColor={Colors.primary}
+              tintColor={pearl.accent}
             />
           }
           removeClippedSubviews

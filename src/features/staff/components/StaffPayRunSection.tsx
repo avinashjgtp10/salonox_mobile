@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Switch, TouchableOpacity, View } from "react-native";
@@ -67,7 +68,7 @@ export function StaffPayRunSection({ staffId }: { staffId?: string | null }) {
           onAction={() => { if (staffId) void dispatch(fetchPayRunsThunk(staffId)); }}
         />
       ) : loading && !loaded ? (
-        <ActivityIndicator color={colors.primaryText} />
+        <ActivityIndicator color={pearl.accentDeep} />
       ) : (
         <>
           {TOGGLES.map(([key, label]) => (

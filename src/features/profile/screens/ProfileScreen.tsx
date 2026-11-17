@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -239,10 +240,10 @@ export function ProfileScreen() {
         refreshControl={
           isEditing ? undefined : (
             <RefreshControl
-              colors={[Colors.primary]}
+              colors={[pearl.accent]}
               onRefresh={handleRefresh}
               refreshing={isRefreshing}
-              tintColor={Colors.primary}
+              tintColor={pearl.accent}
             />
           )
         }

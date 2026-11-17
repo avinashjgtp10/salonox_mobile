@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { AppBackButton } from "@/components/ui/AppBackButton";
@@ -135,7 +136,7 @@ export function StaffRevenueItemsScreen() {
       <AppStatusBar />
       <RefreshViewport><ScrollView
         contentContainerStyle={[styles.content, { paddingHorizontal: horizontalPadding }]}
-        refreshControl={<RefreshControl colors={[Colors.primary]} onRefresh={() => void load(true)} refreshing={refreshing} tintColor={Colors.primary} />}
+        refreshControl={<RefreshControl colors={[pearl.accent]} onRefresh={() => void load(true)} refreshing={refreshing} tintColor={Colors.primary} />}
       >
         <View style={styles.header}>
           <AppBackButton accessibilityLabel="Back" accessibilityRole="button" activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={goBack} />
@@ -166,7 +167,7 @@ export function StaffRevenueItemsScreen() {
           </View>
         ) : null}
 
-        {loading ? <ActivityIndicator color={Colors.primaryText} style={styles.loader} /> : null}
+        {loading ? <ActivityIndicator color={pearl.accentDeep} style={styles.loader} /> : null}
 
         {error ? (
           <View style={styles.card}>

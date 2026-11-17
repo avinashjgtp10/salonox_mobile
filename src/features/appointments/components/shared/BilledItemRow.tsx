@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { useMemo, useState } from "react";
@@ -110,17 +111,17 @@ export function BilledItemRow({
           <View style={localStyles.buttonRow}>
             {isOwnRow && status === "pending" ? (
               <TouchableOpacity accessibilityState={{ disabled: busy || isWaiting }} disabled={busy || isWaiting} onPress={() => void runStatusChange("in_progress")} style={[localStyles.smallButton, isWaiting && localStyles.disabledButton]}>
-                {busy ? <ActivityIndicator color={Colors.primaryText} size="small" /> : <Text translate style={[localStyles.smallButtonText, { color: Colors.primaryText }]}>Start Service</Text>}
+                {busy ? <ActivityIndicator color={pearl.accentDeep} size="small" /> : <Text translate style={[localStyles.smallButtonText, { color: Colors.primaryText }]}>Start Service</Text>}
               </TouchableOpacity>
             ) : null}
             {isOwnRow && status === "in_progress" ? (
               <TouchableOpacity disabled={busy} onPress={() => void runStatusChange("completed")} style={localStyles.smallButton}>
-                {busy ? <ActivityIndicator color={Colors.primaryText} size="small" /> : <Text translate style={[localStyles.smallButtonText, { color: Colors.primaryText }]}>Finish</Text>}
+                {busy ? <ActivityIndicator color={pearl.accentDeep} size="small" /> : <Text translate style={[localStyles.smallButtonText, { color: Colors.primaryText }]}>Finish</Text>}
               </TouchableOpacity>
             ) : null}
             {canOffer ? (
               <TouchableOpacity disabled={busy} onPress={() => setPickerOpen(true)} style={localStyles.smallButton}>
-                {busy ? <ActivityIndicator color={Colors.primaryText} size="small" /> : <Text translate style={[localStyles.smallButtonText, { color: Colors.primaryText }]}>Hand Off</Text>}
+                {busy ? <ActivityIndicator color={pearl.accentDeep} size="small" /> : <Text translate style={[localStyles.smallButtonText, { color: Colors.primaryText }]}>Hand Off</Text>}
               </TouchableOpacity>
             ) : null}
           </View>

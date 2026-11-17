@@ -235,7 +235,7 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
           </Pressable>
         ) : <Text style={{ color: colors.text2 }}>{periodLabel}</Text>}
         {error && revenue && <Text translate style={{ color: colors.error }}>{error}</Text>}
-        {loading ? <ActivityIndicator accessibilityLabel="Loading revenue" color={colors.primaryText} /> : error && !revenue ? (
+        {loading ? <ActivityIndicator accessibilityLabel="Loading revenue" color={pearl.accentDeep} /> : error && !revenue ? (
           <View style={styles.card}>
             <Text translate style={{ color: colors.error }}>{error}</Text>
             <Pressable accessibilityRole="button" onPress={load}>

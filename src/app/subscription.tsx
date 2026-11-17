@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
@@ -241,7 +242,7 @@ export default function SubscriptionScreen() {
     if (phase.kind === "waiting") {
       return (
         <View accessibilityLiveRegion="polite" style={styles.panel}>
-          <ActivityIndicator color={colors.primaryText} />
+          <ActivityIndicator color={pearl.accentDeep} />
           <Text translate style={styles.panelTitle}>Waiting for payment confirmation…</Text>
           <Text translate style={styles.panelText}>{"Complete the payment on Razorpay. This screen updates by itself once it's confirmed."}</Text>
           {phase.url ? (
@@ -281,7 +282,7 @@ export default function SubscriptionScreen() {
     if (isLoading) {
       return (
         <View style={styles.panel}>
-          <ActivityIndicator color={colors.primaryText} />
+          <ActivityIndicator color={pearl.accentDeep} />
           <Text translate style={styles.panelText}>Loading plans…</Text>
         </View>
       );
@@ -396,7 +397,7 @@ export default function SubscriptionScreen() {
           styles.content,
           { paddingBottom: Math.max(insets.bottom + 32, 48), paddingTop: Math.max(insets.top + 28, 44) },
         ]}
-        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={pearl.accent} />}
         showsVerticalScrollIndicator={false}
       >
         {!!mainSalonId && <Pressable accessibilityRole="button" disabled={returning} style={styles.linkButton} onPress={() => { setReturning(true); void switchSalon(mainSalonId).catch(error => toast.showError(getApiErrorMessage(error))).finally(() => setReturning(false)); }}><Text translate style={styles.linkText}>{returning ? "Switching salon…" : "Back to main account"}</Text></Pressable>}
