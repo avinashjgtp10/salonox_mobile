@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { currencyLabel } from "@/utils/currency";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
@@ -1065,7 +1066,7 @@ function CheckoutSheetComponent({
                             ]}
                           >
                             {isApplyingCoupon ? (
-                              <ActivityIndicator color={Colors.primaryText} size="small" />
+                              <ActivityIndicator color={pearl.accentDeep} size="small" />
                             ) : (
                               <Text translate style={styles.secondaryPillText}>Apply</Text>
                             )}
@@ -1343,7 +1344,7 @@ function CheckoutSheetComponent({
                     ]}
                   >
                     {isSaving ? (
-                      <ActivityIndicator color={Colors.primaryText} size="small" />
+                      <ActivityIndicator color={pearl.accentDeep} size="small" />
                     ) : (
                       <Text translate style={styles.pendingButtonText}>Save Pending</Text>
                     )}

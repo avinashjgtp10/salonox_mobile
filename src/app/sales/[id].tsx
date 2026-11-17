@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { InvoiceDetailsView } from "@/features/quickSale/components/InvoiceDetailsView";
 import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { AppBackButton } from "@/components/ui/AppBackButton";
@@ -134,7 +135,7 @@ export default function SaleDetailsScreen() {
         <View style={styles.notFoundWrap}>
           {renderHeader()}
           <View style={styles.centeredContent}>
-            <ActivityIndicator size="large" color={Colors.primaryText} />
+            <ActivityIndicator size="large" color={pearl.accentDeep} />
           </View>
         </View>
       </SafeAreaView>

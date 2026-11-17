@@ -82,6 +82,7 @@ function OwnerQuickSaleCheckoutScreen() {
     draftId?: string;
     mode?: string;
     openReceipt?: string;
+    printReceipt?: string;
     saleId?: string;
     shareReceipt?: string;
   }>();
@@ -367,6 +368,15 @@ function OwnerQuickSaleCheckoutScreen() {
     }
   }, [params.shareReceipt, receiptData, normalizedSaleId, handleShareReceipt]);
 
+  // Opened from the invoice menu's "Print receipt": print once the receipt is built.
+  const printedReceiptId = useRef<string | null>(null);
+  useEffect(() => {
+    if (params.printReceipt === "1" && receiptData && printedReceiptId.current !== normalizedSaleId) {
+      printedReceiptId.current = normalizedSaleId;
+      void handlePrintReceipt();
+    }
+  }, [params.printReceipt, receiptData, normalizedSaleId, handlePrintReceipt]);
+
   const replaceOnce = useCallback((href: Href) => {
     if (hasTerminalNavigationStartedRef.current) {
       return;
@@ -387,7 +397,7 @@ function OwnerQuickSaleCheckoutScreen() {
   // An existing bill opened from the Calendar / appointment details
   // (openReceipt=1) closes back to where it was opened; a sale just completed
   // in Quick Sale closes to a fresh Quick Sale.
-  const openedExistingBill = params.openReceipt === "1" || params.shareReceipt === "1";
+  const openedExistingBill = params.openReceipt === "1" || params.shareReceipt === "1" || params.printReceipt === "1";
   const handleClose = useCallback(() => {
     if (openedExistingBill && router.canGoBack()) {
       if (hasTerminalNavigationStartedRef.current) return;
@@ -437,7 +447,7 @@ function OwnerQuickSaleCheckoutScreen() {
             receiptLoadState.status === "loading" ||
             receiptLoadState.status === "retrying" ? (
             <View style={styles.receiptStateCard}>
-              <ActivityIndicator color={Colors.primaryText} size="large" />
+              <ActivityIndicator color={pearl.accentDeep} size="large" />
               <Text translate style={styles.receiptStateTitle}>
                 {receiptLoadState.status === "retrying"
                   ? "Retrying receipt details"

@@ -31,6 +31,14 @@ export const hasCustomPermission = (user: AuthUser | null | undefined, permissio
   return false;
 };
 
+/**
+ * Editing a bill that has already been paid. Owners/admins always may; everyone
+ * else needs the same `edit_paid_bill` key the web checks before it lets an
+ * existing paid booking be updated.
+ */
+export const canEditPaidBill = (user: AuthUser | null | undefined): boolean =>
+  canManageStaffLifecycle(user?.role) || hasCustomPermission(user, "edit_paid_bill");
+
 export const hasInventoryPermission = (user: AuthUser | null | undefined, permissionKey: string): boolean => {
   if (canManageStaffLifecycle(user?.role)) {
     return true;

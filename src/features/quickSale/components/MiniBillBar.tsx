@@ -29,6 +29,8 @@ type MiniBillBarProps = {
   onCheckout: () => void;
   onSavePending: () => void;
   savePendingDisabled: boolean;
+  /** Editing an invoice that is already paid: save only, never check out again. */
+  saveOnly?: boolean;
 };
 
 function MiniBillBarComponent({
@@ -40,6 +42,7 @@ function MiniBillBarComponent({
   onCheckout,
   onSavePending,
   savePendingDisabled,
+  saveOnly = false,
 }: MiniBillBarProps) {
   "use no memo";
   useRegionalPreferences();
@@ -53,11 +56,12 @@ function MiniBillBarComponent({
         <Pressable
           accessibilityRole="button"
           accessibilityState={{ busy: isSaving, disabled: savePendingDisabled }}
-          android_ripple={savePendingDisabled ? undefined : { color: "rgba(163, 70, 127, 0.12)", borderless: false }}
+          android_ripple={savePendingDisabled ? undefined : { color: "rgba(126, 120, 176, 0.12)", borderless: false }}
           disabled={savePendingDisabled}
           onPress={onSavePending}
           style={({ pressed }) => [
             styles.pendingButton,
+            saveOnly && styles.pendingButtonFull,
             savePendingDisabled && styles.pendingButtonDisabled,
             pressed && !savePendingDisabled && styles.buttonPressed,
           ]}
@@ -71,12 +75,12 @@ function MiniBillBarComponent({
               numberOfLines={1}
               style={[styles.pendingButtonText, savePendingDisabled && styles.disabledText]}
             >
-              Save pending
+              {saveOnly ? "Save changes" : "Save pending"}
             </Text>
           )}
         </Pressable>
 
-        <Pressable
+        {saveOnly ? null : <Pressable
           accessibilityRole="button"
           accessibilityState={{ disabled, busy: isPricingLoading }}
           android_ripple={disabled ? undefined : { color: "rgba(255, 255, 255, 0.12)", borderless: false }}
@@ -94,7 +98,7 @@ function MiniBillBarComponent({
           </Text>
           {isPricingLoading ? <ActivityIndicator size="small" color={DISABLED_TEXT} /> : null}
           </LinearGradient>
-        </Pressable>
+        </Pressable>}
       </View>
     </PearlActionFooter>
   );
@@ -142,6 +146,16 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     height: 50,
     overflow: "hidden",
     paddingHorizontal: 16,
+  },
+  // Save-only (editing a paid bill): this is the single action, so it takes the
+  // whole row. Without an explicit grow/basis it keeps pendingButton's
+  // flexGrow: 0 and collapses to the padding, hiding its own label.
+  pendingButtonFull: {
+    alignSelf: "stretch",
+    flexBasis: 0,
+    flexGrow: 1,
+    flexShrink: 1,
+    width: "100%",
   },
   pendingButtonDisabled: {
     backgroundColor: DISABLED_BG,

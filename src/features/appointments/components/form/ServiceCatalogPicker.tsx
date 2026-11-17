@@ -182,7 +182,7 @@ export function ServiceCatalogPicker({
           </ScrollView>
 
           {loading ? (
-            <View style={styles.servicePickerState}><ActivityIndicator color={Colors.primaryText} /></View>
+            <View style={styles.servicePickerState}><ActivityIndicator color={pearl.accentDeep} /></View>
           ) : error ? (
             <View style={styles.servicePickerState}><Text translate style={styles.fieldHintError}>{error}</Text></View>
           ) : (

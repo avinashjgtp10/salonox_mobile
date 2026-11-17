@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
@@ -191,7 +192,7 @@ export default function EditServiceScreen() {
             <View style={styles.backButtonPlaceholder} />
           </View>
           <View style={styles.centeredContent}>
-            <ActivityIndicator size="large" color={Colors.primaryText} />
+            <ActivityIndicator size="large" color={pearl.accentDeep} />
           </View>
         </View>
       </SafeAreaView></PearlBackground>

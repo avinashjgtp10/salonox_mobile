@@ -459,7 +459,7 @@ export default function ClientDetailsScreen() {
             <View style={styles.backButtonPlaceholder} />
           </View>
           <View style={styles.centeredContent}>
-            <ActivityIndicator size="large" color={Colors.primaryText} />
+            <ActivityIndicator size="large" color={pearl.accentDeep} />
           </View>
         </View>
       </SafeAreaView></PearlBackground>

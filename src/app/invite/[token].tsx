@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
@@ -133,7 +134,7 @@ export default function StaffInviteAcceptScreen() {
         title="Verifying Invite"
       >
         <View style={styles.loadingWrap}>
-          <ActivityIndicator color={Colors.primaryText} size="large" />
+          <ActivityIndicator color={pearl.accentDeep} size="large" />
         </View>
       </PasswordRecoveryScaffold>
     );

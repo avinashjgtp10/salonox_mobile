@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -129,7 +130,7 @@ function InlineLoaderComponent({ label }: { label?: string }) {
 
   return (
     <View style={styles.inlineLoader}>
-      <ActivityIndicator color={Colors.primaryText} size="small" />
+      <ActivityIndicator color={pearl.accentDeep} size="small" />
       {label ? <Text translate style={styles.inlineLoaderText}>{label}</Text> : null}
     </View>
   );

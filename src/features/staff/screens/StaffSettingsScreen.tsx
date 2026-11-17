@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { SettingsButton, SettingsRow, useSettingsStyles } from "@/features/settings/SettingsUI";
 import { AppearanceSheet } from "@/features/settings/AppearanceSheet";
@@ -300,7 +301,7 @@ export function StaffSettingsScreen() {
           style={{alignItems:"center",padding:14}}
         >
           {isLoggingOut ? (
-            <ActivityIndicator color={Colors.primaryText} size="small" />
+            <ActivityIndicator color={pearl.accentDeep} size="small" />
           ) : (
             null
           )}

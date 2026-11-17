@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { useRegionalPreferences } from "@/localization/preferences";
 import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
@@ -118,7 +119,7 @@ export function ServiceSearchDropdown({ query, salonId, selectedServiceIds, onSe
         ListFooterComponent={
           <View>
             {error ? <Text translate style={styles.message}>{error}</Text> : null}
-            {loading ? <ActivityIndicator style={styles.message} color={colors.primaryText} /> : error ? (
+            {loading ? <ActivityIndicator style={styles.message} color={pearl.accentDeep} /> : error ? (
               <Pressable accessibilityRole="button" onPress={() => { if (items.length) void loadMore(); else setRetry((value) => value + 1); }} style={styles.footer}>
                 <Text translate style={styles.heading}>Try again</Text>
               </Pressable>

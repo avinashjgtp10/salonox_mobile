@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { cloneElement, isValidElement, useEffect, useRef, useState, type ReactElement } from "react";
 import { PanResponder, Platform, RefreshControl, StyleSheet, View, type RefreshControlProps, type ScrollViewProps, type ViewStyle } from "react-native";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
@@ -138,7 +139,7 @@ export function RefreshViewport({ children, stationaryOnIOS = false }: { childre
       {showLoader ? (
         <View pointerEvents="none" style={[styles.indicator, { top: Math.max(0, control.props.progressViewOffset ?? 0) + 12 }]}>
           <View style={[styles.badge, { backgroundColor: colors.card }]}>
-            <ActivityIndicator size={28} color={colors.primaryText} accessibilityLabel={refreshing ? "Refreshing" : "Pull to refresh"} />
+            <ActivityIndicator size={28} color={pearl.accentDeep} accessibilityLabel={refreshing ? "Refreshing" : "Pull to refresh"} />
           </View>
         </View>
       ) : null}

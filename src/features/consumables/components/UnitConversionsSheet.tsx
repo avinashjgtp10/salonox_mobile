@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -115,7 +116,7 @@ export function UnitConversionsSheet({
       visible={visible}
     >
       {loading ? (
-        <ActivityIndicator color={Colors.primaryText} />
+        <ActivityIndicator color={pearl.accentDeep} />
       ) : (
         <>
           {rows.map((row) => (

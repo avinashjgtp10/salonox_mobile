@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { useEffect, useMemo, useState } from "react";
@@ -81,7 +82,7 @@ export function ClientDatesSheet({ clientId, clientName, onClose, renderInline =
       visible={visible}
     >
       {loading ? (
-        <ActivityIndicator color={Colors.primaryText} style={styles.loading} />
+        <ActivityIndicator color={pearl.accentDeep} style={styles.loading} />
       ) : (
         <View>
           <DateField

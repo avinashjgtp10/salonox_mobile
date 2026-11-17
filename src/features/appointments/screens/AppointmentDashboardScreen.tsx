@@ -166,10 +166,10 @@ function AppointmentDashboardScreenContent() {
         onEndReachedThreshold={0.45}
         refreshControl={
           <RefreshControl
-            colors={[Colors.primary]}
+            colors={[pearl.accent]}
             onRefresh={() => void fetchAppointments({ date, limit: 200, refresh: true })}
             refreshing={refreshing}
-            tintColor={Colors.primary}
+            tintColor={pearl.accent}
           />
         }
         renderItem={({ item, index }) => <BookingListRow appointment={item} first={index === 0} last={index === filtered.length - 1} onPress={() => setPreviewId(item.id)} />}

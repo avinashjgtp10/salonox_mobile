@@ -423,7 +423,7 @@ export function ClientPickerSheet({
           {error && visibleClients.length === 0 ? (
             <ErrorState message={error} onRetry={handleRetry} />
           ) : loading && visibleClients.length === 0 ? (
-            <ActivityIndicator color={Colors.primaryText} size="small" style={styles.loadingSpacer} />
+            <ActivityIndicator color={pearl.accentDeep} size="small" style={styles.loadingSpacer} />
           ) : visibleClients.length === 0 ? (
             <EmptyState
               description="Try another search, or create a new client."

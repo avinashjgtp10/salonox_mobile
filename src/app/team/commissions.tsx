@@ -28,7 +28,6 @@ import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { DateRangePickerSheet } from "@/components/ui/DateRangePickerSheet";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { pearl } from "@/components/auth/pearl/tokens";
-import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import {
   StaffHeader,
   StaffAvatar,
@@ -114,7 +113,6 @@ function getRejectedMessage(payload: unknown, fallback: string) {
 export default function SalonCommissionsScreen() {
   "use no memo";
   useRegionalPreferences();
-  const Colors = usePearlColors(true);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
@@ -623,8 +621,8 @@ export default function SalonCommissionsScreen() {
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
-                colors={[Colors.primary]}
-                tintColor={Colors.primary}
+                colors={[pearl.accent]}
+                tintColor={pearl.accent}
                 onRefresh={() => void handleRefresh()}
                 refreshing={refreshing}
               />

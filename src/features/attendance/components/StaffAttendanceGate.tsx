@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { StaffAttendanceContext } from "./StaffSelfAttendanceContext";
 import { StaffCheckInScreen } from "./StaffAttendanceExperience";
 import { hasBusinessDashboard } from "@/utils/staffExperience";
@@ -9,7 +10,6 @@ import { getApiErrorMessage } from "@/services/api";
 import { staffSelfAttendanceService, type StaffSelfAttendance } from "@/services/staffSelfAttendance.service";
 import { normalizeAttendanceRecord } from "@/services/attendance.service";
 import type { StartBreakRequest } from "@/types/attendance";
-import { useThemeColors } from "@/theme/ThemeProvider";
 import { isStaffExperienceUser } from "@/utils/routeResolver";
 import { canUnlockStaffApp } from "@/features/attendance/utils/staffAttendanceGate";
 import { staffAttendanceErrorMessage } from "../utils/attendanceErrors";
@@ -23,7 +23,6 @@ const PUNCH_RESULT = { checkIn: "WORKING", startBreak: "ON_BREAK", checkOut: "CH
 
 export function StaffAttendanceGate({ children }: { children: ReactNode }) {
   const { user, isAuthenticated, signOut } = useAuth();
-  const Colors = useThemeColors();
   const enabled = isAuthenticated && isStaffExperienceUser(user);
   const identity = enabled ? `${user?.id}:${user?.salonId}` : "";
   const liveIdentity = useRef(identity);
@@ -102,7 +101,7 @@ export function StaffAttendanceGate({ children }: { children: ReactNode }) {
       {enabled && <StaffCheckoutReminder key={identity} state={state} refresh={refresh} busy={busy} unavailable={!!error || locked} />}
       {checkingAttendance ? (
         <View style={styles.loadingOverlay} accessibilityRole="progressbar" accessibilityLabel="Checking today's attendance">
-          <ActivityIndicator color={Colors.primaryText} size="large" />
+          <ActivityIndicator color={pearl.accentDeep} size="large" />
         </View>
       ) : null}
       <Modal visible={locked && !checkingAttendance} animationType="fade" presentationStyle="fullScreen" onRequestClose={() => {}}>
