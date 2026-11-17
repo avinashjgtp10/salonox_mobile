@@ -6,7 +6,7 @@ import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { fetchStaffThunk } from "@/middleware/staff/staff.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import { ScreenShell } from "../shared/ScreenShell";
 
 type Check = { branchId: string | null | undefined; attempt: number; status: "loading" | "empty" | "ready" | "error"; message?: string };
@@ -14,7 +14,7 @@ type Check = { branchId: string | null | undefined; attempt: number; status: "lo
 export function CalendarStaffGate({ children }: { children: ReactNode }) {
   const dispatch = useAppDispatch();
   const branchId = useAppSelector(selectActiveBranchId);
-  const colors = useThemeColors();
+  const colors = usePearlColors();
   const [check, setCheck] = useState<Check>({ branchId, attempt: -1, status: "loading" });
   const [attempt, setAttempt] = useState(0);
 
