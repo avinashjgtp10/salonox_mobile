@@ -512,6 +512,7 @@ function AppShell() {
                 <Stack.Screen name="today-revenue" />
                 <Stack.Screen name="change-password" options={{ presentation: "transparentModal", animation: "fade", contentStyle: { backgroundColor: "transparent" } }} />
                 <Stack.Screen name="salon-settings" />
+                <Stack.Screen name="region-settings" />
                 <Stack.Screen name="appearance" options={{ presentation: "transparentModal", animation: "fade", contentStyle: { backgroundColor: "transparent" } }} />
                 <Stack.Screen name="notification-settings" options={{ presentation: "transparentModal", animation: "fade", contentStyle: { backgroundColor: "transparent" } }} />
                 <Stack.Screen name="privacy-policy" />
