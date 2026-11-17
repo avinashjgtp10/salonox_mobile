@@ -61,6 +61,7 @@ export interface Country {
 }
 
 export interface PhoneInputProps {
+  countryAware?: boolean;
   pearlStyle?: boolean;
   value: string;
   onChange: (e164: string) => void;
@@ -686,6 +687,7 @@ const EmptyList = () => {
 
 
 export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function PhoneInput({
+  countryAware = false,
   pearlStyle = false,
   value,
   onChange,
@@ -740,17 +742,17 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
     const parsed = parseE164(value);
     if (parsed) {
       setSelectedCountry(parsed.country);
-      const nationalDigits = parsed.nationalDigits.slice(0, PHONE_DIGIT_COUNT);
+      const nationalDigits = countryAware ? parsed.nationalDigits : parsed.nationalDigits.slice(0, PHONE_DIGIT_COUNT);
       setRawDigits(nationalDigits);
       setDisplayValue(
         formatNationalForDisplay(nationalDigits, parsed.country.code),
       );
     } else {
-      const fallbackDigits = digitsOnly(value).slice(0, PHONE_DIGIT_COUNT);
+      const fallbackDigits = countryAware ? digitsOnly(value) : digitsOnly(value).slice(0, PHONE_DIGIT_COUNT);
       setRawDigits(fallbackDigits);
       setDisplayValue(fallbackDigits);
     }
-  }, [value]);
+  }, [value, countryAware]);
 
 
   useEffect(() => {
@@ -781,13 +783,13 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
 
       if (international) {
         country = international.country;
-        digits = international.nationalDigits.slice(0, PHONE_DIGIT_COUNT);
+        digits = countryAware ? international.nationalDigits : international.nationalDigits.slice(0, PHONE_DIGIT_COUNT);
         if (country.code !== selectedCountry.code) {
           setSelectedCountry(country);
           onCountryChange?.(country.code);
         }
       } else {
-        digits = sanitizePhoneDigits(text, selectedCountry.dialCode);
+        digits = countryAware ? digitsOnly(text) : sanitizePhoneDigits(text, selectedCountry.dialCode);
       }
 
       setDisplayValue(digits);
@@ -797,7 +799,7 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
       lastEmittedE164.current = e164;
       onChange(e164);
     },
-    [selectedCountry, onChange, onCountryChange],
+    [selectedCountry, onChange, onCountryChange, countryAware],
   );
 
   const handleFocus = useCallback(() => {
@@ -916,7 +918,7 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
           onFocus={handleFocus}
           onBlur={handleBlur}
           keyboardType="phone-pad"
-          maxLength={PHONE_INPUT_MAX_LENGTH}
+          maxLength={countryAware ? 32 : PHONE_INPUT_MAX_LENGTH}
           textContentType="telephoneNumber"
           autoComplete="tel"
           placeholder={placeholder}
