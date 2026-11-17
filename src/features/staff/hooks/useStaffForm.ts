@@ -10,6 +10,7 @@ import {
 import { getApiErrorMessage } from "@/services/api";
 import { staffPermissionsService } from "@/services/staffPermissions.service";
 import { staffService } from "@/services/staff.service";
+import { staffScheduleService } from "@/services/staffSchedule.service";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { OWNER_CALENDAR_ROUTE } from "@/utils/routeResolver";
 import {
@@ -39,11 +40,14 @@ const EMPTY_STAFF_FORM: StaffProfileFormValues = {
   dob: "",
   email: "",
   fixedSalary: "",
+  hourlyRate: "",
   fullName: "",
   gender: "",
+  payType: "",
+  weeklyOff: "",
   startTime: "",
   endTime: "",
-  isLoginEnabled: false,
+  isLoginEnabled: true,
   joiningDate: "",
   notes: "",
   password: "",
@@ -128,8 +132,11 @@ export const useStaffForm = (staffId?: string | null) => {
       dob: toPlaceholderDob(staffMember.birthdayDay, staffMember.birthdayMonth),
       email: staffMember.email === "-" ? "" : staffMember.email,
       fixedSalary: "",
+      hourlyRate: "",
       fullName: staffMember.name,
       gender: staffMember.gender === "-" ? "" : staffMember.gender,
+      payType: "",
+      weeklyOff: "",
       startTime: staffMember.workStartTime?.slice(0, 5) ?? "",
       endTime: staffMember.workEndTime?.slice(0, 5) ?? "",
       isLoginEnabled: false,
@@ -192,7 +199,7 @@ export const useStaffForm = (staffId?: string | null) => {
     setAvatarError(null);
   };
 
-  const submit = async () => {
+  const submit = async (permissionOverrides: Record<string, boolean> = {}) => {
     if (submitting) return false;
     if (!validation.isValid) {
       setTouched((currentTouched) => ({
@@ -212,8 +219,8 @@ export const useStaffForm = (staffId?: string | null) => {
     const wages = mapStaffWagesToRequest(values);
     const action =
       isEditMode && staffId
-        ? await dispatch(updateStaffThunk({ staffId, updates: payload, wages }))
-        : await dispatch(createStaffThunk({ staff: payload, wages }));
+        ? await dispatch(updateStaffThunk({ staffId, updates: payload }))
+        : await dispatch(createStaffThunk({ staff: payload }));
     const succeeded =
       createStaffThunk.fulfilled.match(action) ||
       updateStaffThunk.fulfilled.match(action);
@@ -257,17 +264,39 @@ export const useStaffForm = (staffId?: string | null) => {
           ? action.payload.staffMember.id
           : staffId;
 
+      if (nextStaffId && wages) {
+        try {
+          await staffService.setStaffWages(nextStaffId, wages);
+        } catch (error) {
+          toast.showWarning("Staff saved, but pay settings could not be saved: " + getApiErrorMessage(error));
+        }
+      }
+
       if (nextStaffId && values.roleLevel) {
         try {
           await staffPermissionsService.assignNamedRole(
             nextStaffId,
             values.roleLevel,
           );
+          if (Object.keys(permissionOverrides).length) await staffPermissionsService.save(nextStaffId, permissionOverrides);
         } catch (error) {
           toast.showWarning(
-            "Staff saved, but role assignment failed: " +
+            "Staff saved, but permissions could not be fully saved: " +
               getApiErrorMessage(error),
           );
+        }
+      }
+      if (nextStaffId && (!isEditMode || values.weeklyOff)) {
+        try {
+          const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+          await staffScheduleService.updateSchedule(nextStaffId, { items: days.map((day, index) => ({
+            day_of_week: index,
+            is_available: day !== values.weeklyOff.toLowerCase(),
+            start_time: values.startTime,
+            end_time: values.endTime,
+          })) });
+        } catch (error) {
+          toast.showWarning("Staff saved, but the working schedule could not be saved: " + getApiErrorMessage(error));
         }
       }
 

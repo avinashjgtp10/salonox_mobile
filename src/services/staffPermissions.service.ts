@@ -46,19 +46,34 @@ export const staffPermissionsService = {
     );
     return res.data.data;
   },
-  async assignNamedRole(staffId: string, name: "Staff" | "Manager") {
+  // Find the Staff/Manager role, creating it if the salon has not used it yet.
+  async findOrCreateNamedRole(name: "Staff" | "Manager") {
     const response =
       await api.get<ApiResponse<{ items: { id: string; name: string }[] }>>(
         "/roles",
       );
-    let role = response.data.data.items.find((item) => item.name === name);
-    if (!role) {
-      const created = await api.post<ApiResponse<{ id: string; name: string }>>(
-        "/roles",
-        { name, permissions: {} },
-      );
-      role = created.data.data;
-    }
+    const existing = response.data.data.items.find((item) => item.name === name);
+    if (existing) return existing;
+    const created = await api.post<ApiResponse<{ id: string; name: string }>>(
+      "/roles",
+      { name, permissions: {} },
+    );
+    return created.data.data;
+  },
+  // The role's default grants, keyed by permission — used to seed the Add Staff
+  // permission toggles before the staff member (and so their per-staff view)
+  // exists. permissions comes back as a key->boolean map.
+  async roleDefaults(name: "Staff" | "Manager"): Promise<Record<string, boolean>> {
+    const response = await api.get<ApiResponse<{ items: { id: string; name: string }[] }>>("/roles");
+    const role = response.data.data.items.find(item => item.name === name);
+    if (!role) return {};
+    const res = await api.get<
+      ApiResponse<{ permissions?: Record<string, boolean> | null }>
+    >("/roles/" + encodeURIComponent(role.id));
+    return res.data.data.permissions ?? {};
+  },
+  async assignNamedRole(staffId: string, name: "Staff" | "Manager") {
+    const role = await this.findOrCreateNamedRole(name);
     const result = await api.patch<ApiResponse<StaffPermissionView>>(
       "/staff/" + encodeURIComponent(staffId) + "/role",
       { role_id: role.id },

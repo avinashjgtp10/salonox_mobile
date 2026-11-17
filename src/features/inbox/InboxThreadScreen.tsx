@@ -168,7 +168,7 @@ function Thread({ phone }: { phone: string }) {
       Platform.OS === "ios" ? 450 : 0,
     );
   };
-  const [tray, setTray] = useState<"quick" | "emoji" | null>(null);
+  const [tray, setTray] = useState<"more" | "quick" | "emoji" | null>(null);
   // Newest first for the inverted list below: the chat opens on the latest
   // message and new messages appear at the bottom on their own. The only
   // programmatic scroll is jumping to the bottom when the user sends.
@@ -475,41 +475,48 @@ function Thread({ phone }: { phone: string }) {
                     }}
                   />
                 )}
+                {tray === "more" && (
+                  <View style={s.tray}>
+                    <View style={s.row}>
+                      <Text translate style={[s.heading, s.fill]}>Message options</Text>
+                      <InboxIcon name="close" label="Close message options" onPress={() => setTray(null)} />
+                    </View>
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                      {([
+                        { icon: "happy-outline", label: "Emojis", onPress: () => setTray("emoji") },
+                        { icon: "attach-outline", label: "Attachments", onPress: () => { setTray(null); setAttachOpen(true); } },
+                        { icon: "flash-outline", label: "Quick replies", onPress: () => setTray("quick") },
+                        { icon: "document-text-outline", label: "Templates", onPress: openTemplates },
+                      ] as const).map(option => (
+                        <TouchableOpacity
+                          key={option.label}
+                          accessibilityRole="button"
+                          accessibilityLabel={option.label}
+                          disabled={sending || loading || !allowed || !replyAllowed}
+                          onPress={option.onPress}
+                          style={[s.quickReply, { width: "48%", minHeight: 64, alignItems: "center", justifyContent: "center", gap: 6, opacity: sending || loading ? 0.4 : 1 }]}
+                        >
+                          <Ionicons name={option.icon} size={22} color={p.muted} />
+                          <Text translate style={s.heading}>{option.label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
                 <View style={s.composer}>
-                  <InboxIcon
-                    name="add"
-                    label="Send a template"
-                    disabled={sending || loading}
-                    onPress={openTemplates}
-                  />
-                  <InboxIcon
-                    name="attach-outline"
-                    label="Attach a photo or document"
-                    disabled={sending || loading || !allowed || !replyAllowed}
-                    onPress={() => {
-                      Keyboard.dismiss();
-                      setTray(null);
-                      setAttachOpen(true);
-                    }}
-                  />
-                  <InboxIcon
-                    name="flash-outline"
-                    label="Quick replies"
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel={tray ? "Close message options" : "Open message options"}
+                    accessibilityState={{ expanded: tray !== null, disabled: sending || loading }}
                     disabled={sending || loading}
                     onPress={() => {
                       Keyboard.dismiss();
-                      setTray(tray === "quick" ? null : "quick");
+                      setTray(tray ? null : "more");
                     }}
-                  />
-                  <InboxIcon
-                    name="happy-outline"
-                    label="Insert emoji"
-                    disabled={sending || loading}
-                    onPress={() => {
-                      Keyboard.dismiss();
-                      setTray(tray === "emoji" ? null : "emoji");
-                    }}
-                  />
+                    style={[s.icon, (sending || loading) && { opacity: 0.4 }]}
+                  >
+                    <Ionicons name={tray ? "close" : "add"} size={24} color={p.muted} />
+                  </TouchableOpacity>
                   <TextInput
                     accessibilityLabel="Type a WhatsApp message"
                     multiline

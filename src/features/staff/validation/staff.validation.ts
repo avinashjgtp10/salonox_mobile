@@ -62,10 +62,12 @@ export const validateStaffForm = (
   if (!isPresent(values.fullName)) {
     errors.fullName = "Staff name is required.";
   }
+  if (!isPresent(values.joiningDate)) errors.joiningDate = "Joined on is required.";
 
   if (!isPresent(values.email)) {
+    // Prototype's step 2 requires a Login email on every new staff member.
     if (values.isLoginEnabled) {
-      errors.email = "Email is required to enable Staff Login.";
+      errors.email = "Login email is required.";
     }
   } else if (!isValidEmail(values.email!)) {
     errors.email = EMAIL_INVALID_MESSAGE;
@@ -116,6 +118,12 @@ export const validateStaffForm = (
   if (isPresent(values.fixedSalary) && !(Number(values.fixedSalary) > 0)) {
     errors.fixedSalary = "Fixed salary must be greater than 0.";
   }
+  if (values.payType === "Fixed salary" && (!isPresent(values.fixedSalary) || !Number.isFinite(Number(values.fixedSalary)) || Number(values.fixedSalary) <= 0)) {
+    errors.fixedSalary = "Enter a monthly salary greater than 0.";
+  }
+  if (values.payType === "Hourly" && (!isPresent(values.hourlyRate) || !Number.isFinite(Number(values.hourlyRate)) || Number(values.hourlyRate) <= 0)) {
+    errors.hourlyRate = "Enter an hourly rate greater than 0.";
+  }
 
   if (isPresent(values.workingHoursPerDay)) {
     const workingHours = Number(values.workingHoursPerDay);
@@ -127,11 +135,18 @@ export const validateStaffForm = (
   if (values.isLoginEnabled) {
     const password = values.password?.trim() ?? "";
 
-    if (password && password.length < PASSWORD_MIN_LENGTH) {
+    if (!password) {
+      errors.password = "Password is required.";
+    } else if (password.length < PASSWORD_MIN_LENGTH) {
       errors.password = `Password must be at least ${PASSWORD_MIN_LENGTH} characters`;
     }
+    else if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/\d/.test(password)) {
+      errors.password = "Use a number and both upper- and lower-case letters.";
+    }
 
-    if (password && values.confirmPassword !== values.password) {
+    if (!isPresent(values.confirmPassword)) {
+      errors.confirmPassword = "Confirm the password.";
+    } else if (values.confirmPassword !== values.password) {
       errors.confirmPassword = "Passwords do not match";
     }
   }

@@ -3,7 +3,7 @@ import { Keyboard, Switch, TouchableOpacity, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { DateField } from "@/components/ui/DateField";
@@ -16,7 +16,7 @@ import { PearlActionFooter } from "@/components/ui/PearlActionFooter";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { pearl } from "@/components/auth/pearl/tokens";
 import { appAlert as Alert } from "@/services/appAlert";
-import { api, getApiErrorMessage } from "@/services/api";
+import { getApiErrorMessage } from "@/services/api";
 import { useValidationScroll } from "@/hooks/useValidationScroll";
 import { STAFF_ROLE_OPTIONS } from "../validation/staff.validation";
 import { useStaffForm } from "../hooks/useStaffForm";
@@ -29,7 +29,9 @@ import {
   staffUi,
 } from "../components/StaffPearl";
 import { StaffTextField } from "../components/StaffTextField";
+import { StaffFormPermissions } from "../components/StaffFormPermissions";
 import { StaffTimeField } from "../components/StaffTimeField";
+import { STAFF_WEEKLY_OFF_OPTIONS, STAFF_PAY_TYPE_OPTIONS } from "../types/staffFeature.types";
 import type { StaffProfileFormValues } from "../types/staffFeature.types";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentUser } from "@/store/user/user.slice";
@@ -47,6 +49,8 @@ const ACCEPTED_AVATAR_MIME_TYPES = new Set([
 
 type StaffValidationField = keyof StaffProfileFormValues;
 const VALIDATION_FIELD_ORDER: StaffValidationField[] = [
+  "weeklyOff",
+  "payType",
   "fullName",
   "email",
   "phone",
@@ -57,6 +61,7 @@ const VALIDATION_FIELD_ORDER: StaffValidationField[] = [
   "endTime",
   "gender",
   "designation",
+  "hourlyRate",
   "fixedSalary",
   "workingHoursPerDay",
   "password",
@@ -113,16 +118,17 @@ const getAssetSizeBytes = async (
   }
 };
 
+// Two-step wizard per the prototype: step 1 is the staff profile (both the
+// required sub-section and the optional "more about this person" one); step 2
+// is Access level + permissions + login, with login now always required.
 const STEP_FIELDS: (keyof StaffProfileFormValues)[][] = [
-  ["fullName", "phone", "email", "dob", "joiningDate", "address", "startTime", "endTime"],
   [
-    "designation",
-    "gender",
-    "roleLevel",
-    "fixedSalary",
-    "workingHoursPerDay",
+    "fullName", "phone", "designation",
+    "startTime", "endTime", "joiningDate",
+    "dob", "gender", "weeklyOff", "payType", "address",
+    "fixedSalary", "hourlyRate", "workingHoursPerDay",
   ],
-  ["email", "password", "confirmPassword"],
+  ["roleLevel", "email", "password", "confirmPassword"],
 ];
 export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
   const insets = useSafeAreaInsets();
@@ -131,17 +137,14 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
   const form = useStaffForm(staffId);
   useStaffDetails(staffId);
   const currentUser = useAppSelector(selectCurrentUser);
-  const [step, setStep] = useState(params.step === "3" ? 2 : 0),
-    [picker, setPicker] = useState<"designation" | "gender" | null>(null),
+  const [step, setStep] = useState(params.step === "2" || params.step === "3" ? 1 : 0),
+    [picker, setPicker] = useState<"designation" | "gender" | "weeklyOff" | null>(null),
     [stepError, setStepError] = useState(""),
     [avatarValidationError, setAvatarValidationError] = useState<string | null>(
       null,
     );
-  const [otp, setOtp] = useState(""),
-    [sentEmail, setSentEmail] = useState(""),
-    [verifiedEmail, setVerifiedEmail] = useState(""),
-    [otpBusy, setOtpBusy] = useState(false),
-    [otpMessage, setOtpMessage] = useState("");
+  const [permissionOverrides, setPermissionOverrides] = useState<Record<string, boolean>>({});
+  const [permissionsReady, setPermissionsReady] = useState(false);
   const { scrollToFirstError, scrollViewRef, setFieldRef } =
     useValidationScroll(VALIDATION_FIELD_ORDER);
   const refs = useMemo(
@@ -154,7 +157,7 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
       >,
     [],
   );
-  const otpInput = useMemo(() => createRef<TextInput>(), []);
+
   const navigation = useMemo(
     () => ({
       showAccessory: false,
@@ -162,16 +165,11 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
         {
           ref: refs[field],
           disabled:
-            ["dob", "joiningDate", "roleLevel", "gender", "startTime", "endTime"].includes(field) ||
-            (field === "password" && !form.values.isLoginEnabled) ||
-            (field === "confirmPassword" && !form.values.isLoginEnabled),
+            ["dob", "joiningDate", "roleLevel", "gender", "startTime", "endTime", "weeklyOff", "payType"].includes(field) || (field === "hourlyRate" && form.values.payType !== "Hourly") || (field === "fixedSalary" && form.values.payType !== "Fixed salary"),
         },
-        ...(step === 2 && field === "email"
-          ? [{ ref: otpInput, disabled: !form.values.isLoginEnabled }]
-          : []),
       ]),
     }),
-    [refs, step, form.values.isLoginEnabled, otpInput],
+    [refs, step, form.values.payType],
   );
   useEffect(() => {
     if (mode === "create" && !form.values.joiningDate) {
@@ -328,7 +326,7 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
       }}
       label={label}
       value={String(form.values[key])}
-      error={form.validationErrors[key]}
+      error={key === "email" && step === 0 && !form.values.email.trim() ? undefined : form.validationErrors[key] || (stepError ? form.allValidationErrors[key] : undefined)}
       editable={!form.submitting}
       placeholder={placeholder}
       keyboardType={
@@ -352,43 +350,6 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
       }
     />
   );
-  const email = form.values.email.trim().toLowerCase();
-  const emailAlreadyVerified =
-    mode === "edit" &&
-    form.staffMember?.emailVerified &&
-    email === form.staffMember.email.toLowerCase();
-  const emailVerified =
-    emailAlreadyVerified || (verifiedEmail === email && !!email);
-  const emailOtp = async (verify: boolean) => {
-    setOtpBusy(true);
-    setOtpMessage("");
-    try {
-      const response = await api.post<{
-        status?: string;
-        success?: boolean;
-        data?: { success?: boolean };
-      }>(
-        verify ? "/auth/verify-email-otp" : "/auth/send-email-otp",
-        verify ? { email, otp } : { email },
-      );
-      if (verify) {
-        if (
-          response.data.status !== "success" &&
-          !response.data.success &&
-          !response.data.data?.success
-        )
-          throw new Error("Verification failed. Please check the OTP.");
-        setVerifiedEmail(email);
-      } else {
-        setSentEmail(email);
-        setOtpMessage("OTP sent. Check the staff member's inbox.");
-      }
-    } catch (e) {
-      setOtpMessage(getApiErrorMessage(e));
-    } finally {
-      setOtpBusy(false);
-    }
-  };
   const next = () => {
     setStepError("");
     const errorKey = STEP_FIELDS[step].find(
@@ -396,7 +357,7 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
     );
     if (errorKey) {
       setStepError(form.allValidationErrors[errorKey]);
-      scrollToFirstError(form.allValidationErrors);
+      scrollToFirstError(Object.fromEntries(STEP_FIELDS[step].filter(key => form.allValidationErrors[key]).map(key => [key, form.allValidationErrors[key]])));
       return;
     }
     Keyboard.dismiss();
@@ -415,11 +376,7 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
       setStepError(form.allValidationErrors[errors[0]]);
       return;
     }
-    if (form.values.isLoginEnabled && !emailVerified) {
-      setStepError("Verify the staff member's email before enabling login.");
-      return;
-    }
-    void form.submit();
+    void form.submit(permissionOverrides);
   };
   return (
     <PearlBackground>
@@ -441,7 +398,7 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
               onBack={handleBack}
             />
             <View style={{ flexDirection: "row", gap: 12 }}>
-              {["Profile", "Role & pay", "Login"].map((label, index) => (
+              {["Staff details", "Permissions & login"].map((label, index) => (
                 <View
                   key={label}
                   style={{
@@ -467,13 +424,66 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
                       fontWeight: "600",
                     }}
                   >
-                    {label}
+                    {index + 1}. {label}
                   </Text>
                 </View>
               ))}
             </View>
             {step === 0 ? (
               <>
+                <View style={staffUi.formCard}>
+                  <Text translate style={staffUi.heading}>Staff details · Required</Text>
+                  {field("fullName", "Full name *", "e.g. Shubham Verma")}
+                  <View>
+                    <Text translate style={staffUi.label}>Mobile *</Text>
+                    <PhoneInput
+                      pearlStyle
+                      ref={(input) => {
+                        refs.phone.current = input;
+                        setFieldRef("phone", input);
+                      }}
+                      required
+                      placeholder="98765 43210"
+                      country={form.values.phoneCountry as CountryCode}
+                      disabled={form.submitting}
+                      error={form.validationErrors.phone || (stepError ? form.allValidationErrors.phone : undefined)}
+                      onCountryChange={(value) =>
+                        form.updateField("phoneCountry", value)
+                      }
+                      value={form.values.phone}
+                      onChange={(value) => form.updateField("phone", value)}
+                      onSubmitEditing={() => refs.designation.current?.focus()}
+                    />
+                  </View>
+                  {field("designation", "Designation", "Optional")}
+                </View>
+                <View style={staffUi.formCard}>
+                  <Text translate style={staffUi.heading}>Working hours</Text>
+                  {(["startTime", "endTime"] as const).map((key) => (
+                    <View key={key} ref={(view) => setFieldRef(key, view)}>
+                      <StaffTimeField
+                        label={key === "startTime" ? "Start Time *" : "End Time *"}
+                        value={form.values[key]}
+                        onChange={(value) => form.updateField(key, value)}
+                        disabled={form.submitting}
+                        error={form.validationErrors[key] || (stepError ? form.allValidationErrors[key] : undefined)}
+                      />
+                    </View>
+                  ))}
+                    <View style={{ flex: 1 }}>
+                      {" "}
+                      <DateField
+                        pearlStyle
+                        label="Joined on *"
+                        value={form.values.joiningDate}
+                        maximumDate={new Date()}
+                        onChange={(value) =>
+                          form.updateField("joiningDate", value)
+                        }
+                        error={form.validationErrors.joiningDate || (stepError ? form.allValidationErrors.joiningDate : undefined)}
+                      />
+                    </View>
+                </View>
                 <View
                   style={{
                     flexDirection: "row",
@@ -504,33 +514,8 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
                   </Text>
                 ) : null}
                 <View style={staffUi.formCard}>
-                  <Text translate style={staffUi.heading}>About</Text>
-                  {field("fullName", "Full name *", "e.g. Shubham Verma")}
-                  <View>
-                    <Text translate style={staffUi.label}>Mobile *</Text>
-                    <PhoneInput
-                      pearlStyle
-                      ref={(input) => {
-                        refs.phone.current = input;
-                        setFieldRef("phone", input);
-                      }}
-                      required
-                      placeholder="98765 43210"
-                      country={form.values.phoneCountry as CountryCode}
-                      disabled={form.submitting}
-                      error={form.validationErrors.phone}
-                      onCountryChange={(value) =>
-                        form.updateField("phoneCountry", value)
-                      }
-                      value={form.values.phone}
-                      onChange={(value) => form.updateField("phone", value)}
-                      onSubmitEditing={() => refs.email.current?.focus()}
-                    />
-                  </View>
-                  {field("email", "Email", "For login & payslips")}
-                </View>
-                <View style={staffUi.formCard}>
-                  <Text translate style={staffUi.heading}>Dates</Text>
+                  <Text translate style={staffUi.heading}>More about this person · Optional</Text>
+                  {field("email", "Personal email", "Optional")}
                   <View style={{ flexDirection: "row", gap: 12 }}>
                     <View style={{ flex: 1 }}>
                       {" "}
@@ -543,174 +528,44 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
                         error={form.validationErrors.dob}
                       />
                     </View>
-                    <View style={{ flex: 1 }}>
-                      {" "}
-                      <DateField
-                        pearlStyle
-                        label="Joined on"
-                        value={form.values.joiningDate}
-                        maximumDate={new Date()}
-                        onChange={(value) =>
-                          form.updateField("joiningDate", value)
-                        }
-                        error={form.validationErrors.joiningDate}
-                      />
-                    </View>
+
                   </View>
+                                    <View style={{ flexDirection: "row", gap: 12 }}>
+                    {(["gender", "weeklyOff"] as const).map(key => <TouchableOpacity key={key} style={{ flex: 1 }} onPress={() => setPicker(key)}><Text translate style={staffUi.label}>{key === "gender" ? "Gender" : "Weekly off"}</Text><View style={staffUi.input}><Text>{form.values[key] || "Optional"}</Text></View></TouchableOpacity>)}
+                  </View>
+                                    <Text translate style={staffUi.label}>Pay type</Text>
+                  <View style={staffUi.tabs}>
+                    {STAFF_PAY_TYPE_OPTIONS.map(type => <TouchableOpacity key={type} disabled={form.submitting} onPress={() => { form.updateField("payType", type === form.values.payType ? "" : type); form.updateField("fixedSalary", ""); form.updateField("hourlyRate", ""); }} style={[staffUi.tab, form.values.payType === type && { backgroundColor: pearl.glassStrong }]}><Text style={staffUi.rowTitle}>{type}</Text></TouchableOpacity>)}
+                  </View>
+                  {form.values.payType === "Fixed salary" ? field("fixedSalary", "Monthly salary *", "0", true) : null}
+                  {form.values.payType === "Hourly" ? field("hourlyRate", "Hourly rate *", "0", true) : null}
                   {field("address", "Address")}
                 </View>
-                <View style={staffUi.formCard}>
-                  <Text translate style={staffUi.heading}>Working hours</Text>
-                  {(["startTime", "endTime"] as const).map((key) => (
-                    <View key={key} ref={(view) => setFieldRef(key, view)}>
-                      <StaffTimeField
-                        label={key === "startTime" ? "Start Time *" : "End Time *"}
-                        value={form.values[key]}
-                        onChange={(value) => form.updateField(key, value)}
-                        disabled={form.submitting}
-                        error={form.validationErrors[key] || (stepError ? form.allValidationErrors[key] : undefined)}
-                      />
-                    </View>
-                  ))}
-                </View>
+                <Text translate style={staffUi.muted}>Only the fields marked * are needed to continue. You can add the rest later from the staff profile.</Text>
               </>
             ) : null}
             {step === 1 ? (
               <>
                 <View style={staffUi.formCard}>
-                  <Text translate style={staffUi.heading}>Role</Text>
-                  <View style={{ flexDirection: "row", gap: 12 }}>
-                    {(["designation", "gender"] as const).map((key) => (
-                      <TouchableOpacity
-                        key={key}
-                        onPress={() => setPicker(key)}
-                        style={{ flex: 1 }}
-                      >
-                        <Text translate style={staffUi.label}>
-                          {key === "designation" ? "Designation" : "Gender"}
-                        </Text>
-                        <View
-                          style={[
-                            staffUi.input,
-                            { flexDirection: "row", alignItems: "center" },
-                          ]}
-                        >
-                          <Text
-                            style={{
-                              flex: 1,
-                              color: form.values[key] ? pearl.ink : pearl.muted,
-                            }}
-                          >
-                            {form.values[key] ||
-                              (key === "gender" ? "Optional" : "Choose")}
-                          </Text>
-                          <Ionicons
-                            name="chevron-down"
-                            size={16}
-                            color={pearl.muted}
-                          />
-                        </View>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                  <Text translate style={staffUi.label}>Access level *</Text>
+                  <Text translate style={staffUi.heading}>Access level</Text>
                   <View style={staffUi.tabs}>
-                    {STAFF_ROLE_OPTIONS.map((role) => (
-                      <TouchableOpacity
-                        key={role}
-                        onPress={() => form.updateField("roleLevel", role)}
-                        style={[
-                          staffUi.tab,
-                          role === form.values.roleLevel && {
-                            backgroundColor: pearl.glassStrong,
-                          },
-                        ]}
-                      >
-                        <Text style={staffUi.rowTitle}>{role}</Text>
-                      </TouchableOpacity>
-                    ))}
+                    {STAFF_ROLE_OPTIONS.map(role => <TouchableOpacity key={role} disabled={form.submitting} onPress={() => { setPermissionOverrides({}); form.updateField("roleLevel", role); }} style={[staffUi.tab, role === form.values.roleLevel && { backgroundColor: pearl.glassStrong }]}><Text style={staffUi.rowTitle}>{role}</Text></TouchableOpacity>)}
                   </View>
-                  <Text translate style={staffUi.muted}>
-                    Access follows the assigned role and individual permissions.
-                  </Text>
+                  <Text translate style={staffUi.muted}>Managers can see reports and edit bookings for everyone.</Text>
                 </View>
-                <View style={staffUi.formCard}>
-                  <Text translate style={staffUi.heading}>Pay</Text>
-                  {field("fixedSalary", "Monthly salary", "0", true)}
-                  {field("workingHoursPerDay", "Hours / day", "e.g. 10", true)}
-                </View>
-              </>
-            ) : null}
-            {step === 2 ? (
-              <>
+                <StaffFormPermissions disabled={form.submitting} role={form.values.roleLevel || "Staff"} staffId={form.values.roleLevel === (form.staffMember?.permissionLevel?.toLowerCase() === "manager" ? "Manager" : "Staff") ? staffId : null} overrides={permissionOverrides} onChange={setPermissionOverrides} onReady={setPermissionsReady} />
                 <View style={staffUi.formCard}>
                   <Text translate style={staffUi.heading}>App login</Text>
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      gap: 12,
-                      alignItems: "center",
-                    }}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text translate style={staffUi.rowTitle}>
-                        Allow staff to sign in
-                      </Text>
-                      <Text translate style={staffUi.muted}>
-                        Uses their email address
-                      </Text>
-                    </View>
-                    <Switch
-                      value={form.values.isLoginEnabled}
-                      onValueChange={(value) =>
-                        form.updateField("isLoginEnabled", value)
-                      }
-                      thumbColor="#FFFFFF"
-                      trackColor={{ false: pearl.divider, true: pearl.accent }}
-                    />
-                  </View>
-                  {form.values.isLoginEnabled ? (
+                  {mode === "edit" ? <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                    <Text translate style={[staffUi.rowTitle, { flex: 1 }]}>Set a new password</Text>
+                    <Switch value={form.values.isLoginEnabled} onValueChange={value => form.updateField("isLoginEnabled", value)} disabled={form.submitting} />
+                  </View> : null}
+                  {(mode === "create" || form.values.isLoginEnabled) ? (
                     <>
                       {field("email", "Login email *", "Email address")}
-                      <StaffButton
-                        secondary
-                        disabled={otpBusy || emailVerified || !email}
-                        label={
-                          emailVerified
-                            ? "Email verified"
-                            : otpBusy
-                              ? "Please wait…"
-                              : "Send OTP"
-                        }
-                        onPress={() => void emailOtp(false)}
-                      />
-                      {sentEmail && sentEmail === email && !emailVerified ? (
-                        <>
-                          <TextInput
-                            ref={otpInput}
-                            accessibilityLabel="Email OTP"
-                            value={otp}
-                            onChangeText={setOtp}
-                            placeholder="6-digit OTP"
-                            placeholderTextColor={pearl.placeholder}
-                            keyboardType="number-pad"
-                            maxLength={6}
-                            style={staffUi.input}
-                          />
-                          <StaffButton
-                            secondary
-                            label="Verify OTP"
-                            disabled={otpBusy || otp.length !== 6}
-                            onPress={() => void emailOtp(true)}
-                          />
-                        </>
-                      ) : null}
-                      {otpMessage ? (
-                        <Text style={staffUi.muted}>{otpMessage}</Text>
-                      ) : null}
                       <PasswordField
                         pearlStyle
-                        label="Temporary password"
+                        label="Password *"
                         ref={(input) => {
                           refs.password.current = input;
                           setFieldRef("password", input);
@@ -720,7 +575,7 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
                           form.updateField("password", value)
                         }
                         placeholder="At least 8 characters"
-                        error={form.validationErrors.password}
+                        error={form.validationErrors.password || (stepError ? form.allValidationErrors.password : undefined)}
                         autoComplete="off"
                         importantForAutofill="no"
                         returnKeyType="next"
@@ -731,7 +586,7 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
                       />
                       <PasswordField
                         pearlStyle
-                        label="Confirm password"
+                        label="Confirm password *"
                         ref={(input) => {
                           refs.confirmPassword.current = input;
                           setFieldRef("confirmPassword", input);
@@ -740,35 +595,16 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
                         onChangeText={(value) =>
                           form.updateField("confirmPassword", value)
                         }
-                        error={form.validationErrors.confirmPassword}
+                        error={form.validationErrors.confirmPassword || (stepError ? form.allValidationErrors.confirmPassword : undefined)}
                         autoComplete="off"
                         importantForAutofill="no"
                         returnKeyType="done"
                         onSubmitEditing={Keyboard.dismiss}
                       />
                       <Text translate style={staffUi.muted}>
-                        Leave the password blank to send an email invite.
+                        Use at least 8 characters, with a number and both upper- and lower-case letters.
                       </Text>
                     </>
-                  ) : null}
-                </View>
-                <View style={staffUi.formCard}>
-                  <Text translate style={staffUi.heading}>Can access</Text>
-                  <Text style={staffUi.muted}>
-                    Permissions follow the assigned{" "}
-                    {form.values.roleLevel || "Staff"} role. Manage individual
-                    permissions after saving.
-                  </Text>
-                  {staffId ? (
-                    <StaffButton
-                      secondary
-                      label="Staff permissions"
-                      onPress={() =>
-                        router.push(
-                          ("/team/permissions?staffId=" + staffId) as Href,
-                        )
-                      }
-                    />
                   ) : null}
                 </View>
               </>
@@ -794,20 +630,18 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
                   form.submitting
                     ? "Saving…"
                     : step === 0
-                      ? "Next: Role & pay"
-                      : step === 1
-                        ? "Next: Login"
-                        : mode === "edit"
-                          ? "Save staff"
-                          : "Create staff"
+                      ? "Next: Permissions & login"
+                      : mode === "edit"
+                        ? "Save staff"
+                        : "Create staff"
                 }
                 disabled={
                   form.submitting ||
                   form.avatarUploading ||
-                  otpBusy ||
+                  (step === 1 && !permissionsReady) ||
                   !canManageStaffLifecycle(currentUser?.role)
                 }
-                onPress={step < 2 ? next : submit}
+                onPress={step < 1 ? next : submit}
               />
             </View>
           </PearlActionFooter>
@@ -816,11 +650,11 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
           avoidKeyboard
           pearlStyle
           centered={false}
-          title={picker === "gender" ? "Gender" : "Designation"}
+          title={picker === "weeklyOff" ? "Weekly off" : picker === "gender" ? "Gender" : "Designation"}
           visible={!!picker}
           onClose={() => setPicker(null)}
         >
-          {(picker === "gender"
+          {(picker === "weeklyOff" ? [...STAFF_WEEKLY_OFF_OPTIONS] : picker === "gender"
             ? ["Female", "Male", "Other"]
             : [
                 "Stylist",
@@ -837,7 +671,8 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
               label={value}
               icon="person-outline"
               onPress={() => {
-                form.updateField(picker!, value);
+                if (picker === "weeklyOff") form.updateField("weeklyOff", value as StaffProfileFormValues["weeklyOff"]);
+                else if (picker) form.updateField(picker, value);
                 setPicker(null);
               }}
             />
