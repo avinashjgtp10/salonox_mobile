@@ -716,6 +716,8 @@ const normalizeStaffMember = (staffMember: StaffApiItem, index: number): StaffMe
     userId,
     weeklyRevenue: toSafeNumber(staffMember.weekly_revenue),
     workingHours: getWorkingHours(staffMember),
+    workStartTime: toSafeString(staffMember.work_start_time),
+    workEndTime: toSafeString(staffMember.work_end_time),
     employeeCode: toSafeString(staffMember.employee_code, "-"),
     address: toSafeString(staffMember.address),
     avatarUrl: toSafeString(staffMember.avatar_url) || null,

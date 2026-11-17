@@ -29,6 +29,7 @@ import {
   staffUi,
 } from "../components/StaffPearl";
 import { StaffTextField } from "../components/StaffTextField";
+import { StaffTimeField } from "../components/StaffTimeField";
 import type { StaffProfileFormValues } from "../types/staffFeature.types";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentUser } from "@/store/user/user.slice";
@@ -52,12 +53,12 @@ const VALIDATION_FIELD_ORDER: StaffValidationField[] = [
   "dob",
   "joiningDate",
   "address",
+  "startTime",
+  "endTime",
   "gender",
   "designation",
-  "hourlyRate",
   "fixedSalary",
   "workingHoursPerDay",
-  "holidays",
   "password",
   "confirmPassword",
 ];
@@ -113,15 +114,13 @@ const getAssetSizeBytes = async (
 };
 
 const STEP_FIELDS: (keyof StaffProfileFormValues)[][] = [
-  ["fullName", "phone", "email", "dob", "joiningDate", "address"],
+  ["fullName", "phone", "email", "dob", "joiningDate", "address", "startTime", "endTime"],
   [
     "designation",
     "gender",
     "roleLevel",
     "fixedSalary",
-    "hourlyRate",
     "workingHoursPerDay",
-    "holidays",
   ],
   ["email", "password", "confirmPassword"],
 ];
@@ -133,7 +132,6 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
   useStaffDetails(staffId);
   const currentUser = useAppSelector(selectCurrentUser);
   const [step, setStep] = useState(params.step === "3" ? 2 : 0),
-    [pay, setPay] = useState("Fixed salary"),
     [picker, setPicker] = useState<"designation" | "gender" | null>(null),
     [stepError, setStepError] = useState(""),
     [avatarValidationError, setAvatarValidationError] = useState<string | null>(
@@ -164,18 +162,16 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
         {
           ref: refs[field],
           disabled:
-            ["dob", "joiningDate", "roleLevel", "gender"].includes(field) ||
+            ["dob", "joiningDate", "roleLevel", "gender", "startTime", "endTime"].includes(field) ||
             (field === "password" && !form.values.isLoginEnabled) ||
-            (field === "confirmPassword" && !form.values.isLoginEnabled) ||
-            (field === "hourlyRate" && pay !== "Hourly") ||
-            (field === "fixedSalary" && pay !== "Fixed salary"),
+            (field === "confirmPassword" && !form.values.isLoginEnabled),
         },
         ...(step === 2 && field === "email"
           ? [{ ref: otpInput, disabled: !form.values.isLoginEnabled }]
           : []),
       ]),
     }),
-    [refs, step, pay, form.values.isLoginEnabled, otpInput],
+    [refs, step, form.values.isLoginEnabled, otpInput],
   );
   useEffect(() => {
     if (mode === "create" && !form.values.joiningDate) {
@@ -563,6 +559,20 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
                   </View>
                   {field("address", "Address")}
                 </View>
+                <View style={staffUi.formCard}>
+                  <Text translate style={staffUi.heading}>Working hours</Text>
+                  {(["startTime", "endTime"] as const).map((key) => (
+                    <View key={key} ref={(view) => setFieldRef(key, view)}>
+                      <StaffTimeField
+                        label={key === "startTime" ? "Start Time *" : "End Time *"}
+                        value={form.values[key]}
+                        onChange={(value) => form.updateField(key, value)}
+                        disabled={form.submitting}
+                        error={form.validationErrors[key] || (stepError ? form.allValidationErrors[key] : undefined)}
+                      />
+                    </View>
+                  ))}
+                </View>
               </>
             ) : null}
             {step === 1 ? (
@@ -626,34 +636,8 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
                 </View>
                 <View style={staffUi.formCard}>
                   <Text translate style={staffUi.heading}>Pay</Text>
-                  <Text translate style={staffUi.label}>How is this person paid?</Text>
-                  <View style={staffUi.tabs}>
-                    {["Fixed salary", "Hourly"].map((option) => (
-                      <TouchableOpacity
-                        key={option}
-                        onPress={() => {
-                          setPay(option);
-                          form.updateField(
-                            option === "Hourly" ? "fixedSalary" : "hourlyRate",
-                            "",
-                          );
-                        }}
-                        style={[
-                          staffUi.tab,
-                          pay === option && {
-                            backgroundColor: pearl.glassStrong,
-                          },
-                        ]}
-                      >
-                        <Text style={staffUi.rowTitle}>{option}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                  {pay === "Fixed salary"
-                    ? field("fixedSalary", "Monthly salary", "0", true)
-                    : field("hourlyRate", "Hourly rate", "0", true)}
+                  {field("fixedSalary", "Monthly salary", "0", true)}
                   {field("workingHoursPerDay", "Hours / day", "e.g. 10", true)}
-                  {field("holidays", "Holidays", "Optional", true)}
                 </View>
               </>
             ) : null}
