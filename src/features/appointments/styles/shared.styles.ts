@@ -507,6 +507,11 @@ export const createSharedStyles = (Colors: ThemeColors) => StyleSheet.create({
     gap: Spacing.md,
     paddingVertical: Spacing.md,
   },
+  // Last row in a card: no divider, so the card does not draw a stray line
+  // just above its own rounded bottom edge.
+  detailRowLast: {
+    borderBottomWidth: 0,
+  },
   detailValue: {
     color: Colors.heading,
     flex: 1.4,

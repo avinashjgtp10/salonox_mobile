@@ -34,6 +34,7 @@ export function BilledItemRow({
   hidePrice = false,
   isStaffMode,
   item,
+  last = false,
   staffRoster,
 }: {
   appointmentId: string;
@@ -48,6 +49,9 @@ export function BilledItemRow({
   currentStaffId?: string | null;
   isStaffMode: boolean;
   item: AppointmentBilledItem;
+  // The final visible row in its card: drop the divider so it does not draw a
+  // stray line just above the card's own rounded bottom edge.
+  last?: boolean;
   staffRoster: PosStaffMember[];
 }) {
   "use no memo";
@@ -97,7 +101,7 @@ export function BilledItemRow({
 
   return (
     <View>
-      <View style={styles.detailRow}>
+      <View style={[styles.detailRow, last && styles.detailRowLast]}>
         <Text style={styles.detailLabel}>{`${item.name}${item.quantity > 1 ? ` × ${item.quantity}` : ""}`}</Text>
         {!hidePrice ? <Text style={styles.detailValue}>{formatCurrency(isStaffMode ? item.totalAmount ?? item.price : item.price)}</Text> : null}
       </View>
@@ -168,9 +172,9 @@ const createLocalStyles = () =>
       textTransform: "uppercase",
     },
     staffName: {
-      color: "#8A8F98",
+      color: pearl.ink2,
       flex: 1,
-      fontSize: 11,
+      fontSize: 12.5,
       fontWeight: "700",
     },
     buttonRow: {
@@ -194,10 +198,10 @@ const createLocalStyles = () =>
       opacity: 0.45,
     },
     timing: {
-      color: "#8A8F98",
-      fontSize: 11,
+      color: pearl.ink2,
+      fontSize: 13,
       fontWeight: "600",
-      marginTop: -4,
+      marginTop: 2,
       paddingBottom: 10,
     },
   });

@@ -6,7 +6,7 @@ import { Text } from "@/components/ui/AppTypography";
 import { ActionButton } from "@/features/appointments/components/shared/ActionButton";
 import { BilledItemRow } from "@/features/appointments/components/shared/BilledItemRow";
 import { CompleteAppointmentAction } from "@/features/appointments/components/shared/CompleteAppointmentAction";
-import { DetailRow } from "@/features/appointments/components/shared/DetailRow";
+import { DetailRow, isDetailRowVisible, lastVisibleFlags } from "@/features/appointments/components/shared/DetailRow";
 import { ScreenShell } from "@/features/appointments/components/shared/ScreenShell";
 import { SkeletonList } from "@/features/appointments/components/shared/SkeletonList";
 import { StartAppointmentAction } from "@/features/appointments/components/shared/StartAppointmentAction";
@@ -151,6 +151,43 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
   const staffNames = appointment ? getAppointmentStaffNames(appointment).join(", ") : "";
   const staffAlert = typeof appointment?.raw.staff_alert === "string" ? appointment.raw.staff_alert.trim() : "";
 
+  // Client Details card: only the actual bottom-most visible row drops its divider.
+  const clientNameValue = isStaffMode ? maskClientName(displayName, showFullName) : (appointment ? displayName : null);
+  const phoneValue = appointment ? maskPhone(appointment.phone) : null;
+  const [clientNameLast, phoneLast] = lastVisibleFlags([clientNameValue, phoneValue]);
+
+  // Appointment Details card.
+  const dateValue = appointment ? formatBusinessDate(appointment.scheduledAt) : null;
+  const timeValue = appointment
+    ? [formatBusinessTime(appointment.startTime || appointment.scheduledAt), formatBusinessTime(appointment.endTime)].filter((value) => value && value !== "-").join(" - ")
+    : null;
+  const durationValue = appointment ? (appointment.durationLabel || (appointment.durationMinutes ? `${appointment.durationMinutes} mins` : null)) : null;
+  const staffValue = staffNames || (isStaffMode ? currentStaff?.name : appointment?.staffName);
+  const [dateLast, timeLast, durationLast, staffLast, statusLast] = lastVisibleFlags([dateValue, timeValue, durationValue, staffValue, statusLabel]);
+
+  // Payment & Billing card.
+  const paymentStatusValue = paymentStatus === "Paid" ? "Paid successfully" : isStaffMode ? appointment?.paymentStatus : paymentStatus === "Partial" ? "Partially paid" : "Unpaid";
+  const paymentMethodValue = appointment?.paymentMethod;
+  const subtotalValue = salesSummary ? formatCurrency(salesSummary.subtotal) : null;
+  const discountValue = salesSummary && salesSummary.discount > 0 ? `-${formatCurrency(salesSummary.discount)}` : null;
+  const couponRowLabel = salesSummary?.couponCode ? `Coupon (${salesSummary.couponCode})` : "Coupon";
+  const couponValue = salesSummary && salesSummary.couponDiscount > 0 ? `-${formatCurrency(salesSummary.couponDiscount)}` : null;
+  const taxRowLabel = salesSummary?.taxLabel || "GST";
+  const taxValue = salesSummary && salesSummary.totalTax > 0 ? `+${formatCurrency(salesSummary.totalTax)}` : null;
+  const exChargesValue = salesSummary && salesSummary.exCharges > 0 ? `+${formatCurrency(salesSummary.exCharges)}` : null;
+  const tipValue = salesSummary && salesSummary.tipAmount > 0 ? formatCurrency(salesSummary.tipAmount) : null;
+  const totalAmountValue = formatCurrency(isStaffMode ? billedTotal : (partialBill?.total ?? (billedTotal || (appointment?.amount ?? 0))));
+  const amountPaidValue = displayedPaidAmount === null ? "Not allocated by staff" : isStaffMode || displayedPaidAmount > 0 ? formatCurrency(displayedPaidAmount) : null;
+  const dueAmountValue = partialBill ? formatCurrency(partialBill.due) : null;
+  const [
+    paymentStatusLast, paymentMethodLast, subtotalLast, discountLast, couponLast, taxLast, exChargesLast, tipLast, totalAmountLast, amountPaidLast, dueAmountLast,
+  ] = lastVisibleFlags([paymentStatusValue, paymentMethodValue, subtotalValue, discountValue, couponValue, taxValue, exChargesValue, tipValue, totalAmountValue, amountPaidValue, dueAmountValue]);
+
+  // Services & Products card: the items list's own divider drops only when no
+  // Duration row follows it (when Duration does render, dividers stay to
+  // separate items from it).
+  const servicesDurationVisible = isDetailRowVisible(durationValue);
+
   return (
     <ScreenShell
       onRefresh={() => {
@@ -212,17 +249,17 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
 
           <View style={styles.formCard}>
             <Text translate style={styles.sectionTitle}>Client Details</Text>
-            <DetailRow label="Client Name" value={isStaffMode ? maskClientName(displayName, showFullName) : displayName} />
-            <DetailRow label="Phone" value={maskPhone(appointment.phone)} />
+            <DetailRow label="Client Name" value={clientNameValue} last={clientNameLast} />
+            <DetailRow label="Phone" value={phoneValue} last={phoneLast} />
           </View>
 
           <View style={styles.formCard}>
             <Text translate style={styles.sectionTitle}>Appointment Details</Text>
-            <DetailRow label="Date" value={formatBusinessDate(appointment.scheduledAt)} />
-            <DetailRow label="Time" value={[formatBusinessTime(appointment.startTime || appointment.scheduledAt), formatBusinessTime(appointment.endTime)].filter((value) => value && value !== "-").join(" - ")} />
-            <DetailRow label="Duration" value={appointment.durationLabel || (appointment.durationMinutes ? `${appointment.durationMinutes} mins` : null)} />
-            <DetailRow label="Staff" value={staffNames || (isStaffMode ? currentStaff?.name : appointment.staffName)} />
-            <DetailRow label="Status" value={statusLabel} />
+            <DetailRow label="Date" value={dateValue} last={dateLast} />
+            <DetailRow label="Time" value={timeValue} last={timeLast} />
+            <DetailRow label="Duration" value={durationValue} last={durationLast} />
+            <DetailRow label="Staff" value={staffValue} last={staffLast} />
+            <DetailRow label="Status" value={statusLabel} last={statusLast} />
           </View>
 
           {staffAlert ? (
@@ -254,29 +291,21 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
 
           <View style={styles.formCard}>
             <Text translate style={styles.sectionTitle}>Payment & Billing</Text>
-            <DetailRow
-              label="Payment Status"
-              value={paymentStatus === "Paid" ? "Paid successfully" : isStaffMode ? appointment.paymentStatus : paymentStatus === "Partial" ? "Partially paid" : "Unpaid"}
-            />
-            <DetailRow label="Payment Method" value={appointment.paymentMethod} />
+            <DetailRow label="Payment Status" value={paymentStatusValue} last={paymentStatusLast} />
+            <DetailRow label="Payment Method" value={paymentMethodValue} last={paymentMethodLast} />
             {salesSummary ? (
               <>
-                <DetailRow label="Subtotal" value={formatCurrency(salesSummary.subtotal)} />
-                {salesSummary.discount > 0 ? <DetailRow label="Discount" value={`-${formatCurrency(salesSummary.discount)}`} /> : null}
-                {salesSummary.couponDiscount > 0 ? (
-                  <DetailRow
-                    label={salesSummary.couponCode ? `Coupon (${salesSummary.couponCode})` : "Coupon"}
-                    value={`-${formatCurrency(salesSummary.couponDiscount)}`}
-                  />
-                ) : null}
-                {salesSummary.totalTax > 0 ? <DetailRow label={salesSummary.taxLabel || "GST"} value={`+${formatCurrency(salesSummary.totalTax)}`} /> : null}
-                {salesSummary.exCharges > 0 ? <DetailRow label="Extra Charges" value={`+${formatCurrency(salesSummary.exCharges)}`} /> : null}
-                {salesSummary.tipAmount > 0 ? <DetailRow label="Staff Tip" value={formatCurrency(salesSummary.tipAmount)} /> : null}
+                <DetailRow label="Subtotal" value={subtotalValue} last={subtotalLast} />
+                <DetailRow label="Discount" value={discountValue} last={discountLast} />
+                <DetailRow label={couponRowLabel} value={couponValue} last={couponLast} />
+                <DetailRow label={taxRowLabel} value={taxValue} last={taxLast} />
+                <DetailRow label="Extra Charges" value={exChargesValue} last={exChargesLast} />
+                <DetailRow label="Staff Tip" value={tipValue} last={tipLast} />
               </>
             ) : null}
-            <DetailRow label={isStaffMode ? "Your Items Total" : "Total Amount"} value={formatCurrency(isStaffMode ? billedTotal : partialBill?.total ?? (billedTotal || appointment.amount))} />
-            <DetailRow label="Amount Paid" value={displayedPaidAmount === null ? "Not allocated by staff" : isStaffMode || displayedPaidAmount > 0 ? formatCurrency(displayedPaidAmount) : null} />
-            {partialBill ? <DetailRow label="Due Amount" value={formatCurrency(partialBill.due)} /> : null}
+            <DetailRow label={isStaffMode ? "Your Items Total" : "Total Amount"} value={totalAmountValue} last={totalAmountLast} />
+            <DetailRow label="Amount Paid" value={amountPaidValue} last={amountPaidLast} />
+            <DetailRow label="Due Amount" value={dueAmountValue} last={dueAmountLast} />
           </View>
 
           <View style={styles.formCard}>
@@ -288,34 +317,37 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
                   key={item.id ?? `${item.type}-${item.name}-${index}`}
                   label={`${item.name}${item.quantity > 1 ? ` × ${item.quantity}` : ""}`}
                   value={formatCurrency(item.totalAmount ?? item.price)}
+                  last={!servicesDurationVisible && index === visibleBilledItems.length - 1}
                 />
               ))
             ) : visibleBilledItems.length > 0 ? (
               visibleBilledItems.map((item, index) => (
                 <BilledItemRow
-                  appointmentId={appointment.id}
+                  appointmentId={appointment?.id ?? ""}
                   canHandoff={canHandoff}
                   currentStaffId={currentStaff?.id}
                   isStaffMode={isStaffMode}
                   item={item}
                   key={item.id ?? `${item.type}-${item.name}-${index}`}
+                  last={!servicesDurationVisible && index === visibleBilledItems.length - 1}
                   staffRoster={staffRoster}
                 />
               ))
             ) : saleForAppointment && saleForAppointment.lineItems.length > 0 ? (
-              saleForAppointment.lineItems.map((item) => (
+              saleForAppointment.lineItems.map((item, index) => (
                 <DetailRow
                   key={item.id}
                   label={`${item.name}${item.quantity > 1 ? ` × ${item.quantity}` : ""}`}
                   value={formatCurrency(item.totalPrice)}
+                  last={!servicesDurationVisible && index === saleForAppointment.lineItems.length - 1}
                 />
               ))
             ) : isStaffMode ? (
               <Text translate style={styles.notesText}>No items assigned to you.</Text>
             ) : (
-              <DetailRow label={appointment.serviceName || "Service"} value={formatCurrency(billedTotal || appointment.amount)} />
+              <DetailRow label={appointment?.serviceName || "Service"} value={formatCurrency(billedTotal || (appointment?.amount ?? 0))} last={!servicesDurationVisible} />
             )}
-            <DetailRow label="Duration" value={appointment.durationLabel || (appointment.durationMinutes ? `${appointment.durationMinutes} mins` : null)} />
+            <DetailRow label="Duration" value={durationValue} last />
           </View>
 
           {!isStaffMode && appointment.notes && appointment.notes.trim() ? (
