@@ -13,7 +13,7 @@ import { maskPhone } from "@/features/appointments/utils/appointmentScreenHelper
 import type { CalendarStaffOption } from "@/features/appointments/utils/calendarStaff";
 import type { QuickSaleSlot } from "@/features/quickSale/screens/QuickSaleScreen";
 import QuickSaleScreen from "@/features/quickSale/screens/QuickSaleScreen";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import type { AppointmentListItem } from "@/types/appointment";
 import { formatAppDate, formatAppTime } from "@/utils/dateTime";
 import { Ionicons } from "@expo/vector-icons";
@@ -136,7 +136,7 @@ export function CalendarPreview({
   expandSingleColumn?: boolean;
 }) {
   const { staffMode, clientName, billLabel } = useClientPrivacy();
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [previewAppointment, setPreviewAppointment] = useState<AppointmentListItem | null>(null);
   const [quickSaleSlot, setQuickSaleSlot] = useState<QuickSaleSlot | null>(null);
