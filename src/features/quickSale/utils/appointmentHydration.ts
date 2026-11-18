@@ -59,6 +59,8 @@ export const mapAppointmentToCartItems = (appointment: AppointmentListItem): Car
         staffId: toId(row.staff_id) || appointment.staffId || null,
         staffName: row.staff_name?.trim() || appointment.staffName || null,
         startTime: localItemTime(record.time ?? record.start_time),
+        // Keep the booking's saved per-row times; only newly added lines sequence.
+        isManualTime: Boolean(localItemTime(record.time ?? record.start_time)),
         unitPrice,
       };
     });

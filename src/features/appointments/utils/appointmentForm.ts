@@ -196,6 +196,11 @@ const appointmentServiceRowsToSelected = (
           toOptionalStringValue(service.time) ??
           toOptionalStringValue(service.start_time) ??
           null,
+        // An already-saved booking keeps its stored per-service times; only
+        // newly added services get auto-sequenced.
+        isManualTime: Boolean(
+          toOptionalStringValue(service.time) ?? toOptionalStringValue(service.start_time),
+        ),
         total: toOptionalNumber(service.total),
       };
     });
