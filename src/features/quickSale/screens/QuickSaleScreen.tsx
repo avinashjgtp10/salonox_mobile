@@ -24,7 +24,7 @@ import {
   useNavigation,
   type Href,
 } from "expo-router";
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { BackHandler, Keyboard, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -1872,9 +1872,13 @@ function OwnerQuickSaleScreen({
     );
   }
 
+  const Shell = paymentOnly ? Fragment : PearlBackground;
+
   return (
     <>
-      <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={paymentOnly ? styles.paymentOnlyRoot : [styles.safeArea, { backgroundColor: "transparent" }]}>
+      {/* Payment-only is an overlay: no opaque Pearl background, so the
+          appointment details sheet stays visible behind the payment sheet. */}
+      <Shell><SafeAreaView edges={["top", "bottom"]} style={paymentOnly ? styles.paymentOnlyRoot : [styles.safeArea, { backgroundColor: "transparent" }]}>
         {!embedded ? <AppStatusBar /> : null}
 
         {paymentOnly ? (
@@ -2185,7 +2189,7 @@ function OwnerQuickSaleScreen({
           totals={totals}
           visible={isCheckoutVisible}
         />
-      </SafeAreaView></PearlBackground>
+      </SafeAreaView></Shell>
     </>
   );
 }

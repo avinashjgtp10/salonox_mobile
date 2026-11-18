@@ -107,7 +107,8 @@ export function AppointmentPreviewSheet({
   // straight at its Payment screen.
   const canContinueToPayment = Boolean(onContinueToPayment) && appointment.status !== "Cancelled";
   const handleContinueToPayment = () => {
-    onClose();
+    // Keep the appointment details sheet open underneath; the Quick Sale screen
+    // opens as an overlay on top of it rather than replacing it.
     onContinueToPayment?.(appointment);
   };
 
