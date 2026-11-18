@@ -5,6 +5,7 @@ import { Text } from "@/components/ui/AppTypography";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchBlockedTimesThunk } from "@/middleware/staff/staffBlockedTimes.thunk";
+import { fetchStaffAvailabilityThunk } from "@/middleware/staff/staffAvailability.thunk";
 import { AppointmentPreviewSheet } from "@/features/appointments/components/calendar/AppointmentPreviewSheet";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { ANY_STAFF_COLUMN_ID, getAppointmentItemSegments, getAppointmentRange, getCalendarAppointmentTitle, getWebCalendarChipStyle, hasCalendarInteractionFlag, isAnyStaffAppointment, isReadonlyCalendarAppointment } from "@/features/appointments/utils/appointmentCalendar";
@@ -253,6 +254,42 @@ export function CalendarPreview({
       });
     });
   }, [blockedTimesByStaffId, columns, viewMode]);
+
+  // Fetch staff availability per column per date (day view only) so we can shade
+  // the off-shift hours (before shift start, after shift end) as a soft gray band.
+  const availabilityState = useAppSelector((state) => state.staffAvailability);
+  useEffect(() => {
+    if (viewMode !== "day") return;
+    columns.forEach((column) => {
+      const { staffId } = column;
+      if (!staffId || staffId === ANY_STAFF_COLUMN_ID) return;
+      const key = `${staffId}:${date}`;
+      if (availabilityState.availabilityByKey[key] !== undefined || availabilityState.loadingKeys.includes(key)) return;
+      void dispatch(fetchStaffAvailabilityThunk({ staffId, date }));
+    });
+  }, [availabilityState, columns, date, dispatch, viewMode]);
+
+  const shiftOverlayByColumn = useMemo<{ endMin: number; startMin: number }[][]>(() => {
+    if (viewMode !== "day") return columns.map(() => []);
+    return columns.map((column) => {
+      const { staffId } = column;
+      if (!staffId || staffId === ANY_STAFF_COLUMN_ID) return [];
+      const avail = availabilityState.availabilityByKey[`${staffId}:${date}`];
+      if (!avail) return [];
+      const overlays: { endMin: number; startMin: number }[] = [];
+      if (avail.shiftStartTime) {
+        const [h, m] = avail.shiftStartTime.split(":").map(Number);
+        const shiftStartMin = h * 60 + m;
+        if (shiftStartMin > 0) overlays.push({ startMin: 0, endMin: shiftStartMin });
+      }
+      if (avail.shiftEndTime) {
+        const [h, m] = avail.shiftEndTime.split(":").map(Number);
+        const shiftEndMin = h * 60 + m;
+        if (shiftEndMin < 24 * 60) overlays.push({ startMin: shiftEndMin, endMin: 24 * 60 });
+      }
+      return overlays;
+    });
+  }, [availabilityState.availabilityByKey, columns, date, viewMode]);
   const now = new Date();
   const currentMinuteOffset = now.getHours() * 60 + now.getMinutes() - START_HOUR * 60;
   const showCurrentTime = viewMode === "day" && date === todayIsoDate() && currentMinuteOffset >= 0 && currentMinuteOffset < HOURS.length * 60;
@@ -387,6 +424,7 @@ export function CalendarPreview({
                     onSlotPress={openQuickSaleAt}
                     // No staff schedule sits behind "Any Available", so slots there can't be booked (web parity).
                     readOnly={!quickSaleEnabled || column.staffId === ANY_STAFF_COLUMN_ID}
+                    shiftOverlay={shiftOverlayByColumn[columnIndex]}
                     styles={styles}
                     width={columnWidth}
                   />
@@ -511,6 +549,7 @@ const CalendarDayColumn = memo(function CalendarDayColumn({
   onAppointmentPress,
   onSlotPress,
   readOnly,
+  shiftOverlay,
   styles,
   width,
 }: {
@@ -521,6 +560,7 @@ const CalendarDayColumn = memo(function CalendarDayColumn({
   onAppointmentPress: (appointment: AppointmentListItem) => void;
   onSlotPress: (column: CalendarColumn, locationY: number) => void;
   readOnly: boolean;
+  shiftOverlay: { endMin: number; startMin: number }[];
   styles: CalendarStyles;
   width: number;
 }) {
@@ -541,6 +581,22 @@ const CalendarDayColumn = memo(function CalendarDayColumn({
         onPress={handleSlotPress}
         style={styles.dinggQuickSaleLayer}
       />}
+      {shiftOverlay.map((band, index) => {
+        const offsetMinutes = band.startMin - START_HOUR * 60;
+        if (offsetMinutes >= HOURS.length * 60) return null;
+        const clampedStart = Math.max(offsetMinutes, 0);
+        const clampedEnd = Math.min(band.endMin - START_HOUR * 60, HOURS.length * 60);
+        const height = Math.max((clampedEnd - clampedStart) / 60 * HOUR_HEIGHT, 0);
+        const top = (clampedStart / 60) * HOUR_HEIGHT;
+        return (
+          <Pressable
+            accessibilityLabel="Outside working hours"
+            key={`shift-${index}`}
+            onPress={() => {}}
+            style={{ position: "absolute", left: 0, right: 0, top, height, backgroundColor: "rgba(0,0,0,0.055)", zIndex: 1 }}
+          />
+        );
+      })}
       {blocked.map((block) => {
         const offsetMinutes = block.startMin - START_HOUR * 60;
         if (offsetMinutes < 0 || offsetMinutes >= HOURS.length * 60) return null;

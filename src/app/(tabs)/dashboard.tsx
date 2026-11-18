@@ -16,6 +16,7 @@ import { NextAppointments, StaffOnFloor } from "@/components/dashboard/Dashboard
 import { MenuDrawer, NotificationsSheet, SalonSwitchSheet } from "@/components/dashboard/DashboardSheets";
 import SpotlightAnnouncementCard from "@/components/dashboard/SpotlightAnnouncementCard";
 import { LunoxInsightCard } from "@/components/lunox/LunoxInsightCard";
+import { LunoxPromoCard } from "@/components/lunox/LunoxPromoCard";
 import { HeroSurface } from "@/components/pearl/HeroSurface";
 import { Icon, type IconName } from "@/components/pearl/Icon";
 import { LoadError, Page } from "@/components/pearl/Page";
@@ -196,6 +197,7 @@ export default function DashboardScreen() {
         {dashboardLocked ? <DashboardUpgradeRequired /> : showErrorState ? <LoadError onRetry={() => void fetchDashboard()} /> : (
           <>
             {(!isStaffAccount(user) || isManagerAccount(user)) && canAccessBusinessModule(user, "view_dashboard_card_total_revenue") && <RevenueHero />}
+            <LunoxPromoCard />
             <LunoxInsightCard refreshKey={refreshKey} />
             <View style={styles.bleed}><SpotlightAnnouncementCard /></View>
             <StatsRow />

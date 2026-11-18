@@ -18,6 +18,7 @@ import {
 } from "@/middleware/staff/staffHistory.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
+  clearStaffHistory,
   selectStaffAttendanceHistory,
   selectStaffAttendanceHistoryError,
   selectStaffAttendanceHistoryLoaded,
@@ -67,6 +68,12 @@ export function StaffHistorySection({ staffId }: StaffHistorySectionProps) {
     selectStaffAttendanceHistoryError(state, staffId),
   );
 
+  // Invalidate on unmount so the next screen visit always fetches fresh data.
+  useEffect(() => {
+    if (!staffId || !isValidStaffId(staffId)) return;
+    return () => { dispatch(clearStaffHistory(staffId)); };
+  }, [dispatch, staffId]);
+
   useEffect(() => {
     if (!staffId || !isValidStaffId(staffId)) {
       return;
@@ -110,21 +117,34 @@ export function StaffHistorySection({ staffId }: StaffHistorySectionProps) {
 
   return (
     <StaffSectionCard title="History">
-      <View style={styles.tabs}>
-        {TABS.map((tab) => {
-          const isActive = tab.key === activeTab;
+      <View style={styles.tabRow}>
+        <View style={styles.tabs}>
+          {TABS.map((tab) => {
+            const isActive = tab.key === activeTab;
 
-          return (
-            <TouchableOpacity
-              key={tab.key}
-              activeOpacity={0.84}
-              onPress={() => setActiveTab(tab.key)}
-              style={[styles.tab, isActive && styles.tabActive]}
-            >
-              <Text translate style={[styles.tabText, isActive && styles.tabTextActive]}>{tab.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                activeOpacity={0.84}
+                onPress={() => setActiveTab(tab.key)}
+                style={[styles.tab, isActive && styles.tabActive]}
+              >
+                <Text translate style={[styles.tabText, isActive && styles.tabTextActive]}>{tab.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <TouchableOpacity
+          accessibilityLabel="Refresh history"
+          accessibilityRole="button"
+          activeOpacity={0.7}
+          disabled={loading}
+          hitSlop={{ bottom: 8, left: 8, right: 8, top: 8 }}
+          onPress={handleRetry}
+          style={styles.refreshButton}
+        >
+          <Text translate style={[styles.tabText, { opacity: loading ? 0.4 : 1 }]}>Refresh</Text>
+        </TouchableOpacity>
       </View>
 
       {error ? (
@@ -205,10 +225,18 @@ export function StaffHistorySection({ staffId }: StaffHistorySectionProps) {
 }
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
+  tabRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
+  },
   tabs: {
     flexDirection: "row",
     gap: 8,
-    marginBottom: Spacing.md,
+  },
+  refreshButton: {
+    paddingHorizontal: 4,
   },
   tab: {
     backgroundColor: Colors.bg2,

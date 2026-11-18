@@ -1,4 +1,4 @@
-import { hasBusinessDashboard } from "@/utils/staffExperience";
+import { canAccessLunox, hasBusinessDashboard } from "@/utils/staffExperience";
 import { RegionalPreferencesSync } from "@/localization/RegionalPreferencesSync";
 import { Text } from "@/components/ui/AppTypography";
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider, type Theme } from '@react-navigation/native';
@@ -27,6 +27,7 @@ import { useAppUpdateAnnouncement } from '@/hooks/useAppUpdateAnnouncement';
 import { useIsOnHomeScreen } from '@/hooks/useIsOnHomeScreen';
 import { useOtaUpdate } from '@/hooks/useOtaUpdate';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { scheduleLunoxPromoNotification } from '@/services/lunoxPromoNotification';
 import { useNetworkMonitor } from '@/hooks/useNetworkMonitor';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
@@ -268,9 +269,18 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
 }
 
 function PushNotificationsSetup() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
 
   usePushNotifications(isAuthenticated);
+
+  // Queue the one-time "Meet Lunox AI" nudge for owners/managers who can use it.
+  // Runs at startup, so existing installs schedule it on their next launch after
+  // this update; a persisted flag keeps it to a single send per device.
+  useEffect(() => {
+    if (isAuthenticated && canAccessLunox(user)) {
+      void scheduleLunoxPromoNotification();
+    }
+  }, [isAuthenticated, user]);
 
   return null;
 }

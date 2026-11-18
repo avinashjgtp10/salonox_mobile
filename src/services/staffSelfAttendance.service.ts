@@ -9,6 +9,7 @@ export type StaffSelfAttendance = Partial<AttendanceActivity> & {
   staff_id: string; date: string; server_time: string;
   today_date?: string;
   pending_checkout?: { attendance_id: string; date: string; check_in: string | null; scheduled_end: string | null; blocked_reason: string | null } | null;
+  pending_checkouts?: { attendance_id: string; date: string; check_in: string | null; scheduled_end: string | null; blocked_reason: string | null }[];
   shift_start: string | null; shift_end: string | null; reminder_at: string | null;
   can_check_in: boolean; blocked_reason: string | null; checked_in: boolean;
   record: Partial<AttendanceActivity> & {
@@ -47,6 +48,10 @@ export const staffSelfAttendanceService = {
   async checkOut(pendingAttendanceId?: string) {
     const body = pendingAttendanceId ? { pending_attendance_id: pendingAttendanceId } : toAttendanceLocationBody(await getAttendanceLocation());
     const response = await api.post<SelfAttendanceResponse>(MOBILE_STAFF.CHECK_OUT, body, PUNCH_CONFIG);
+    return readState(response.data);
+  },
+  async bulkCheckOut(attendanceIds: string[]) {
+    const response = await api.post<SelfAttendanceResponse>(MOBILE_STAFF.BULK_CHECK_OUT, { attendance_ids: attendanceIds }, PUNCH_CONFIG);
     return readState(response.data);
   },
 };

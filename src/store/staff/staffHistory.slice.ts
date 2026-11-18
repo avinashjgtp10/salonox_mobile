@@ -36,7 +36,13 @@ const withStaffId = (staffIds: string[], staffId: string) =>
 const staffHistorySlice = createSlice({
   name: "staffHistory",
   initialState,
-  reducers: {},
+  reducers: {
+    clearStaffHistory(state, action: { payload: string }) {
+      const staffId = action.payload;
+      state.salesLoadedStaffIds = state.salesLoadedStaffIds.filter((id) => id !== staffId);
+      state.attendanceLoadedStaffIds = state.attendanceLoadedStaffIds.filter((id) => id !== staffId);
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchStaffSaleHistoryThunk.pending, (state, action) => {
@@ -104,4 +110,5 @@ export const selectStaffAttendanceHistoryLoading = (state: RootState, staffId?: 
 export const selectStaffAttendanceHistoryError = (state: RootState, staffId?: string | null) =>
   staffId ? state.staffHistory.attendanceErrorByStaffId[staffId] ?? null : null;
 
+export const { clearStaffHistory } = staffHistorySlice.actions;
 export default staffHistorySlice.reducer;
