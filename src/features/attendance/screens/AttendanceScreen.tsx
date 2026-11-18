@@ -40,9 +40,11 @@ import { AttendanceCheckModal } from "../components/AttendanceCheckModal";
 import { EditAttendanceModal } from "../components/EditAttendanceModal";
 import { AttendanceToast } from "../components/AttendanceToast";
 import { AttendanceActivityDetails } from "../components/AttendanceActivityDetails";
+import { StaffWeeklyShiftsView } from "../components/StaffWeeklyShiftsView";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { canManageStaffLifecycle } from "@/utils/userProfile";
+import { usePermissions } from "@/hooks/usePermissions";
 type CheckModalState = { mode: "checkIn" | "checkOut"; staffId: string } | null;
 const toDateValue = (key: string) => new Date(key + "T00:00:00");
 export default function AttendanceScreen() {
@@ -65,8 +67,12 @@ export default function AttendanceScreen() {
   } = useAttendanceScreen();
   const { checkIn, checkOut } = useAttendanceActions();
   const currentUser = useAppSelector(selectCurrentUser);
+  const { can } = usePermissions();
+  // Owners/admins always pass; non-privileged roles need the explicit
+  // `edit_attendance` permission (matches the web's granular permission map).
   const canManageAttendance =
-    Boolean(currentUser?.role) && canManageStaffLifecycle(currentUser?.role);
+    Boolean(currentUser?.role) && (canManageStaffLifecycle(currentUser?.role) || can("edit_attendance"));
+  const [activeTab, setActiveTab] = useState<"attendance" | "shifts">("attendance");
   const [editStaffId, setEditStaffId] = useState<string | null>(null);
   const [checkModal, setCheckModal] = useState<CheckModalState>(null);
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
@@ -157,6 +163,37 @@ export default function AttendanceScreen() {
       ].join("-"),
     };
   });
+  const staffList = rows.map((r) => ({
+    id: r.staffMember.id,
+    name: r.staffMember.name,
+    initials: r.staffMember.initials,
+    avatarUrl: r.staffMember.avatarUrl,
+  }));
+
+  const tabBar = (
+    <View style={{ flexDirection: "row", gap: 8, marginBottom: 2 }}>
+      {(["attendance", "shifts"] as const).map((tab) => (
+        <TouchableOpacity
+          key={tab}
+          onPress={() => setActiveTab(tab)}
+          style={{
+            flex: 1,
+            paddingVertical: 9,
+            borderRadius: 12,
+            alignItems: "center",
+            backgroundColor: activeTab === tab ? pearl.accentWash : pearl.glass,
+            borderWidth: 1,
+            borderColor: activeTab === tab ? pearl.accentTint : pearl.glassBorder,
+          }}
+        >
+          <Text translate style={{ fontSize: 13, fontWeight: "700", color: activeTab === tab ? pearl.accentDeep : pearl.ink2 }}>
+            {tab === "attendance" ? "Attendance" : "Schedule Shifts"}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+
   const header = (
     <View style={{ gap: 14 }}>
       <StaffHeader
@@ -267,20 +304,33 @@ export default function AttendanceScreen() {
         </TouchableOpacity>
         <StaffButton secondary label="Today" onPress={onToday} />
       </View>
-      <TextInput
-        value={search}
-        onChangeText={onSearchChange}
-        placeholder="Search staff"
-        placeholderTextColor={pearl.placeholder}
-        style={staffUi.input}
-      />
-      {recordsError ? <Text style={staffUi.error}>{recordsError}</Text> : null}
+      {tabBar}
+      {activeTab === "attendance" ? (
+        <>
+          <TextInput
+            value={search}
+            onChangeText={onSearchChange}
+            placeholder="Search staff"
+            placeholderTextColor={pearl.placeholder}
+            style={staffUi.input}
+          />
+          {recordsError ? <Text style={staffUi.error}>{recordsError}</Text> : null}
+        </>
+      ) : null}
     </View>
   );
   return (
     <PearlBackground>
       <SafeAreaView edges={["top", "bottom"]} style={staffUi.screen}>
         <AppStatusBar />
+        {activeTab === "shifts" ? (
+          <StaffWeeklyShiftsView
+            staff={staffList}
+            refreshing={isRefreshing}
+            onRefresh={() => void handlePullToRefresh()}
+            listHeader={header}
+          />
+        ) : (
         <FlatList
           data={isInitialLoading ? [] : rows}
           keyExtractor={(row) => row.staffMember.id}
@@ -427,6 +477,7 @@ export default function AttendanceScreen() {
             );
           }}
         />
+        )}
         <EditAttendanceModal
           attendanceDate={selectedDate}
           onClose={() => setEditStaffId(null)}
