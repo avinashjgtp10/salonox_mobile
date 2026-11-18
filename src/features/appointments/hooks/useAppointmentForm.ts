@@ -951,14 +951,22 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
     }
 
     const savedId = result.payload.appointment.id;
-    // Booked from the Calendar: the new appointment appearing on the grid is
-    // the confirmation, so just close without a toast.
+    const successMessage = mode === "create" ? "Appointment created successfully." : "Appointment updated successfully.";
+    // Booked from the Calendar: close the modal and confirm with the app-wide
+    // footer toast. The mutation sets a centered slice toast (shown by the
+    // in-modal AppointmentSnackbar) whose auto-clear timer dies when the modal
+    // unmounts — leaving it stuck mid-screen — so clear it and use the global
+    // toast that sits at the footer and dismisses itself like every other one.
     if (embedded) {
       dispatch(clearAppointmentToast());
       embedded.onRequestClose();
+      toast.showSuccess(successMessage);
       return;
     }
-    toast.showSuccess(mode === "create" ? "Appointment created successfully." : "Appointment updated successfully.");
+    // Confirm with the footer toast only; clear the mutation's centered slice
+    // toast so the details screen doesn't show a second, stuck one.
+    dispatch(clearAppointmentToast());
+    toast.showSuccess(successMessage);
     // Mutation thunks already refresh the list and dashboard. Navigate using
     // their cached appointment without repeating requests on the outgoing form.
     router.replace(`/appointments/${savedId}` as Href);

@@ -32,7 +32,7 @@ export function AppointmentSnackbar() {
   }
 
   return (
-    <ToastOverlay>
+    <ToastOverlay position="bottom">
     <Animated.View
       entering={FadeIn.duration(180)}
       exiting={FadeOut.duration(160)}
@@ -44,7 +44,7 @@ export function AppointmentSnackbar() {
         color="#FFFFFF"
       />
       <Text style={styles.snackbarText}>{toast.message}</Text>
-      <TouchableOpacity onPress={() => dispatch(clearAppointmentToast())}>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Dismiss notification" hitSlop={12} style={{ minHeight: 44, minWidth: 44, alignItems: "center", justifyContent: "center" }} onPress={() => dispatch(clearAppointmentToast())}>
         <Ionicons name="close" size={16} color="#FFFFFF" />
       </TouchableOpacity>
     </Animated.View>
