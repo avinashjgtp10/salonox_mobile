@@ -1,6 +1,6 @@
 import { canAccessLunox, hasBusinessDashboard } from "@/utils/staffExperience";
 import { Redirect, Tabs, useSegments } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "@/context/AuthContext";
 import { useAppSelector } from "@/store/hooks";
@@ -9,6 +9,7 @@ import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import { isStaffBusinessTabAllowed, isStaffExperienceUser, STAFF_HOME_ROUTE } from "@/utils/routeResolver";
 
 import { LunoxContext, type LunoxOpener } from "@/components/lunox/LunoxContext";
+import { lunoxLauncher } from "@/services/lunoxLauncher";
 import { LunoxSheet } from "@/components/lunox/LunoxSheet";
 import { AppTabLayout, type AppTabItem } from "@/components/navigation/AppTabLayout";
 
@@ -29,6 +30,12 @@ export default function DashboardTabsLayout() {
   const openLunox = useCallback<LunoxOpener>((options) => { setLunoxSeed(options?.seed ?? null); setLunoxOpen(true); }, []);
 
   const aiAllowed = canAccessLunox(user);
+
+  // A tapped Lunox push (handled outside this tree) opens the sheet through here.
+  useEffect(() => {
+    if (!aiAllowed) return;
+    return lunoxLauncher.subscribe((seed) => openLunox(seed ? { seed } : undefined));
+  }, [aiAllowed, openLunox]);
   // Prototype order: Home · Calendar · Lunox AI · Quick Sale · WhatsApp. Settings lives in the side menu.
   const tabs = useMemo<AppTabItem[]>(() => ([
     { icon: "home", name: "dashboard", title: "Home" },
