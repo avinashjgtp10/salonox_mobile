@@ -305,7 +305,7 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
         </View>
       </KeyboardAwareScrollView>
       <BookingBottomBar serviceCount={selectedServices.length} totalServiceDuration={totalServiceDuration} totalServicePrice={totalServicePrice} mutating={mutating} mode={mode} onSubmit={handleSubmit} />
-      <AppointmentSnackbar />
+      {!embedded ? <AppointmentSnackbar /> : null}
       <ClientPickerSheet
         onClose={() => setClientPickerVisible(false)}
         onSelect={(client) => { if (client) handleSelectClient(client); }}
