@@ -152,8 +152,8 @@ export function CalendarPreview({
     setQuickSaleDraft(null);
   }, []);
   const continueToPayment = useCallback((appointment: AppointmentListItem) => {
-    // A Quick Sale booking reopens its pending bill; any other booking is
-    // billed directly (web parity: save → pay → checkout the appointment).
+    // "Start sale" goes straight to the Payment sheet, layered over the still-open
+    // appointment details sheet. A pending-bill draft reopens the same way.
     setQuickSaleDraft(appointment.pendingSaleId
       ? { draftId: appointment.pendingSaleId, openPayment: true }
       : { appointmentId: appointment.id, openPayment: true });
