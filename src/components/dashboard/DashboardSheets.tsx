@@ -208,7 +208,7 @@ export function MenuDrawer({ visible, onClose }: { visible: boolean; onClose: ()
         <Avatar initials={getUserInitials(user)} size={44} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={pearlType.bodyStrong} numberOfLines={1}>{salonName}</Text>
-          {who ? <Text style={pearlType.small} numberOfLines={1}>{who}</Text> : null}
+          {user?.email ? <Text style={pearlType.small} numberOfLines={1}>{user.email}</Text> : null}
         </View>
       </Pressable>
 
