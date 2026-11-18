@@ -121,6 +121,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         foregroundImage: adaptiveIconForeground,
         backgroundImage: "./assets/images/android-launcher-background.png",
       },
+      // Edge-to-edge (SDK 54 default) makes the 3-button nav bar transparent
+      // and ignores navigationBarColor, so app content slides under it. Turn
+      // it off so the nav bar gets a solid themed background and content
+      // stays fully above it. Gesture-nav devices have no bar either way.
+      // Expo's type pins this to `true` (opt-in only); the runtime still
+      // honours `false` to leave edge-to-edge off.
+      edgeToEdgeEnabled: false as unknown as true,
       predictiveBackGestureEnabled: false,
       softwareKeyboardLayoutMode: "resize",
       permissions: [
