@@ -13,6 +13,9 @@ const OWNER_ROUTE_BUILDERS: Record<string, (referenceId: string | null) => Href>
   staff: (id) => (id ? (`/team/${id}` as Href) : ("/team" as Href)),
   campaign: () => "/reports/wa-marketing-campaign" as Href,
   whatsapp: (id) => (id ? (`/inbox/${encodeURIComponent(id)}` as Href) : ("/inbox" as Href)),
+  // Lunox AI is a sheet over the dashboard, not a route — land on the dashboard
+  // and usePushNotifications opens the sheet via lunoxLauncher.
+  lunox: () => "/dashboard" as Href,
 };
 
 const STAFF_ROUTE_BUILDERS: Record<string, (referenceId: string | null) => Href> = {

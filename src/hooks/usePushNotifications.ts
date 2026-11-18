@@ -32,6 +32,7 @@ import { selectCurrentStaff, selectCurrentStaffLoading } from "@/store/staff/sta
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { appEnv } from "@/config/environment";
 import { isNotificationRegistrationPaused } from "@/services/notificationRegistrationLifecycle";
+import { lunoxLauncher } from "@/services/lunoxLauncher";
 import { resolveRouteFromPushData } from "@/utils/notificationRouting";
 import { isStaffExperienceUser } from "@/utils/routeResolver";
 import { canReceivePush } from "@/utils/staffAccess";
@@ -209,12 +210,22 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
     }
 
     handledResponseIdsRef.current.add(responseId);
-    if (!canReceivePush(currentUserRef.current, response.notification.request.content.data)) return;
+    const data = response.notification.request.content.data;
+    if (!canReceivePush(currentUserRef.current, data)) return;
     const href = resolveRouteFromPushData(
-      response.notification.request.content.data,
+      data,
       isStaffExperienceUser(currentUserRef.current) ? "staff" : "owner",
     );
     router.push(href);
+
+    // Lunox AI is a sheet, not a route: after landing on the dashboard, ask the
+    // owner-tabs layout to open it (replayed once mounted on a cold start).
+    const pushType = String((data as { type?: unknown; event_key?: unknown })?.event_key ??
+      (data as { type?: unknown })?.type ?? "").toLowerCase();
+    if (pushType === "lunox") {
+      const seed = (data as { seed?: unknown })?.seed;
+      lunoxLauncher.open(typeof seed === "string" ? seed : null);
+    }
     void dispatch(fetchNotificationsThunk());
     void dispatch(fetchUnreadCountThunk());
   }, [dispatch]);

@@ -4,6 +4,7 @@ import { canAccessLunox } from "@/utils/staffExperience";
  * Dashboard Lunox "AI insight" card (prototype `.lunox-card`): today's tip from
  * GET /mobile/lunox/daily-insight. Hidden when Lunox is off or there's no tip.
  */
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, type Href } from "expo-router";
 import { useEffect, useState } from "react";
@@ -20,12 +21,22 @@ import { useOpenLunox } from "./LunoxContext";
 const LUNOX_MARK = require("../../../assets/images/brand/lunox-mark.png");
 const LUNOX_WORD = require("../../../assets/images/brand/lunox-wordmark.png");
 const BUTTON_GRADIENT = ["#B3AEDA", "#8D87BF", "#6B669F"] as const;
+// Remembers the dismissed tip so closing hides it for good, while a fresh tip on
+// a later day still comes through.
+const DISMISSED_KEY = "salonox.lunoxInsightDismissed";
 
 /** `refreshKey` changes on a manual pull-to-refresh (the server returns its cached tip). */
 function LunoxInsightCardContent({ refreshKey = 0 }: { refreshKey?: number }) {
   const openLunox = useOpenLunox();
   const branchId = useAppSelector(selectActiveBranchId);
   const [insight, setInsight] = useState<LunoxDailyInsight | null>(null);
+  const [dismissedText, setDismissedText] = useState<string | null>(null);
+
+  useEffect(() => {
+    AsyncStorage.getItem(DISMISSED_KEY)
+      .then(value => setDismissedText(value))
+      .catch(() => setDismissedText(null));
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -36,7 +47,12 @@ function LunoxInsightCardContent({ refreshKey = 0 }: { refreshKey?: number }) {
   }, [branchId, refreshKey]);
 
   if (!insight) return null;
+  if (dismissedText !== null && dismissedText === insight.text) return null;
   const open = () => openLunox?.({ seed: insight.text });
+  const dismiss = () => {
+    setDismissedText(insight.text);
+    void AsyncStorage.setItem(DISMISSED_KEY, insight.text).catch(() => undefined);
+  };
 
   return (
     <LinearGradient colors={["rgba(255,255,255,0.7)", "rgba(231,222,246,0.55)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.card}>
@@ -46,9 +62,14 @@ function LunoxInsightCardContent({ refreshKey = 0 }: { refreshKey?: number }) {
           <Image source={LUNOX_WORD} style={styles.word} resizeMode="contain" accessibilityLabel="lunox" />
           <View style={styles.tag}><Text translate style={styles.tagText}>AI insight</Text></View>
         </View>
-        <Pressable onPress={open} hitSlop={8} accessibilityRole="button" accessibilityLabel="Open Lunox">
-          <Icon name="chevronRight" size={16} color={pearl.muted} />
-        </Pressable>
+        <View style={styles.headActions}>
+          <Pressable onPress={open} hitSlop={8} accessibilityRole="button" accessibilityLabel="Open Lunox">
+            <Icon name="chevronRight" size={16} color={pearl.muted} />
+          </Pressable>
+          <Pressable onPress={dismiss} hitSlop={8} accessibilityRole="button" accessibilityLabel="Dismiss insight" style={styles.close}>
+            <Icon name="x" size={13} color={pearl.muted} />
+          </Pressable>
+        </View>
       </View>
       <Text style={styles.text}>{insight.text}</Text>
       <View style={styles.actions}>
@@ -69,6 +90,8 @@ const styles = StyleSheet.create({
   // .lunox-card.glass
   card: { borderRadius: 22, padding: 14, gap: 10, borderWidth: 1, borderColor: pearl.glassBorder, ...pearlShadow.card },
   head: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  headActions: { flexDirection: "row", alignItems: "center", gap: 6 },
+  close: { width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.6)" },
   brand: { flexDirection: "row", alignItems: "center", gap: 8 },
   // .orb-sm
   orb: {
