@@ -104,7 +104,7 @@ export function ServiceCatalogPicker({
         </View>
 
         <View style={ui.body}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={ui.tabs}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={ui.chipRow} contentContainerStyle={ui.tabs}>
             {PICKER_TABS.map((item) => {
               const active = item.key === tab;
               return (
@@ -167,18 +167,15 @@ export function ServiceCatalogPicker({
             </>
           ) : (
           <>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginVertical: 10 }}>
-            <View style={ui.tabs}>
-              {categories.map((item) => {
-                const active = item === category;
-                return (
-                  <TouchableOpacity key={item} onPress={() => setCategory(item)} style={[ui.chip, active && ui.chipOn]}>
-                    <Text style={[ui.chipText, active && { color: "#fff" }]}>{item}</Text>
-
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[ui.chipRow, { marginVertical: 10 }]} contentContainerStyle={ui.tabs}>
+            {categories.map((item) => {
+              const active = item === category;
+              return (
+                <TouchableOpacity key={item} onPress={() => setCategory(item)} style={[ui.chip, active && ui.chipOn]}>
+                  <Text numberOfLines={1} style={[ui.chipText, active && { color: "#fff" }]}>{item}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
 
           {loading ? (
@@ -226,10 +223,13 @@ const ui = StyleSheet.create({
  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 18, paddingVertical: 12 },
  title: { fontSize: 20, fontWeight: "800", color: pearl.ink },
  body: { flex: 1, paddingHorizontal: 18, gap: 10 },
- tabs: { flexDirection: "row", gap: 8 },
- chip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 14, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder },
+ // flexShrink: 0 keeps the chip rows from being squeezed vertically (which
+ // clipped the pills) when the service list below wants the column's space.
+ chipRow: { flexGrow: 0, flexShrink: 0 },
+ tabs: { flexDirection: "row", gap: 8, alignItems: "center", paddingVertical: 2 },
+ chip: { minHeight: 36, alignItems: "center", justifyContent: "center", paddingHorizontal: 14, paddingVertical: 9, borderRadius: 14, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder },
  chipOn: { backgroundColor: pearl.accent },
- chipText: { fontSize: 13, fontWeight: "600", color: pearl.accentDeep },
+ chipText: { fontSize: 13, lineHeight: 18, fontWeight: "600", color: pearl.accentDeep },
  search: { flexDirection: "row", alignItems: "center", backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, borderRadius: 16, paddingHorizontal: 14, minHeight: 48 },
  input: { flex: 1, fontSize: 14, color: pearl.ink, paddingVertical: 10 },
  done: { minHeight: 50, borderRadius: 16, alignItems: "center", justifyContent: "center" },

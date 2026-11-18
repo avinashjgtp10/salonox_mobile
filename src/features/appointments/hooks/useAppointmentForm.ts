@@ -8,6 +8,7 @@ import { appointmentServicesToSelectedServices, appointmentToForm, getSelectedSe
 import { APPOINTMENT_VALIDATION_FIELD_ORDER, getAppointmentPaymentStatus } from "@/features/appointments/utils/appointmentScreenHelpers";
 import { fetchServiceCatalog } from "@/features/appointments/utils/serviceCatalog";
 import { realtimePayloadMatchesStaff, staffIdMatches } from "@/features/appointments/utils/staffAssignment";
+import { sequenceStartTimes } from "@/features/appointments/utils/serviceTimeSequencing";
 import { localItemTime } from "@/features/quickSale/utils/itemTime";
 import { useAppForeground } from "@/hooks/useAppForeground";
 import { useAppToast } from "@/hooks/useAppToast";
@@ -134,6 +135,23 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
     [selectedServices],
   );
   const totalServicePrice = servicePricingTotals.grandTotal;
+  // Back-to-back timing: each row's start time is computed from the booking
+  // start and the durations of the earlier services sharing its staff member.
+  // A row the user timed by hand keeps its time and anchors the ones after it.
+  const sequencedServices = useMemo(() => {
+    const times = sequenceStartTimes(
+      selectedServices.map((service) => ({
+        durationMinutes: service.durationMinutes,
+        id: service.id,
+        manualStartTime: service.isManualTime ? localItemTime(service.startTime) : undefined,
+        occupiesTime: !service.itemKind,
+        staffId: service.staffId || form.staffId,
+      })),
+      form.startTime,
+    );
+
+    return selectedServices.map((service) => ({ ...service, startTime: times[service.id] ?? service.startTime ?? null }));
+  }, [form.staffId, form.startTime, selectedServices]);
   const defaultTimeSlots = useMemo(() => getDefaultTimeSlots(form.date), [form.date]);
   const allowedPastEditDate = mode === "edit" && existingAppointment
     ? toInputDate(existingAppointment.scheduledAt)
@@ -689,7 +707,7 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
   };
 
   const handleSetItemTime = (itemId: string, startTime: string) => {
-    setSelectedServices((current) => current.map((item) => item.id === itemId ? { ...item, startTime } : item));
+    setSelectedServices((current) => current.map((item) => item.id === itemId ? { ...item, startTime, isManualTime: true } : item));
   };
 
   const handleSelectStaff = (staffId: string) => {
@@ -803,7 +821,7 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
     );
     const calculatedEndTime = selectedSlot.endTime ?? form.endTime;
     const itemTime = (item: AppointmentSelectedService) => localItemTime(item.startTime);
-    const serviceItems = selectedServices
+    const serviceItems = sequencedServices
       .filter((service) => !service.itemKind)
       .map((service) => {
         const serviceId = getSelectedServiceCatalogId(service).trim();
@@ -861,7 +879,7 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
       };
     };
     const catalogLines = (kind: AppointmentItemKind) =>
-      selectedServices.filter((item) => item.itemKind === kind);
+      sequencedServices.filter((item) => item.itemKind === kind);
     const productItems = catalogLines("product").map((item) => ((item.rawItem ? { ...item.rawItem, ...rowOverrides(item) } : null) ?? {
       ...toCatalogLine(item),
       ...(item.categoryId ? { category_id: item.categoryId } : {}),
@@ -947,5 +965,5 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
   };
 
 
-  return { styles, activeBranchId, handleToggleCatalogItem, serviceCatalogError, serviceCatalogLoading, setServicePickerVisible, handleServicePickerContinue, handleSelectService, handleSelectStaff, handleSetItemStaff, handleSetItemTime, form, selectedServices, errors, staffMembers, serviceCatalog, servicePickerVisible, scrollViewRef, clientDropdownOpen, serviceDropdownOpen, dismissClientDropdown, dismissServiceDropdown, setFieldRef, clientBookingMode, handleNewClient, handleClientSearchChange, handleSelectClient, handleSelectExistingClientMode, handleSelectWalkInClient, clientResults, clientResultsError, clientResultsLoading, clientSearch, clientSearchInputRef, selectedClient, updateForm, slotDisabledReason, schedulerLoading, handleSelectSlot, availableSlots, Colors, handleRemoveSelectedService, servicePricingTotals, totalServiceDuration, totalServicePrice, selectedStaff, setSendAppointmentSms, sendAppointmentSms, setSendAppointmentEmail, sendAppointmentEmail, formSubmitError, mutationError, mutating, handleSubmit };
+  return { styles, activeBranchId, handleToggleCatalogItem, serviceCatalogError, serviceCatalogLoading, setServicePickerVisible, handleServicePickerContinue, handleSelectService, handleSelectStaff, handleSetItemStaff, handleSetItemTime, form, selectedServices: sequencedServices, errors, staffMembers, serviceCatalog, servicePickerVisible, scrollViewRef, clientDropdownOpen, serviceDropdownOpen, dismissClientDropdown, dismissServiceDropdown, setFieldRef, clientBookingMode, handleNewClient, handleClientSearchChange, handleSelectClient, handleSelectExistingClientMode, handleSelectWalkInClient, clientResults, clientResultsError, clientResultsLoading, clientSearch, clientSearchInputRef, selectedClient, updateForm, slotDisabledReason, schedulerLoading, handleSelectSlot, availableSlots, Colors, handleRemoveSelectedService, servicePricingTotals, totalServiceDuration, totalServicePrice, selectedStaff, setSendAppointmentSms, sendAppointmentSms, setSendAppointmentEmail, sendAppointmentEmail, formSubmitError, mutationError, mutating, handleSubmit };
 }

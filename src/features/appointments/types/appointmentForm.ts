@@ -39,5 +39,8 @@ export type AppointmentSelectedService = ServiceListItem & {
   staffId?: string | null;
   staffName?: string | null;
   startTime?: string | null;
+  // True once the user picks this row's time by hand; auto-sequencing then keeps
+  // it and schedules the following rows after it.
+  isManualTime?: boolean;
   total?: number;
 };
