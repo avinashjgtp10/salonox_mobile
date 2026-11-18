@@ -701,6 +701,22 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
     setSelectedServices((current) => current.filter((service) => service.id !== serviceId));
   };
 
+  // Per-line quantity stepper (Quick Sale parity). Dropping below 1 removes the
+  // line; the catalog total is cleared so pricing recomputes from price x qty.
+  const handleSetItemQuantity = (serviceId: string, quantity: number) => {
+    setSelectedServices((current) => {
+      if (quantity < 1) {
+        return current.filter((service) => service.id !== serviceId);
+      }
+
+      return current.map((service) =>
+        service.id === serviceId
+          ? { ...service, quantity, total: service.price * quantity }
+          : service,
+      );
+    });
+  };
+
   // Per-row staff / time, like the web's Services & Items table.
   const handleSetItemStaff = (itemId: string, staffId: string, staffName: string) => {
     setSelectedServices((current) => current.map((item) => item.id === itemId ? { ...item, staffId, staffName } : item));
@@ -973,5 +989,5 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
   };
 
 
-  return { styles, activeBranchId, handleToggleCatalogItem, serviceCatalogError, serviceCatalogLoading, setServicePickerVisible, handleServicePickerContinue, handleSelectService, handleSelectStaff, handleSetItemStaff, handleSetItemTime, form, selectedServices: sequencedServices, errors, staffMembers, serviceCatalog, servicePickerVisible, scrollViewRef, clientDropdownOpen, serviceDropdownOpen, dismissClientDropdown, dismissServiceDropdown, setFieldRef, clientBookingMode, handleNewClient, handleClientSearchChange, handleSelectClient, handleSelectExistingClientMode, handleSelectWalkInClient, clientResults, clientResultsError, clientResultsLoading, clientSearch, clientSearchInputRef, selectedClient, updateForm, slotDisabledReason, schedulerLoading, handleSelectSlot, availableSlots, Colors, handleRemoveSelectedService, servicePricingTotals, totalServiceDuration, totalServicePrice, selectedStaff, setSendAppointmentSms, sendAppointmentSms, setSendAppointmentEmail, sendAppointmentEmail, formSubmitError, mutationError, mutating, handleSubmit };
+  return { styles, activeBranchId, handleToggleCatalogItem, serviceCatalogError, serviceCatalogLoading, setServicePickerVisible, handleServicePickerContinue, handleSelectService, handleSelectStaff, handleSetItemStaff, handleSetItemTime, handleSetItemQuantity, form, selectedServices: sequencedServices, errors, staffMembers, serviceCatalog, servicePickerVisible, scrollViewRef, clientDropdownOpen, serviceDropdownOpen, dismissClientDropdown, dismissServiceDropdown, setFieldRef, clientBookingMode, handleNewClient, handleClientSearchChange, handleSelectClient, handleSelectExistingClientMode, handleSelectWalkInClient, clientResults, clientResultsError, clientResultsLoading, clientSearch, clientSearchInputRef, selectedClient, updateForm, slotDisabledReason, schedulerLoading, handleSelectSlot, availableSlots, Colors, handleRemoveSelectedService, servicePricingTotals, totalServiceDuration, totalServicePrice, selectedStaff, setSendAppointmentSms, sendAppointmentSms, setSendAppointmentEmail, sendAppointmentEmail, formSubmitError, mutationError, mutating, handleSubmit };
 }
