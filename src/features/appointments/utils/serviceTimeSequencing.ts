@@ -9,6 +9,9 @@ import { minutesToClockTime, parseClockToMinutes } from "@/features/appointments
 
 const DEFAULT_STAFF_KEY = "__unassigned__";
 const MINUTES_IN_DAY = 24 * 60;
+// When a timed service has no duration configured, assume 30 minutes so the
+// next service still starts after it instead of stacking on the same time.
+export const DEFAULT_SERVICE_DURATION_MINUTES = 30;
 
 const clampToDay = (minutes: number) => ((minutes % MINUTES_IN_DAY) + MINUTES_IN_DAY) % MINUTES_IN_DAY;
 
@@ -55,7 +58,9 @@ export const sequenceStartTimes = (items: TimelineItem[], baseStartTime?: string
     const staffKey = item.staffId || DEFAULT_STAFF_KEY;
     const startMinutes = manualMinutes ?? cursorByStaff.get(staffKey) ?? baseMinutes;
     result[item.id] = minutesToClockTime(clampToDay(startMinutes));
-    cursorByStaff.set(staffKey, startMinutes + Math.max(Math.trunc(item.durationMinutes ?? 0), 0));
+    // A timed service with no configured duration falls back to 30 minutes.
+    const duration = Math.max(Math.trunc(item.durationMinutes ?? 0), 0) || DEFAULT_SERVICE_DURATION_MINUTES;
+    cursorByStaff.set(staffKey, startMinutes + duration);
   }
 
   return result;

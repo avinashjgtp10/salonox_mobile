@@ -44,12 +44,13 @@ const getServiceTax = (service: ServiceListItem, taxableAmount: number) => {
   return fixedTax;
 };
 
-export const getServicePricingTotals = (services: ServiceListItem[]) => {
-  const subtotal = services.reduce((total, service) => total + Math.max(service.price, 0), 0);
-  const discount = services.reduce((total, service) => total + getServiceDiscount(service), 0);
+export const getServicePricingTotals = (services: (ServiceListItem & { quantity?: number })[]) => {
+  const lineQuantity = (service: { quantity?: number }) => Math.max(1, Math.trunc(service.quantity ?? 1));
+  const subtotal = services.reduce((total, service) => total + Math.max(service.price, 0) * lineQuantity(service), 0);
+  const discount = services.reduce((total, service) => total + getServiceDiscount(service) * lineQuantity(service), 0);
   const tax = services.reduce((total, service) => {
     const taxableAmount = Math.max(0, service.price - getServiceDiscount(service));
-    return total + getServiceTax(service, taxableAmount);
+    return total + getServiceTax(service, taxableAmount) * lineQuantity(service);
   }, 0);
 
   return {
