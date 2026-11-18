@@ -237,18 +237,21 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
       ) : null}
       {appointment && isStaffAppointment ? (
         <>
-          <View style={styles.detailInvoiceRow}>
-            <View style={styles.detailHeroCopy}>
-              <Text translate style={styles.detailInvoiceLabel}>{isStaffMode ? "Client Code" : "Invoice Number"}</Text>
-              <Text style={styles.detailInvoiceNumber}>{isStaffMode ? (appointment.clientCode ?? "Not available") : (invoiceNumber ?? "Not billed yet")}</Text>
+          {!isStaffMode ? (
+            <View style={styles.detailInvoiceRow}>
+              <View style={styles.detailHeroCopy}>
+                <Text translate style={styles.detailInvoiceLabel}>Invoice Number</Text>
+                <Text style={styles.detailInvoiceNumber}>{invoiceNumber ?? "Not billed yet"}</Text>
+              </View>
+              <View style={[styles.previewStatusBadge, paymentStatus === "Paid" ? styles.previewPaidBadge : paymentStatus === "Partial" ? styles.previewPartialBadge : styles.previewUnpaidBadge]}>
+                <Text style={[styles.previewStatusText, paymentStatus === "Partial" ? styles.previewPartialText : paymentStatus === "Unpaid" && styles.previewUnpaidText]}>{paymentStatus}</Text>
+              </View>
             </View>
-            <View style={[styles.previewStatusBadge, paymentStatus === "Paid" ? styles.previewPaidBadge : paymentStatus === "Partial" ? styles.previewPartialBadge : styles.previewUnpaidBadge]}>
-              <Text style={[styles.previewStatusText, paymentStatus === "Partial" ? styles.previewPartialText : paymentStatus === "Unpaid" && styles.previewUnpaidText]}>{isStaffMode && paymentStatus === "Unpaid" ? appointment.paymentStatus : paymentStatus}</Text>
-            </View>
-          </View>
+          ) : null}
 
           <View style={styles.formCard}>
             <Text translate style={styles.sectionTitle}>Client Details</Text>
+            {isStaffMode ? <DetailRow label="Client Code" value={appointment.clientCode ?? "Not available"} /> : null}
             <DetailRow label="Client Name" value={clientNameValue} last={clientNameLast} />
             <DetailRow label="Phone" value={phoneValue} last={phoneLast} />
           </View>

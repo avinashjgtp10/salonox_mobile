@@ -8,6 +8,7 @@ export type StaffSelfAttendanceContextValue = {
   refresh: () => Promise<void>;
   checkIn: () => Promise<void>;
   checkOut: (pendingAttendanceId?: string) => Promise<void>;
+  bulkCheckOut: (attendanceIds: string[]) => Promise<void>;
   startBreak: (body: StartBreakRequest) => Promise<void>;
   busy: boolean;
   error: string | null;

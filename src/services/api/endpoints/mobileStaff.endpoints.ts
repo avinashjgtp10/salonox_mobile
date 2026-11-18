@@ -9,6 +9,7 @@ export const MOBILE_STAFF = {
   ATTENDANCE: "/mobile/staff/attendance",
   CHECK_IN: "/mobile/staff/attendance/check-in",
   CHECK_OUT: "/mobile/staff/attendance/check-out",
+  BULK_CHECK_OUT: "/mobile/staff/attendance/bulk-check-out",
   START_BREAK: "/mobile/staff/attendance/break",
   REVENUE: "/mobile/staff/revenue",
   NOTIFICATIONS: "/mobile/staff/notifications",
