@@ -12,7 +12,8 @@ import { formatBusinessTime, formatItemTime } from "@/features/appointments/util
 import { appAlert } from "@/services/appAlert";
 import { getApiErrorMessage } from "@/services/api";
 import { handoffItemThunk, updateItemStatusThunk } from "@/middleware/appointment/appointment.thunk";
-import { useAppDispatch } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { selectCurrentStaff } from "@/store/staff/staff.slice";
 import type { AppointmentBilledItem } from "@/types/appointment";
 import type { PosStaffMember } from "@/types/sales";
 
@@ -57,6 +58,7 @@ export function BilledItemRow({
   "use no memo";
   useRegionalPreferences();
   const dispatch = useAppDispatch();
+  const currentStaff = useAppSelector(selectCurrentStaff);
   const { Colors, styles } = useAppointmentStyles();
   const localStyles = useMemo(() => createLocalStyles(), []);
   const [busy, setBusy] = useState(false);
@@ -65,8 +67,10 @@ export function BilledItemRow({
   const eligible = isStaffMode && HANDOFF_ELIGIBLE_TYPES.has(item.type) && !!item.id;
   const status = item.status ?? "pending";
   const isOwnRow = eligible && !!currentStaffId && item.staffId === currentStaffId;
-  const canOffer = eligible && !isOwnRow && status === "pending" && canHandoff;
-  const isWaiting = isOwnRow && status === "pending" && !!blocker;
+  // Services run in parallel: a staff member may start their own row at any
+  // time, and reassign any row (to self or another staff) while it is pending.
+  const canReassign = eligible && status === "pending";
+  void blocker; void canHandoff;
   const timing = [
     item.startedAt ? `Started ${formatBusinessTime(item.startedAt)}` : null,
     item.completedAt ? `Finished ${formatBusinessTime(item.completedAt)}` : null,
@@ -90,10 +94,17 @@ export function BilledItemRow({
     if (!item.id) return;
     setBusy(true);
     try {
-      await dispatch(handoffItemThunk({ appointmentId, itemId: item.id, toStaffId })).unwrap();
+      // Picking self on an already-own row just starts the service in place —
+      // no reassignment is needed and the handoff endpoint's extra guards
+      // would reject it, so take the direct in-progress path instead.
+      if (toStaffId === currentStaffId && item.staffId === currentStaffId) {
+        await dispatch(updateItemStatusThunk({ appointmentId, itemId: item.id, status: "in_progress" })).unwrap();
+      } else {
+        await dispatch(handoffItemThunk({ appointmentId, itemId: item.id, toStaffId })).unwrap();
+      }
       setPickerOpen(false);
     } catch (err) {
-      appAlert.alert("Couldn't hand off", getApiErrorMessage(err));
+      appAlert.alert("Couldn't assign service", getApiErrorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -114,7 +125,7 @@ export function BilledItemRow({
           {item.staffName ? <Text style={localStyles.staffName} numberOfLines={1}>{item.staffName}</Text> : null}
           <View style={localStyles.buttonRow}>
             {isOwnRow && status === "pending" ? (
-              <TouchableOpacity accessibilityState={{ disabled: busy || isWaiting }} disabled={busy || isWaiting} onPress={() => void runStatusChange("in_progress")} style={[localStyles.smallButton, isWaiting && localStyles.disabledButton]}>
+              <TouchableOpacity disabled={busy} onPress={() => void runStatusChange("in_progress")} style={localStyles.smallButton}>
                 {busy ? <ActivityIndicator color={pearl.accentDeep} size="small" /> : <Text translate style={[localStyles.smallButtonText, { color: Colors.primaryText }]}>Start Service</Text>}
               </TouchableOpacity>
             ) : null}
@@ -123,27 +134,25 @@ export function BilledItemRow({
                 {busy ? <ActivityIndicator color={pearl.accentDeep} size="small" /> : <Text translate style={[localStyles.smallButtonText, { color: Colors.primaryText }]}>Finish</Text>}
               </TouchableOpacity>
             ) : null}
-            {canOffer ? (
+            {canReassign ? (
               <TouchableOpacity disabled={busy} onPress={() => setPickerOpen(true)} style={localStyles.smallButton}>
-                {busy ? <ActivityIndicator color={pearl.accentDeep} size="small" /> : <Text translate style={[localStyles.smallButtonText, { color: Colors.primaryText }]}>Hand Off</Text>}
+                {busy ? <ActivityIndicator color={pearl.accentDeep} size="small" /> : <Text translate style={[localStyles.smallButtonText, { color: Colors.primaryText }]}>{isOwnRow ? "Reassign" : "Assign"}</Text>}
               </TouchableOpacity>
             ) : null}
           </View>
         </View>
       ) : null}
-      {eligible && (timing || isWaiting) ? (
-        <Text style={localStyles.timing}>
-          {isWaiting && blocker ? `Waiting for ${blocker.staffName || "another staff member"} to finish ${blocker.name}` : timing}
-        </Text>
+      {eligible && timing ? (
+        <Text style={localStyles.timing}>{timing}</Text>
       ) : null}
-      {canOffer ? (
+      {canReassign ? (
         <StaffPickerSheet
           onClose={() => setPickerOpen(false)}
           onSelect={(staffId) => void handoff(staffId)}
           selectedStaffId={item.staffId}
-          staff={staffRoster}
-          subtitle={`Who should continue "${item.name}"?`}
-          title="Hand Off Service"
+          staff={staffRoster.length ? staffRoster : (currentStaff ? [{ id: currentStaff.id, name: currentStaff.name, initials: currentStaff.name.slice(0, 2).toUpperCase(), role: null, status: "Active", avatarBg: pearl.accentWash, avatarColor: pearl.accentDeep }] : [])}
+          subtitle={`Who should perform "${item.name}"?`}
+          title="Assign Service"
           visible={pickerOpen}
         />
       ) : null}

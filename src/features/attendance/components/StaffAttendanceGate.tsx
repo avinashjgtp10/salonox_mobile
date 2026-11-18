@@ -92,11 +92,23 @@ export function StaffAttendanceGate({ children }: { children: ReactNode }) {
       throw failure;
     } finally { punchLock.current = false; setBusy(false); }
   }, [identity]);
+
+  const bulkCheckOut = useCallback(async (attendanceIds: string[]) => {
+    if (!identity || punchLock.current) throw new Error("An attendance action is already in progress.");
+    punchLock.current = true; ++requestVersion.current; setRefreshing(false); setBusy(true); setError(null);
+    try {
+      const next = await staffSelfAttendanceService.bulkCheckOut(attendanceIds);
+      if (liveIdentity.current === identity) { setSnapshot({ identity, state: next }); setNow(new Date()); }
+    } catch (failure) {
+      if (liveIdentity.current === identity) setError(staffAttendanceErrorMessage(failure));
+      throw failure;
+    } finally { punchLock.current = false; setBusy(false); }
+  }, [identity]);
   const locked = enabled && !hasBusinessDashboard(user) && !canUnlockStaffApp(state, now);
   // An unknown attendance state is not evidence that a check-in is required.
   const checkingAttendance = locked && !state && !error;
   return (
-    <StaffAttendanceContext.Provider value={{ state, record, refresh, checkIn: () => punch("checkIn"), startBreak: body => punch("startBreak", body), checkOut: pendingAttendanceId => punch("checkOut", undefined, pendingAttendanceId), busy, error, refreshing }}>
+    <StaffAttendanceContext.Provider value={{ state, record, refresh, checkIn: () => punch("checkIn"), startBreak: body => punch("startBreak", body), checkOut: pendingAttendanceId => punch("checkOut", undefined, pendingAttendanceId), bulkCheckOut, busy, error, refreshing }}>
       {children}
       {enabled && <StaffCheckoutReminder key={identity} state={state} refresh={refresh} busy={busy} unavailable={!!error || locked} />}
       {checkingAttendance ? (

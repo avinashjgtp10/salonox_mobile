@@ -35,9 +35,14 @@ export function StaffHomeRouteContent({ locked = false }: { locked?: boolean } =
   void dispatch(fetchUnreadCountThunk()); void dispatch(fetchNotificationsThunk(refresh ? { refresh: true } : undefined));
  }, [dispatch, locked, staff?.id, today]);
  useEffect(() => { load(); }, [load]);
+ const byTime = (a: typeof appointments[number], b: typeof appointments[number]) => String(a.startTime ?? a.scheduledAt).localeCompare(String(b.startTime ?? b.scheduledAt));
  const mine = locked || !staff ? [] : appointments.filter(item => isAssignedToStaff(item, staff) && (item.scheduledAt ?? item.startTime ?? "").slice(0,10) === today);
- const active = mine.filter(item => !isStaffAppointmentCompleted(item) && !["Cancelled", "Deleted", "No Show"].includes(item.status)).sort((a,b) => String(a.startTime ?? a.scheduledAt).localeCompare(String(b.startTime ?? b.scheduledAt)));
- const done = mine.filter(isStaffAppointmentCompleted).length;
+ const active = mine.filter(item => !isStaffAppointmentCompleted(item) && !["Cancelled", "Deleted", "No Show"].includes(item.status)).sort(byTime);
+ // Billed/paid work stays on the day's list, after what is still open, so a
+ // staff member can see every bill raised in their name today.
+ const billed = mine.filter(isStaffAppointmentCompleted).sort(byTime);
+ const listed = [...active, ...billed];
+ const done = billed.length;
  return <StaffPage subtitleAbove title={"Hi, " + name.split(" ")[0]} subtitle={new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" })}
   refreshing={refreshing} onRefresh={() => { load(true); void attendance?.refresh(); }}
   right={<View style={{flexDirection:"row",alignItems:"center",gap:10}}><LunoxHeaderButton/><TouchableOpacity accessibilityLabel="Notifications" onPress={() => router.push("/(staff)/notifications" as Href)} style={[ui.icon, { backgroundColor: p.glassStrong }]}><Ionicons name="notifications-outline" size={22} color={p.ink} /></TouchableOpacity></View>}>
@@ -45,8 +50,8 @@ export function StaffHomeRouteContent({ locked = false }: { locked?: boolean } =
   <StaffAttendanceCard />
   {!locked && <>
    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}><Text translate style={ui.title}>Today’s appointments</Text><TouchableOpacity onPress={() => router.push("/(staff)/appointments" as Href)}><Text translate style={{ color: p.accentDeep, fontSize: 13 }}>All</Text></TouchableOpacity></View>
-   {!!active.length && <View style={ui.card}>{active.slice(0,2).map((item,index) => <View key={item.id}>{index > 0 && <View style={{height:1,backgroundColor:p.divider,marginHorizontal:14}}/>}<StaffBookingRow embedded appointment={item} next={index === 0} /></View>)}</View>}
-   {!active.length && <View style={ui.formCard}><Text translate style={ui.body}>No upcoming appointments today.</Text></View>}
+   {!!listed.length && <View style={ui.card}>{listed.map((item,index) => <View key={item.id}>{index > 0 && <View style={{height:1,backgroundColor:p.divider,marginHorizontal:14}}/>}<StaffBookingRow embedded appointment={item} next={index === 0 && !!active.length} /></View>)}</View>}
+   {!listed.length && <View style={ui.formCard}><Text translate style={ui.body}>No appointments today.</Text></View>}
    <Text translate style={ui.title}>My progress today</Text><View style={{flexDirection:"row",gap:10}}>{[["Done",done,"checkmark-circle-outline"],["Left",active.length,"time-outline"],["Rating",(()=>{const ratings=mine.map(item=>item.raw.rating??item.raw.avg_rating).filter(value=>value!==null&&value!==undefined&&value!=="").map(Number).filter(value=>Number.isFinite(value)&&value>=0&&value<=5);return ratings.length?(ratings.reduce((sum,rating)=>sum+rating,0)/ratings.length).toFixed(1):"—";})(),"star-outline"]].map(([label,value,icon])=><View key={label} style={[ui.formCard,{flex:1,padding:12,gap:8,borderRadius:20}]}><View style={{width:32,height:32,borderRadius:11,alignItems:"center",justifyContent:"center",backgroundColor:p.accentWash}}><Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={18} color={p.accentDeep}/></View><Text translate style={ui.muted}>{label}</Text><Text style={[ui.heading,{fontSize:24}]}>{value}</Text></View>)}</View>
    {!!staff?.id && <MyCommissionCard compact staffId={staff.id} staffName={name} />}
   </>}
