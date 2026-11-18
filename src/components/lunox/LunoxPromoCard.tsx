@@ -69,9 +69,9 @@ function LunoxPromoCardContent() {
             <Image source={LUNOX_WORD} style={styles.word} resizeMode="contain" accessibilityLabel="lunox" />
             <View style={styles.tag}><Text translate style={styles.tagText}>NEW</Text></View>
           </View>
-          <Text translate style={styles.title}>Meet your salon's AI assistant</Text>
+          <Text translate style={styles.title}>Meet your salon&apos;s AI assistant</Text>
           <Text translate style={styles.body}>
-            Ask Lunox about today's revenue, bookings, or what to focus on next — in plain language.
+            Ask Lunox about today&apos;s revenue, bookings, or what to focus on next — in plain language.
           </Text>
         </View>
       </View>

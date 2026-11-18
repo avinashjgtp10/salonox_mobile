@@ -199,6 +199,13 @@ export function StaffSettingsScreen() {
   ];
   const preferenceItems: SettingsItem[] = [
     {
+      description: "View your weekly shift",
+      icon: "calendar-outline",
+      key: "my-schedule",
+      onPress: () => router.push("/(staff)/schedule" as Href),
+      title: "My schedule",
+    },
+    {
       description: "View your booking notifications",
       icon: "notifications-outline",
       key: "notification-settings",

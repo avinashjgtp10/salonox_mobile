@@ -17,6 +17,7 @@ import {
   fetchStaffScheduleThunk,
   updateStaffScheduleThunk,
 } from "@/middleware/staff/staffSchedule.thunk";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   selectStaffSchedule,
@@ -138,6 +139,10 @@ export function StaffScheduleSection({ staffId }: StaffScheduleSectionProps) {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const toast = useAppToast();
+  const { can } = usePermissions();
+  // Owners/admins already pass can("edit_scheduled_shift"); non-privileged
+  // viewers (e.g. a staff member with view-only access) see a read-only card.
+  const canEdit = can("edit_scheduled_shift");
   const schedule = useAppSelector((state) => selectStaffSchedule(state, staffId));
   const loaded = useAppSelector((state) => selectStaffScheduleLoaded(state, staffId));
   const loading = useAppSelector((state) => selectStaffScheduleLoading(state, staffId));
@@ -343,9 +348,10 @@ export function StaffScheduleSection({ staffId }: StaffScheduleSectionProps) {
                 ) : null}
               </View>
               <TouchableOpacity
-                activeOpacity={0.84}
-                onPress={() => toggleDayOff(entry.day)}
-                style={[styles.offToggle, entry.isOff && styles.offToggleActive]}
+                activeOpacity={canEdit ? 0.84 : 1}
+                disabled={!canEdit}
+                onPress={() => canEdit && toggleDayOff(entry.day)}
+                style={[styles.offToggle, entry.isOff && styles.offToggleActive, !canEdit && styles.buttonDisabled]}
               >
                 <Text translate style={[styles.offToggleText, entry.isOff && styles.offToggleTextActive]}>
                   {entry.isOff ? "Day Off" : "Working"}
@@ -356,9 +362,9 @@ export function StaffScheduleSection({ staffId }: StaffScheduleSectionProps) {
               <View style={styles.timeRow}>
                 <View style={styles.timeField}>
                   <TimeDropdownField
-                    active={timePickerTarget?.day === entry.day && timePickerTarget.field === "startTime"}
+                    active={canEdit && timePickerTarget?.day === entry.day && timePickerTarget.field === "startTime"}
                     label="Start"
-                    onPress={() => openTimePicker(entry.day, "startTime")}
+                    onPress={() => canEdit && openTimePicker(entry.day, "startTime")}
                     onSelect={handleSelectPickerTime}
                     onDismiss={() => setTimePickerTarget(null)}
                     options={TIME_OPTIONS}
@@ -369,9 +375,9 @@ export function StaffScheduleSection({ staffId }: StaffScheduleSectionProps) {
                 </View>
                 <View style={styles.timeField}>
                   <TimeDropdownField
-                    active={timePickerTarget?.day === entry.day && timePickerTarget.field === "endTime"}
+                    active={canEdit && timePickerTarget?.day === entry.day && timePickerTarget.field === "endTime"}
                     label="End"
-                    onPress={() => openTimePicker(entry.day, "endTime")}
+                    onPress={() => canEdit && openTimePicker(entry.day, "endTime")}
                     onSelect={handleSelectPickerTime}
                     onDismiss={() => setTimePickerTarget(null)}
                     options={TIME_OPTIONS}
@@ -408,7 +414,7 @@ export function StaffScheduleSection({ staffId }: StaffScheduleSectionProps) {
 
       {saveError ? <Text style={styles.errorText}>{saveError}</Text> : null}
 
-      <View style={styles.footer}>
+      {!canEdit ? null : <View style={styles.footer}>
         <TouchableOpacity
           activeOpacity={0.84}
           disabled={saving}
@@ -421,7 +427,7 @@ export function StaffScheduleSection({ staffId }: StaffScheduleSectionProps) {
             <Text translate style={styles.saveButtonText}>Save Schedule</Text>
           )}
         </TouchableOpacity>
-      </View>
+      </View>}
 
     </StaffSectionCard>
   );
