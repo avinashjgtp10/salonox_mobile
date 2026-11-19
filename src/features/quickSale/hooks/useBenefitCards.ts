@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import { formatCurrency } from "../utils/money";
 import type { CheckoutSheetProps } from "../components/checkout/types";
 
@@ -26,7 +26,7 @@ type BenefitCardConfig = {
 };
 
 export function useBenefitCards({ packageBenefit, redemptions, selectedClient, totals }: Pick<CheckoutSheetProps, "packageBenefit" | "redemptions" | "selectedClient" | "totals">) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   return useMemo<BenefitCardConfig[]>(() => {
     const cards: BenefitCardConfig[] = [];
 
@@ -43,7 +43,25 @@ export function useBenefitCards({ packageBenefit, redemptions, selectedClient, t
       });
     }
 
-    if (redemptions.isMembershipWalletEligible) {
+    for (const membership of redemptions.eligibleMembershipDiscounts) {
+      const isSelected = redemptions.selectedMembershipDiscountIds.includes(membership.id);
+      cards.push({
+        accent: Colors.primaryText,
+        checked: isSelected,
+        icon: "pricetag-outline",
+        key: `membership-discount-${membership.id}`,
+        onToggle: (checked) => redemptions.toggleMembershipDiscount(membership.id, checked),
+        subtitle: membership.pricingType === "percentage"
+          ? membership.benefitType === "validity"
+            ? (membership.expiresAt ? `Valid until ${membership.expiresAt.slice(0, 10)}` : "Valid membership")
+            : `${formatCurrency(membership.discountBalanceRemaining ?? 0)} Discount Balance Remaining`
+          : (membership.expiresAt ? `Membership · Valid until ${membership.expiresAt.slice(0, 10)}` : "Active membership"),
+        title: membership.membershipName,
+        value: membership.pricingType === "percentage" ? `${membership.discountPercent ?? 0}% Off` : "Membership",
+      });
+    }
+
+    for (const membership of redemptions.membershipWalletBenefits) {
       cards.push({
         accent: Colors.primary,
         checked: redemptions.applyMembershipWallet,
@@ -54,24 +72,11 @@ export function useBenefitCards({ packageBenefit, redemptions, selectedClient, t
           value: redemptions.membershipWalletRequestedInput ?? String(totals.appliedMembershipWallet),
           placeholder: "Auto",
         },
-        key: "membership-wallet",
+        key: `membership-wallet-${membership.id}`,
         onToggle: redemptions.setApplyMembershipWallet,
-        subtitle: redemptions.membershipWalletName ?? selectedClient.membership ?? "Membership",
-        title: "Membership Wallet",
-        value: `${formatCurrency(redemptions.membershipWalletBalance ?? 0)} Remaining`,
-      });
-    }
-
-    if (redemptions.isMembershipDiscountEligible) {
-      cards.push({
-        accent: Colors.primary,
-        checked: redemptions.applyMembershipDiscount,
-        icon: "pricetag-outline",
-        key: "membership-discount",
-        onToggle: redemptions.setApplyMembershipDiscount,
-        subtitle: `${redemptions.membershipDiscountName ?? "Membership"} · ${redemptions.isValidityMembershipDiscount ? "Valid membership" : `${formatCurrency(redemptions.membershipDiscountBalanceRemaining)} left`}`,
-        title: "Membership Discount",
-        value: `${redemptions.membershipDiscountPercent}% Off`,
+        subtitle: "Membership Wallet Balance",
+        title: membership.membershipName,
+        value: `${formatCurrency(membership.walletBalance)} Remaining`,
       });
     }
 

@@ -28,10 +28,30 @@ export function resolveAutomaticRedemptions(body: CalculateTotalsBody, base: Cal
 }
 
 export async function calculateAutomaticRedemptions(body: CalculateTotalsBody, context: RedemptionContext, calculate: (body: CalculateTotalsBody) => Promise<CalculateTotalsResponse>) {
-  let flags: RedemptionPricingFlags = {
+  const membershipFlags: RedemptionPricingFlags = {
     applyMembershipWallet: body.applyMembershipWallet, membershipWalletRequested: body.membershipWalletRequested,
-    applyMembershipDiscount: body.applyMembershipDiscount, applyLoyaltyDiscount: body.applyLoyaltyDiscount,
+    applyMembershipDiscount: body.applyMembershipDiscount, membershipDiscountIds: body.membershipDiscountIds,
+    applyLoyaltyDiscount: body.applyLoyaltyDiscount,
   };
+  if (!context.rules) {
+    if (body.applyEwallet || body.applyRewardPoints || body.applyReferralCredit) {
+      throw new Error("Unable to load redemption limits. Refresh the client's balances and try again.");
+    }
+    // Membership wallet/discount and loyalty eligibility are calculated by the
+    // pricing API itself; they do not depend on the separate redemption-rules
+    // configuration endpoint. Keep those benefits usable if that endpoint is
+    // unavailable or this salon has no wallet/points/referral limits configured.
+    const totals = await calculate(body);
+    return {
+      totals,
+      flags: {
+        ...membershipFlags,
+        ...(body.applyMembershipWallet ? { membershipWalletRequested: totals.appliedMembershipWallet } : {}),
+      },
+    };
+  }
+
+  let flags: RedemptionPricingFlags = membershipFlags;
   let totals: CalculateTotalsResponse;
   if (body.applyEwallet || body.applyRewardPoints || body.applyReferralCredit) {
     if (!context.rules) throw new Error("Unable to load redemption limits. Refresh the client's balances and try again.");

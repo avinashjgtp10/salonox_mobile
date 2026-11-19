@@ -466,6 +466,10 @@ export type ClientMembershipRecord = {
   id: string;
   membershipName: string;
   status: string;
+  pricingType: "percentage" | "value" | null;
+  benefitType: "discount_balance" | "validity" | null;
+  discountPercent: number | null;
+  appliesTo: "services" | "products" | "both" | null;
   pricePaid: number;
   expiresAt: string | null;
   purchasedAt: string | null;
