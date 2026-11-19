@@ -22,6 +22,7 @@ export type ClientApiMembership =
 
 export type ClientApiItem = {
   client_code?: string | number | null;
+  client_source?: string | null;
   address?: string | null;
   has_whatsapp?: boolean | null;
   sms_notifications?: boolean | null;
@@ -98,6 +99,8 @@ export type ClientListItem = {
   birthdayYear?: number | null;
   /** Salon-scoped human-readable code, auto-numbered on create (web: client_code). */
   clientCode: string | null;
+  /** Where the client came from (web: client_source, e.g. "walk_in"). */
+  clientSource?: string | null;
   createdAt: string | null;
   createdDateLabel: string;
   email: string;
@@ -131,6 +134,8 @@ export type CreateClientRequest = {
   /** MM-DD, or null to clear. */
   birthday_day_month?: string | null;
   birthday_year?: number | null;
+  /** Where the client came from, e.g. "walk_in". Free text server-side. */
+  client_source?: string | null;
   email?: string | null;
   first_name: string;
   gender?: string;
