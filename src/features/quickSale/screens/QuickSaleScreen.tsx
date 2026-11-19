@@ -1688,7 +1688,13 @@ function OwnerQuickSaleScreen({
           )
         : await runAppointmentCheckout(
             {
-              appointmentPayload: buildAppointmentPayload(),
+              // A Quick Sale books and checks out in one step, so the backend
+              // skips its "New Appointment Booked" push for this source and
+              // only "Payment Complete" is sent. An existing booking is
+              // updated instead of created, so it keeps its original source.
+              appointmentPayload: params.appointmentId
+                ? buildAppointmentPayload()
+                : { ...buildAppointmentPayload(), source: "quick_sale" },
               buildPaymentPayload: (appointmentId) => buildPaymentPayload(appointmentId, payment),
               payment,
               totals,
