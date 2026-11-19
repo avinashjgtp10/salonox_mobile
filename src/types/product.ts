@@ -6,6 +6,8 @@ export type ProductListQuery = {
   isActive?: boolean;
   limit: number;
   offset: number;
+  /** Comma-separated product types, e.g. "retail,both" to exclude consumables. */
+  productType?: string;
   search: string;
   sort_by: string;
   sort_order: ProductSortOrder;

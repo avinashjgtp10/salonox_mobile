@@ -80,6 +80,7 @@ export function AppointmentItemsSection({
               <Text style={s.name}>{item.name}</Text>
               <Text style={s.muted}>
                 {formatCurrency(item.price)}{quantity > 1 ? " each" : ""}
+                {item.unitSize ? ` · ${item.unitSize}` : ""}
                 {isService && item.durationMinutes ? ` · ${formatDurationLabel(item.durationMinutes)}` : ""}
               </Text>
               <View style={s.staffRow}>

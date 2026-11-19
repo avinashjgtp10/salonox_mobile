@@ -115,7 +115,7 @@ export function QuickSaleForm(p: Props) {
             return <View key={item.lineId} style={s.lineCard}>
               <View style={[s.lineTop, { backgroundColor: type.bg }]}><Text translate style={[s.tag, {color: type.color}]}>{type.label}</Text><Pressable accessibilityLabel={`Remove ${item.name}`} onPress={() => p.onRemoveItem(item.lineId)} hitSlop={10}><Ionicons name="close" size={20} color="#E5484D"/></Pressable></View>
               <View style={s.lineBody}><Text style={s.name}>{item.name}</Text>
-                <Text style={s.muted}>{formatCurrency(item.unitPrice)}{item.quantity > 1 ? ' each' : ''}{item.duration ? ` · ${item.duration}` : ''}</Text>
+                <Text style={s.muted}>{formatCurrency(item.unitPrice)}{item.quantity > 1 ? ' each' : ''}{item.unitSize ? ` · ${item.unitSize}` : ''}{item.duration ? ` · ${item.duration}` : ''}</Text>
                 <View style={s.staffRow}>
                   <View style={s.staffField}><Text translate style={s.label}>Staff{requiresStaff(item) ? " *" : ""}</Text>
                   <Pressable accessibilityRole="button" accessibilityLabel={`Select staff for ${item.name}`} accessibilityHint="Assigns staff to this item only" onPress={() => { Keyboard.dismiss(); setStaffLine(item.lineId); }} style={[s.staffSelect, isMissingStaff(item) && (p.showStaffErrors ? s.staffError : s.staffRequired)]}>

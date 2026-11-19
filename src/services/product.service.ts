@@ -165,6 +165,7 @@ export const productService = {
     if (query.brandId) params.brand_id = query.brandId;
     if (query.category) params.category_id = query.category;
     if (query.isActive !== undefined) params.is_active = query.isActive;
+    if (query.productType) params.product_type = query.productType;
     if (query.stock) params.stock = query.stock;
     if (salonId) params.salon_id = salonId;
 

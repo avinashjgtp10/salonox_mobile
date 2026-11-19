@@ -27,6 +27,7 @@ export type AddItemInput = {
   packageCoverageServiceId?: string;
   taxAmount?: number;
   taxRate?: number;
+  unitSize?: string;
   unitPrice: number;
 };
 
@@ -113,6 +114,7 @@ const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
         lineId: nextLineId(),
         name: action.input.name,
         note: "",
+        unitSize: action.input.unitSize,
         originalUnitPrice: action.input.unitPrice,
         packageCoverageClientPackageId: action.input.packageCoverageClientPackageId,
         packageCoverageRemaining: action.input.packageCoverageRemaining,
