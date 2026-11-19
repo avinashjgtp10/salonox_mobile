@@ -667,7 +667,7 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
   // Products / memberships / packages: tap to add, tap again to remove.
   const handleToggleCatalogItem = (
     kind: AppointmentItemKind,
-    item: { categoryId?: string | null; id: string; name: string; price: number },
+    item: { categoryId?: string | null; id: string; name: string; price: number; unitSize?: string },
   ) => {
     setSelectedServices((current) => {
       const existing = current.find(
@@ -691,6 +691,7 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
           name: item.name,
           price: Math.max(0, Number(item.price) || 0),
           quantity: 1,
+          unitSize: item.unitSize || undefined,
         },
       ];
     });

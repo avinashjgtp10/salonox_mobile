@@ -29,6 +29,7 @@ export type FetchProductsArgs = {
   isActive?: boolean | null;
   limit?: number;
   offset?: number;
+  productType?: string | null;
   refresh?: boolean;
   reset?: boolean;
   search?: string;
@@ -49,6 +50,11 @@ const getNextQuery = (
   brandId: hasOwn(args, "brandId") ? args?.brandId ?? undefined : state.query.brandId,
   category: hasOwn(args, "category") ? args?.category ?? undefined : state.query.category,
   isActive: hasOwn(args, "isActive") ? args?.isActive ?? undefined : state.query.isActive,
+  // Deliberately not persisted from state: only the booking/billing product
+  // picker passes "retail,both", and it passes it on every call. Stock, the
+  // dashboard and consumable pickers never send it, so they keep seeing every
+  // product type (consumables included) instead of inheriting this filter.
+  productType: hasOwn(args, "productType") ? args?.productType ?? undefined : undefined,
   limit: args?.limit ?? state.query.limit,
   offset: args?.offset ?? (args?.refresh || args?.reset ? 0 : state.query.offset),
   search: args?.search ?? state.query.search,

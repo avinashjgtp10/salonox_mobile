@@ -16,6 +16,7 @@ import { ScrollFooterContext } from "@/hooks/useScrollFooter";
 import { isStaffExperienceUser, STAFF_CALENDAR_ROUTE, STAFF_HOME_ROUTE } from "@/utils/routeResolver";
 import { canUseStaffQuickSale } from "@/utils/staffAccess";
 import { formatAppDate, formatAppTime } from "@/utils/dateTime";
+import { formatUnitSize } from "@/utils/productUnit";
 import { appAlert as Alert } from "@/services/appAlert";
 import {
   router,
@@ -824,6 +825,7 @@ function OwnerQuickSaleScreen({
         itemId: product.id,
         itemType: "product",
         name: product.name,
+        unitSize: formatUnitSize(product.bottleSize, product.measureUnit),
         unitPrice: product.price,
       });
     },

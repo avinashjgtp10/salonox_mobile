@@ -81,6 +81,8 @@ export type CartItem = {
   staffName: string | null;
   taxAmount?: number;
   taxRate?: number;
+  /** Product pack size shown separately from quantity, e.g. "500 ml". */
+  unitSize?: string;
   unitPrice: number;
 };
 

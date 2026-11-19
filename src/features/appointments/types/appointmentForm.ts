@@ -29,6 +29,8 @@ export type AppointmentItemKind = "product" | "membership" | "package";
 export type AppointmentSelectedService = ServiceListItem & {
   catalogServiceId?: string;
   itemKind?: AppointmentItemKind;
+  /** Product pack size shown separately from quantity, e.g. "500 ml". */
+  unitSize?: string;
   // Original API row for an item loaded in edit mode — sent back unchanged so
   // server-only fields (package service breakdowns etc.) survive the update.
   rawItem?: Record<string, unknown>;

@@ -16,6 +16,7 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ClientPackage } from "@/types/package";
 import type { ServiceListItem } from "@/types/service";
 import { Ionicons } from "@expo/vector-icons";
+import { formatUnitSize } from "@/utils/productUnit";
 import { useEffect, useMemo, useState } from "react";
 import { FlatList, Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -54,7 +55,7 @@ export function ServiceCatalogPicker({
   onClose: () => void;
   onContinue: () => void;
   onSelect: (service: ServiceListItem) => void;
-  onToggleItem: (kind: AppointmentItemKind, item: { categoryId?: string | null; id: string; name: string; price: number }) => void;
+  onToggleItem: (kind: AppointmentItemKind, item: { categoryId?: string | null; id: string; name: string; price: number; unitSize?: string }) => void;
   salonId?: string | null;
   selectedItems: AppointmentSelectedService[];
   selectedServiceIds: string[];
@@ -142,7 +143,7 @@ export function ServiceCatalogPicker({
               <View style={styles.catalogTabBody}>
                 {tab === "product" ? (
                   <ProductCatalogTab pearlStyle
-                    onSelect={(product) => onToggleItem("product", { categoryId: product.categoryId, id: product.id, name: product.name, price: product.price })}
+                    onSelect={(product) => onToggleItem("product", { categoryId: product.categoryId, id: product.id, name: product.name, price: product.price, unitSize: formatUnitSize(product.bottleSize, product.measureUnit) })}
                     search={query}
                     selectedIds={addedIdsForTab}
                   />
