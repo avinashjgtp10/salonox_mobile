@@ -313,6 +313,13 @@ export type CreateAppointmentRequest = {
   }[];
   payment_method?: string;
   price?: number;
+  /**
+   * Where the booking came from. "quick_sale" tells the backend this was
+   * booked and checked out in one step, so it suppresses its "New Appointment
+   * Booked" push and only the checkout's "Payment Complete" one is sent —
+   * same as the web app.
+   */
+  source?: "calendar" | "quick_sale";
   product_items?: {
     category_id?: string;
     name: string;
