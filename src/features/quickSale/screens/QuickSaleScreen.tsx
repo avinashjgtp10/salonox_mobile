@@ -37,7 +37,7 @@ import {
   type DiscountApplyTarget,
 } from "@/features/quickSale/components/CheckoutSheet";
 import type { PackageBenefit } from "@/features/quickSale/components/checkout/types";
-import { ClientDatesSheet } from "@/features/quickSale/components/ClientDatesSheet";
+import { EditClientSheet } from "@/features/quickSale/components/EditClientSheet";
 import { ClientPickerSheet } from "@/features/quickSale/components/ClientPickerSheet";
 import { ErrorState } from "@/features/quickSale/components/StateViews";
 import { GlobalSearchBar } from "@/features/quickSale/components/GlobalSearchBar";
@@ -2061,10 +2061,12 @@ function OwnerQuickSaleScreen({
         />
 
         {selectedClient.id ? (
-          <ClientDatesSheet
+          <EditClientSheet
             clientId={selectedClient.id}
             clientName={selectedClient.name}
             onClose={() => setIsClientDatesVisible(false)}
+            // Keep the name and phone on the bill in step with the edit.
+            onSaved={(client) => setSelectedClient(clientFromListItem(client))}
             renderInline={embedded}
             visible={isClientDatesVisible}
           />

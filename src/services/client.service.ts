@@ -342,6 +342,7 @@ const normalizeClient = (client: ClientApiItem): ClientListItem => {
     birthdayDayMonth: toSafeString(client.birthday_day_month) || null,
     birthdayYear: birthdayYear > 0 ? birthdayYear : null,
     clientCode: toSafeString(client.client_code) || null,
+    clientSource: toSafeString(client.client_source) || null,
     createdAt,
     createdDateLabel: formatCreatedDate(createdAt),
     email: toSafeString(client.email, "-"),
