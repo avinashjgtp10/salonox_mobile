@@ -38,6 +38,7 @@ export interface CalculateTotalsBody {
   membershipWalletRequested?: number;
 
   applyMembershipDiscount?: boolean;
+  membershipDiscountIds?: string[];
   applyLoyaltyDiscount?: boolean;
 
   applyRewardPoints?: boolean;

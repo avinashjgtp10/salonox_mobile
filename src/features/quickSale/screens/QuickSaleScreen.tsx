@@ -17,6 +17,9 @@ import { isStaffExperienceUser, STAFF_CALENDAR_ROUTE, STAFF_HOME_ROUTE } from "@
 import { canUseStaffQuickSale } from "@/utils/staffAccess";
 import { formatAppDate, formatAppTime } from "@/utils/dateTime";
 import { formatUnitSize } from "@/utils/productUnit";
+import { RedemptionOtpSheet } from "@/features/quickSale/components/RedemptionOtpSheet";
+import { redemptionOtpService } from "@/services/redemptionOtp.service";
+import { useRedemptionOtpConfig, type RedeemKind } from "@/services/redemptionOtpSettings";
 import { appAlert as Alert } from "@/services/appAlert";
 import {
   router,
@@ -249,6 +252,13 @@ function OwnerQuickSaleScreen({
   const [changeServiceLineId, setChangeServiceLineId] = useState<string | null>(null);
   const [isCheckoutVisible, setIsCheckoutVisible] = useState(false);
   const [pendingCheckoutPayment, setPendingCheckoutPayment] = useState<PendingCheckoutPayment | null>(null);
+  // WhatsApp OTP gate for redeeming a package session / membership benefit. When
+  // the salon requires it and the client is not yet verified, checkout pauses on
+  // this sheet; a successful verify resumes the stashed payment.
+  const { config: redemptionOtpConfig } = useRedemptionOtpConfig();
+  const [otpSheetVisible, setOtpSheetVisible] = useState(false);
+  const [otpPendingPayment, setOtpPendingPayment] = useState<PendingCheckoutPayment | null>(null);
+  const [otpKinds, setOtpKinds] = useState<RedeemKind[]>([]);
   const [shouldResumeCheckoutAtCharges, setShouldResumeCheckoutAtCharges] = useState(false);
   const [checkoutInitialStep, setCheckoutInitialStep] = useState<CheckoutInitialStep>("payment");
   const [shouldShowCheckoutStaffValidation, setShouldShowCheckoutStaffValidation] = useState(false);
@@ -1611,6 +1621,32 @@ function OwnerQuickSaleScreen({
       return;
     }
 
+    // Package / membership redemption OTP gate (Settings > Extras). Mirrors the
+    // backend's enforcement: when the salon requires an OTP for what this sale
+    // redeems and the client has no verified window, pause on the OTP sheet and
+    // resume this same payment once the client's code is verified. The backend
+    // still returns 428 if skipped, so this can't be bypassed.
+    const gateKinds: RedeemKind[] = [];
+    if ((resolvedPricingFlags.applyMembershipWallet || resolvedPricingFlags.applyMembershipDiscount) && redemptionOtpConfig.membership) {
+      gateKinds.push("membership");
+    }
+    if (packageCoveredServiceItems.length > 0 && redemptionOtpConfig.package) {
+      gateKinds.push("package");
+    }
+    if (gateKinds.length > 0) {
+      try {
+        const otpStatus = await redemptionOtpService.status(selectedClient.id);
+        if (otpStatus.required && !otpStatus.verified) {
+          setOtpPendingPayment(payment);
+          setOtpKinds(gateKinds);
+          setOtpSheetVisible(true);
+          return;
+        }
+      } catch {
+        // Status unreadable: fall through and let the backend 428 be the backstop.
+      }
+    }
+
     if (!checkoutSubmission.begin("checkingOut")) {
       return;
     }
@@ -1696,6 +1732,18 @@ function OwnerQuickSaleScreen({
     requestAnimationFrame(() => void handleCompleteSale(payment));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isClientPickerVisible, pendingCheckoutPayment, selectedClient.id]);
+
+  // The client's WhatsApp OTP was verified: close the sheet and resume the exact
+  // payment that was paused, which now passes the redemption gate.
+  const handleOtpVerified = () => {
+    const payment = otpPendingPayment;
+    setOtpSheetVisible(false);
+    setOtpPendingPayment(null);
+    setOtpKinds([]);
+    if (payment) {
+      requestAnimationFrame(() => void handleCompleteSale(payment));
+    }
+  };
 
   useEffect(() => {
     if (!shouldResumeCheckoutAtCharges || !selectedClient.id || isClientPickerVisible) {
@@ -2193,6 +2241,18 @@ function OwnerQuickSaleScreen({
           totals={totals}
           visible={isCheckoutVisible}
         />
+
+        {selectedClient.id && otpSheetVisible ? (
+          <RedemptionOtpSheet
+            clientId={selectedClient.id}
+            clientName={selectedClient.name}
+            kinds={otpKinds}
+            onClose={() => { setOtpSheetVisible(false); setOtpPendingPayment(null); setOtpKinds([]); }}
+            onVerified={handleOtpVerified}
+            renderInline={embedded}
+            visible={otpSheetVisible}
+          />
+        ) : null}
       </SafeAreaView></Shell>
     </>
   );

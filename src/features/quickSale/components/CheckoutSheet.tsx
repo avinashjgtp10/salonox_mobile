@@ -1509,7 +1509,7 @@ function BenefitCard({ card }: { card: ReturnType<typeof useBenefitCards>[number
       onPress={() => card.onToggle(!card.checked)}
       style={[
         styles.benefitCard,
-        card.checked && { backgroundColor: `${card.accent}14`, borderColor: card.accent },
+        card.checked && { backgroundColor: Colors.backgroundSelected, borderColor: card.accent },
       ]}
     >
       <View style={styles.benefitCardHeader}>

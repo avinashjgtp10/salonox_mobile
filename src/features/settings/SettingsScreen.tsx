@@ -44,7 +44,7 @@ import { marketingService } from "@/services/marketing.service";
 import { AppearanceSheet } from "./AppearanceSheet";
 import { NotificationSettingsSheet } from "./NotificationSettingsSheet";
 import { ChangePasswordSheet } from "./ChangePasswordSheet";
-import { ClientFormRulesSheet } from "./ClientFormRulesSheet";
+import { ExtrasSheet } from "./ExtrasSheet";
 import { ConnectedBranchesSheet } from "./ConnectedBranchesSheet";
 import { SalonSwitchSheet } from "@/components/dashboard/DashboardSheets";
 import {
@@ -58,7 +58,7 @@ type Overlay =
   | "appearance"
   | "notifications"
   | "password"
-  | "client-rules"
+  | "extras"
   | "help"
   | "report"
   | "branches"
@@ -298,11 +298,11 @@ export default function SettingsScreen() {
               )}
               {owner && (
                 <SettingsRow
-                  title="Client form"
-                  subtitle="Required fields"
+                  title="Extras"
+                  subtitle="Client form fields & redemption OTP"
                   icon="options-outline"
                   tone="lilac"
-                  onPress={() => setOverlay("client-rules")}
+                  onPress={() => setOverlay("extras")}
                 />
               )}
             </View>
@@ -438,8 +438,8 @@ export default function SettingsScreen() {
         {overlay === "password" && (
           <ChangePasswordSheet onClose={closeOverlay} />
         )}
-        {overlay === "client-rules" && (
-          <ClientFormRulesSheet onClose={closeOverlay} />
+        {overlay === "extras" && (
+          <ExtrasSheet onClose={closeOverlay} />
         )}
         <BottomSheet
           visible={overlay === "help"}

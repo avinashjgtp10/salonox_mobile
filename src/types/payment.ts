@@ -12,6 +12,7 @@ export type PaymentTaxBreakdownEntry = {
 export type CreatePaymentRequest = {
   apply_loyalty_discount?: boolean;
   apply_membership_discount?: boolean;
+  membership_discount_ids?: string[];
   appointment_id: string;
   apply_membership_wallet?: boolean;
   client_id?: string;

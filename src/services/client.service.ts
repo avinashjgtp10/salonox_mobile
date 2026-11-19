@@ -760,24 +760,34 @@ const normalizePackageRecord = (value: unknown): ClientPackageRecord => {
 
 const normalizeMembershipRecord = (value: unknown): ClientMembershipRecord => {
   const record = asRecord(value);
-  const totalSessions = toSafeNumber(record.total_sessions);
-  const usedSessions = toSafeNumber(record.used_sessions);
+  const membership = asRecord(record.membership);
+  const totalSessions = toSafeNumber(firstValue(record, ["total_sessions", "totalSessions"]));
+  const usedSessions = toSafeNumber(firstValue(record, ["used_sessions", "usedSessions"]));
+  const pricingType = toSafeString(firstValue(record, ["pricing_type", "pricingType"]) ?? firstValue(membership, ["pricing_type", "pricingType"])).toLowerCase();
+  const benefitType = toSafeString(firstValue(record, ["benefit_type", "benefitType"]) ?? firstValue(membership, ["benefit_type", "benefitType"])).toLowerCase();
+  const appliesTo = toSafeString(firstValue(record, ["applies_to", "appliesTo"]) ?? firstValue(membership, ["applies_to", "appliesTo"])).toLowerCase();
+  const discountPercentRaw = firstValue(record, ["discount_percent", "discountPercent"])
+    ?? firstValue(membership, ["discount_percent", "discountPercent"]);
 
   return {
-    id: toSafeString(record.id),
-    membershipName: toSafeString(record.membership_name, "Membership"),
-    status: toSafeString(record.status),
-    pricePaid: toSafeNumber(record.price_paid),
-    expiresAt: toNullableString(record.expires_at),
-    purchasedAt: toNullableString(record.purchased_at),
+    id: toSafeString(firstValue(record, ["id", "_id"])),
+    membershipName: toSafeString(firstValue(record, ["membership_name", "membershipName", "name"]), "Membership"),
+    status: toSafeString(firstValue(record, ["status", "state"])),
+    pricingType: pricingType === "percentage" || pricingType === "value" ? pricingType : null,
+    benefitType: benefitType === "validity" || benefitType === "discount_balance" ? benefitType : null,
+    discountPercent: discountPercentRaw === undefined ? null : toSafeNumber(discountPercentRaw),
+    appliesTo: appliesTo === "services" || appliesTo === "products" || appliesTo === "both" ? appliesTo : null,
+    pricePaid: toSafeNumber(firstValue(record, ["price_paid", "pricePaid"])),
+    expiresAt: toNullableString(firstValue(record, ["expires_at", "expiresAt"])),
+    purchasedAt: toNullableString(firstValue(record, ["purchased_at", "purchasedAt"])),
     totalSessions,
     usedSessions,
     remainingSessions: Math.max(0, totalSessions - usedSessions),
-    membershipWalletBalance: toSafeNumber(record.membership_wallet_balance),
-    discountBalanceRemaining: toSafeNumber(record.discount_balance_remaining),
-    staffId: toNullableString(record.staff_id),
-    saleId: toNullableString(record.sale_id),
-    appointmentId: toNullableString(record.appointment_id),
+    membershipWalletBalance: toSafeNumber(firstValue(record, ["membership_wallet_balance", "membershipWalletBalance"])),
+    discountBalanceRemaining: toSafeNumber(firstValue(record, ["discount_balance_remaining", "discountBalanceRemaining"])),
+    staffId: toNullableString(firstValue(record, ["staff_id", "staffId"])),
+    saleId: toNullableString(firstValue(record, ["sale_id", "saleId"])),
+    appointmentId: toNullableString(firstValue(record, ["appointment_id", "appointmentId"])),
   };
 };
 
@@ -1068,6 +1078,15 @@ export const clientService = {
   async getClient(clientId: string): Promise<ClientListItem> {
     const response = await api.get<ApiResponse<CreateClientApiData>>(`${CLIENT.DETAIL}/${clientId}`);
     return normalizeClient(getCreatedClient(response.data.data));
+  },
+
+  async getClientMemberships(clientId: string): Promise<ClientMembershipRecord[]> {
+    const response = await api.get<ApiResponse<unknown>>(`${CLIENT.DETAIL}/${clientId}`, {
+      params: { include: "memberships" },
+    });
+    const payload = asRecord(response.data.data);
+    const client = asRecord(firstValue(payload, ["client", "data"]) ?? payload);
+    return firstArray(client, ["memberships"]).map(normalizeMembershipRecord);
   },
 
   async updateClient(

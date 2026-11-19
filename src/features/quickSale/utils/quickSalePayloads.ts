@@ -224,6 +224,9 @@ export const buildPaymentPayload = ({
     appointment_id: appointmentId,
     ...(pricingFlags.applyLoyaltyDiscount ? { apply_loyalty_discount: true } : {}),
     ...(pricingFlags.applyMembershipDiscount ? { apply_membership_discount: true } : {}),
+    ...(pricingFlags.applyMembershipDiscount && pricingFlags.membershipDiscountIds?.length
+      ? { membership_discount_ids: pricingFlags.membershipDiscountIds }
+      : {}),
     ...(pricingFlags.applyMembershipWallet
       ? { apply_membership_wallet: true, membership_wallet_requested: pricingFlags.membershipWalletRequested }
       : {}),
