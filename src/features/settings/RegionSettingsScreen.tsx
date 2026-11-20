@@ -10,7 +10,7 @@ import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { usePearlPalette } from "@/components/auth/pearl/usePearlPalette";
 import { COUNTRIES, countrySearchAliases, getCountryDef, timezoneForCountry } from "@/config/countries";
 import { SUPPORTED_CURRENCIES, getCurrencyDef } from "@/config/currencies";
-import { LANGUAGES, normalizeLanguage } from "@/config/languages";
+import { LANGUAGES, languageLabel, normalizeLanguage } from "@/config/languages";
 import { REGION_TIMEZONES } from "@/config/regionTimezones";
 import { useAppForeground } from "@/hooks/useAppForeground";
 import { updateSalonThunk } from "@/middleware/salon/salon.thunk";
@@ -133,13 +133,13 @@ function RegionSettings() {
     : picker === "currency"
       ? SUPPORTED_CURRENCIES.map(item => ({ code: item.code, label: `${item.label} (${item.symbol.trim()}) — ${item.code}` }))
       : picker === "language"
-        ? LANGUAGES.map(item => ({ code: item.code, label: item.nativeName }))
+        ? LANGUAGES.map(item => ({ code: item.code, label: languageLabel(item) }))
         : [...new Set([values.timezone, ...REGION_TIMEZONES])].map(code => ({ code, label: code }));
   const display: Values = {
     country: getCountryDef(values.country)?.name ?? values.country,
     currency: `${getCurrencyDef(values.currency).label} (${getCurrencyDef(values.currency).symbol.trim()}) — ${values.currency}`,
     timezone: values.timezone,
-    language: LANGUAGES.find(item => item.code === values.language)?.nativeName ?? values.language,
+    language: (() => { const match = LANGUAGES.find(item => item.code === values.language); return match ? languageLabel(match) : values.language; })(),
   };
   return (
     <PearlBackground>
