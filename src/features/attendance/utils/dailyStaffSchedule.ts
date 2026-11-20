@@ -9,7 +9,7 @@ export function getDailyStaffSchedule(schedule: StaffSchedule | undefined, date:
   if (record?.onApprovedLeave || record?.statusKey === "onLeave") {
     return { label: "On Leave", hours: "On Leave", tone: "leave" } as const;
   }
-  if (shift?.isOff) return { label: "Day Off", hours: "Day Off", tone: "off" } as const;
+  if (shift?.isOff) return { label: "Off Day", hours: "Off Day", tone: "off" } as const;
   if (shift?.startTime && shift.endTime) {
     return { label: "Working", hours: `${shift.startTime} - ${shift.endTime}`, tone: "working" } as const;
   }

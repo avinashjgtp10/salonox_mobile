@@ -143,7 +143,12 @@ export default function DashboardScreen() {
       dispatch(fetchUnreadCountThunk()),
       dispatch(fetchNotificationsThunk({ refresh: true })),
       ...(canLoadInventory ? [dispatch(fetchProductsThunk({ offset: 0, reset: true }))] : []),
-      ...(canLoadStaff ? [dispatch(fetchStaffThunk({ page: 1, reset: true }))] : []),
+      // `all` rather than the default first page of 10: "Staff on the floor"
+      // lists every active member, and the list comes back ordered managers
+      // first, then staff, then anyone with no role yet — so on a salon with
+      // more than ten people a newly added member sits past the first page and
+      // never appeared on the dashboard at all.
+      ...(canLoadStaff ? [dispatch(fetchStaffThunk({ all: true, page: 1, reset: true }))] : []),
       ...(canLoadClients ? [dispatch(fetchClientsThunk({ offset: 0, reset: true, refresh: true }))] : []),
     ]);
   }, [dispatch, isAuthenticated, today, canLoadAppointments, canLoadAttendance, canLoadInventory, canLoadStaff, canLoadClients]);

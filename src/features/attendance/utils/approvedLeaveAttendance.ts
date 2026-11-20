@@ -24,7 +24,9 @@ export function applyApprovedLeaveToSummary(summary: AttendanceSummary, records:
     if (!leaves[member.id]) continue;
     const status = findAttendanceRecordForStaff(records, member)?.statusKey;
     if (status === "onLeave") continue;
-    if (status && status !== "notMarked") next[status] = Math.max(0, next[status] - 1);
+    // "dayOff" is a display-only status derived from the schedule, so like
+    // "notMarked" it was never counted in the summary and nothing to subtract.
+    if (status && status !== "notMarked" && status !== "dayOff") next[status] = Math.max(0, next[status] - 1);
     next.onLeave += 1;
   }
   return next;

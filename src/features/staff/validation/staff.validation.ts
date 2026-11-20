@@ -62,7 +62,8 @@ export const validateStaffForm = (
   if (!isPresent(values.fullName)) {
     errors.fullName = "Staff name is required.";
   }
-  if (!isPresent(values.joiningDate)) errors.joiningDate = "Joined on is required.";
+  // Joined on is optional — a new staff member can be saved without it. When one
+  // IS given it still has to be a real, non-future date (checked further down).
 
   if (!isPresent(values.email)) {
     // Prototype's step 2 requires a Login email on every new staff member.
