@@ -6,6 +6,8 @@ import { Fragment, type ReactNode } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { pearl } from "@/components/auth/pearl/tokens";
+import { useRegionalPreferences } from "@/localization/preferences";
+import { localizeCurrencyText } from "@/utils/currency";
 import { Text } from "@/components/ui/AppTypography";
 import { isInvalidLunoxReply, LUNOX_INVALID_REPLY } from "@/utils/lunoxReply";
 
@@ -64,7 +66,11 @@ function inline(text: string): ReactNode[] {
 }
 
 export function LunoxMarkdown({ text }: { text: string }) {
-  const blocks = parse(isInvalidLunoxReply(text) ? LUNOX_INVALID_REPLY : text);
+  // The assistant sometimes writes amounts in rupees even for a salon on
+  // another currency; show them in the salon's own currency instead. Subscribing
+  // re-renders the answer the moment the salon switches currency or country.
+  useRegionalPreferences();
+  const blocks = parse(isInvalidLunoxReply(text) ? LUNOX_INVALID_REPLY : localizeCurrencyText(text));
   return (
     <View style={styles.wrap}>
       {blocks.map((block, index) => {
