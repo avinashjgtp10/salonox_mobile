@@ -106,6 +106,10 @@ export function AppointmentPreviewSheet({
   // A bill saved as pending from the Calendar's Quick Sale: reopen that draft
   // straight at its Payment screen.
   const canContinueToPayment = Boolean(onContinueToPayment) && appointment.status !== "Cancelled";
+  // A partially-paid bill can settle its balance straight from the Calendar:
+  // the footer offers "Pay Due" instead of "Print Bill", which moves up into the
+  // quick actions so the receipt is still one tap away.
+  const payDue = Boolean(partialBill && partialBill.due > 0 && canContinueToPayment);
   const handleContinueToPayment = () => {
     // Keep the appointment details sheet open underneath; the Quick Sale screen
     // opens as an overlay on top of it rather than replacing it.
@@ -132,6 +136,7 @@ export function AppointmentPreviewSheet({
   const quickActions: { label: string; icon: IconName; onPress: () => void }[] = [
     { label: "WhatsApp", icon: "chat", onPress: () => go("/inbox" as Href) },
     { label: "Call", icon: "phone", onPress: call },
+    ...(payDue ? [{ label: "Print Bill", icon: "receipt" as IconName, onPress: () => void handleViewInvoice() }] : []),
     ...(readOnly ? [] : [{ label: "Reschedule", icon: "calendar" as IconName, onPress: openEditor }]),
     {
       label: "Profile",
@@ -298,7 +303,14 @@ export function AppointmentPreviewSheet({
                 <Icon name="edit" size={18} color={pearl.accentDeep} />
                 <Text translate style={s.secondaryText}>Edit</Text>
               </Pressable>
-              {hasBill ? (
+              {payDue ? (
+                <Pressable accessibilityLabel={`Pay due ${formatCurrency(partialBill!.due)}`} accessibilityRole="button" onPress={handleContinueToPayment} style={s.primaryWrap}>
+                  <LinearGradient colors={pearlGradients.primary} end={{ x: 1, y: 1 }} start={{ x: 0, y: 0 }} style={s.primary}>
+                    <Icon name="wallet" size={18} color="#fff" />
+                    <Text style={s.primaryText}>{`Pay Due · ${formatCurrency(partialBill!.due)}`}</Text>
+                  </LinearGradient>
+                </Pressable>
+              ) : hasBill ? (
                 <Pressable accessibilityRole="button" accessibilityState={{ busy: findingSale }} disabled={findingSale} onPress={() => void handleViewInvoice()} style={s.primaryWrap}>
                   <LinearGradient colors={pearlGradients.primary} end={{ x: 1, y: 1 }} start={{ x: 0, y: 0 }} style={s.primary}>
                     {findingSale ? <ActivityIndicator color="#fff" size="small" /> : <Icon name="receipt" size={18} color="#fff" />}
