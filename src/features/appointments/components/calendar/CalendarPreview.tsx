@@ -115,7 +115,6 @@ export function CalendarPreview({
   viewMode = "week",
   readOnly = false,
   quickSaleEnabled = !readOnly,
-  expandSingleColumn = false,
 }: {
   appointments: AppointmentListItem[];
   date: string;
@@ -135,7 +134,6 @@ export function CalendarPreview({
   // (read-only staff). Defaults to !readOnly; staff get it
   // from the owner's Calendar & Quick Sale switch while the rest stays read-only.
   quickSaleEnabled?: boolean;
-  expandSingleColumn?: boolean;
 }) {
   const { staffMode, clientName, billLabel } = useClientPrivacy();
   const Colors = usePearlColors();
@@ -175,8 +173,12 @@ export function CalendarPreview({
   // No staff to show (e.g. nobody has checked in yet): like the web, one
   // full-width grid with no staff header instead of an "All Staff" column.
   const staffless = viewMode === "day" && staffColumns.length === 0;
+  // A day view with a single column always fills the width, like the web —
+  // whether that column is a staff member viewing only themselves, the salon's
+  // only staff member, or the staffless grid. A fixed width is only needed once
+  // there are several columns to scroll side by side.
   const columnWidth = viewMode === "day"
-    ? (expandSingleColumn || staffless) && columns.length === 1 && viewportWidth > 0
+    ? columns.length === 1 && viewportWidth > 0
       ? Math.max(0, viewportWidth - TIME_COLUMN_WIDTH)
       : 156
     : 118;

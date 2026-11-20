@@ -119,7 +119,6 @@ import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
 import { fetchUnreadCountThunk } from "@/middleware/notification/notification.thunk";
 import {
   checkoutSaleThunk,
-  createSaleThunk,
   deleteSaleThunk,
   fetchSaleByIdThunk,
   fetchSalesInitThunk,
@@ -1426,7 +1425,12 @@ function OwnerQuickSaleScreen({
     // the missing staff dropdowns are flagged right on the form.
     if (cart.items.some(isMissingStaff)) {
       setShowFormStaffErrors(true);
-      if (isCheckoutVisible) setSubmitError("Assign staff to every item before saving.");
+      // Always say why nothing was saved. Save Pending is usually tapped from
+      // the bottom bar with the checkout sheet closed, where the sheet footer
+      // isn't on screen — the effect below turns this into an alert there, so
+      // the tap is never a silent no-op. Web does the same (AppointmentModal
+      // validate(), which also scrolls to the offending row).
+      setSubmitError("Assign staff to every item before saving.");
       return;
     }
 
@@ -1469,51 +1473,21 @@ function OwnerQuickSaleScreen({
         return;
       }
 
-      const payload = buildSaleDraftPayload();
-
-      // Calendar Quick Sale (owner or staff): book the slot as an appointment and
-      // link the pending sale to it, so the bill shows on the Calendar and can
-      // be tapped later to take payment. Staff always book, since they have no
-      // Sales screen to find drafts in.
-      let appointmentId: string | undefined;
-      if (!params.draftId && (embedded || isStaffExperienceUser(user))) {
-        try {
-          appointmentId = (await appointmentService.createAppointment(buildAppointmentPayload())).appointment.id;
-        } catch (error) {
-          setSubmitError(getApiErrorMessage(error));
-          return;
-        }
+      // Only an existing draft reaches here: a brand-new Quick Sale has no save
+      // step at all now (web parity), so it never books a slot or creates a
+      // pending bill of its own — it goes straight to Checkout.
+      const action = await dispatch(updateSaleThunk({ saleId: params.draftId!, updates: buildSaleDraftPayload() }));
+      if (!updateSaleThunk.fulfilled.match(action)) {
+        setSubmitError(getActionError(action.payload, "Unable to save this draft."));
+        return;
       }
-
-      let savedSale: SaleDetail;
-      if (params.draftId) {
-        const action = await dispatch(updateSaleThunk({ saleId: params.draftId, updates: payload }));
-        if (!updateSaleThunk.fulfilled.match(action)) {
-          setSubmitError(getActionError(action.payload, "Unable to save this draft."));
-          return;
-        }
-        savedSale = action.payload.sale;
-      } else {
-        const action = await dispatch(createSaleThunk(appointmentId ? { ...payload, appointmentId } : payload));
-        if (!createSaleThunk.fulfilled.match(action)) {
-          setSubmitError(appointmentId
-            ? `The appointment is booked on the Calendar, but its pending bill could not be saved: ${getActionError(action.payload, "please try again.")}`
-            : getActionError(action.payload, "Unable to save this draft."));
-          return;
-        }
-        savedSale = action.payload.sale;
-      }
+      const savedSale = action.payload.sale;
       setIsCheckoutVisible(false);
       if (!checkoutSubmission.commitSuccess()) {
         return;
       }
       setIsSaleFinalized(true);
       allowExpectedExitRef.current = true;
-      if (appointmentId) {
-        // Pull the new booking into the calendar store so the slot isn't empty.
-        void dispatch(fetchAppointmentByIdThunk(appointmentId));
-        void dispatch(fetchDashboardThunk());
-      }
       router.replace({
         params: {
           draftId: savedSale.id,
@@ -1564,6 +1538,15 @@ function OwnerQuickSaleScreen({
       case "paymentRecordedNeedsFollowUp":
         allowExpectedExitRef.current = true;
         setIsCheckoutVisible(false);
+        // A partial (or ₹0) payment leaves a real booking with a balance due —
+        // the same state the web reaches by typing 00. The appointment is
+        // already pulled into the calendar store by onPaymentRecorded; refresh
+        // the summaries so it shows in today's figures straight away too.
+        void dispatch(fetchDashboardThunk());
+        void dispatch(fetchUnreadCountThunk());
+        if (selectedClient.id) {
+          void dispatch(fetchClientHistoryThunk(selectedClient.id));
+        }
         clearFinishedSale();
         Alert.alert("Payment recorded", outcome.message);
         return;
@@ -2093,7 +2076,7 @@ function OwnerQuickSaleScreen({
             isSaving={checkoutSubmission.isSaving}
             total={totals.grandTotal}
             onCheckout={() => { if (ensureClientSelected()) openCheckout("payment"); }}
-            onSavePending={() => { if (ensureClientSelected()) guardSave(() => void handleSavePending()); }}
+            onSavePending={isExistingBill ? () => { if (ensureClientSelected()) guardSave(() => void handleSavePending()); } : undefined}
             savePendingDisabled={cart.items.length === 0 || checkoutSubmission.isSaving || checkoutSubmission.isCheckingOut}
             saveOnly={editingCompletedSale}
           />
@@ -2229,7 +2212,7 @@ function OwnerQuickSaleScreen({
                 setIsClientPickerVisible(true);
               }
             : undefined}
-          onSavePending={() => { if (ensureClientSelected()) guardSave(() => void handleSavePending()); }}
+          onSavePending={isExistingBill ? () => { if (ensureClientSelected()) guardSave(() => void handleSavePending()); } : undefined}
           onSetConsumableActualQty={handleSetConsumableActualQty}
           onSetQuantity={handleSetQuantity}
           onToggleIncludeGst={() => setIncludeGst((current) => !current)}

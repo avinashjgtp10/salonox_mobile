@@ -27,8 +27,10 @@ type MiniBillBarProps = {
   isPricingLoading?: boolean;
   isSaving: boolean;
   onCheckout: () => void;
-  onSavePending: () => void;
-  savePendingDisabled: boolean;
+  /** Omit to hide the save button: a brand-new Quick Sale goes straight to
+   * Checkout, like the web, and only an existing draft or booking can be saved. */
+  onSavePending?: () => void;
+  savePendingDisabled?: boolean;
   /** Editing an invoice that is already paid: save only, never check out again. */
   saveOnly?: boolean;
 };
@@ -41,7 +43,7 @@ function MiniBillBarComponent({
   isSaving,
   onCheckout,
   onSavePending,
-  savePendingDisabled,
+  savePendingDisabled = false,
   saveOnly = false,
 }: MiniBillBarProps) {
   "use no memo";
@@ -53,7 +55,7 @@ function MiniBillBarComponent({
   return (
     <PearlActionFooter floating style={[styles.wrap, { bottom: 0 }]} contentStyle={{ flexDirection: "column", alignItems: "stretch", paddingBottom: embedded ? 12 : Math.max(safeBottom, 24), paddingHorizontal: 18 }}>
       <View style={styles.card}>
-        <Pressable
+        {onSavePending ? <Pressable
           accessibilityRole="button"
           accessibilityState={{ busy: isSaving, disabled: savePendingDisabled }}
           android_ripple={savePendingDisabled ? undefined : { color: "rgba(126, 120, 176, 0.12)", borderless: false }}
@@ -78,7 +80,7 @@ function MiniBillBarComponent({
               {saveOnly ? "Save changes" : "Save pending"}
             </Text>
           )}
-        </Pressable>
+        </Pressable> : null}
 
         {saveOnly ? null : <Pressable
           accessibilityRole="button"
