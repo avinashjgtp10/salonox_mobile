@@ -1609,8 +1609,18 @@ function OwnerQuickSaleScreen({
     // redeems and the client has no verified window, pause on the OTP sheet and
     // resume this same payment once the client's code is verified. The backend
     // still returns 428 if skipped, so this can't be bypassed.
+    // The "membership" switch covers every loyalty benefit the backend counts
+    // under it, not just the membership wallet: a loyalty discount and redeemed
+    // reward points need the same code (payments.service pushes 'membership' for
+    // apply_loyalty_discount and reward_points_used > 0, and the web's
+    // AppointmentModal asks on the same four).
     const gateKinds: RedeemKind[] = [];
-    if ((resolvedPricingFlags.applyMembershipWallet || resolvedPricingFlags.applyMembershipDiscount) && redemptionOtpConfig.membership) {
+    const redeemsMembershipBenefit =
+      resolvedPricingFlags.applyMembershipWallet ||
+      resolvedPricingFlags.applyMembershipDiscount ||
+      resolvedPricingFlags.applyLoyaltyDiscount ||
+      (resolvedPricingFlags.applyRewardPoints && totals.appliedRewardPointsValue > 0);
+    if (redeemsMembershipBenefit && redemptionOtpConfig.membership) {
       gateKinds.push("membership");
     }
     if (packageCoveredServiceItems.length > 0 && redemptionOtpConfig.package) {
