@@ -16,6 +16,8 @@ import { Text } from "@/components/ui/AppTypography";
 import { fetchLunoxDailyInsight, type LunoxDailyInsight } from "@/services/lunox.service";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import { useAppSelector } from "@/store/hooks";
+import { useRegionalPreferences } from "@/localization/preferences";
+import { localizeCurrencyText } from "@/utils/currency";
 import { useOpenLunox } from "./LunoxContext";
 
 const LUNOX_MARK = require("../../../assets/images/brand/lunox-mark.png");
@@ -28,6 +30,9 @@ const DISMISSED_KEY = "salonox.lunoxInsightDismissed";
 /** `refreshKey` changes on a manual pull-to-refresh (the server returns its cached tip). */
 function LunoxInsightCardContent({ refreshKey = 0 }: { refreshKey?: number }) {
   const openLunox = useOpenLunox();
+  // Re-renders the tip when the salon switches currency or country, so the
+  // amounts in it follow straight away.
+  useRegionalPreferences();
   const branchId = useAppSelector(selectActiveBranchId);
   const [insight, setInsight] = useState<LunoxDailyInsight | null>(null);
   const [dismissedText, setDismissedText] = useState<string | null>(null);
@@ -71,7 +76,7 @@ function LunoxInsightCardContent({ refreshKey = 0 }: { refreshKey?: number }) {
           </Pressable>
         </View>
       </View>
-      <Text style={styles.text}>{insight.text}</Text>
+      <Text style={styles.text}>{localizeCurrencyText(insight.text)}</Text>
       <View style={styles.actions}>
         <Pressable onPress={open} accessibilityRole="button" style={({ pressed }) => [pressed && { opacity: 0.85 }]}>
           <LinearGradient colors={BUTTON_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.btn, pearlShadow.button]}>
