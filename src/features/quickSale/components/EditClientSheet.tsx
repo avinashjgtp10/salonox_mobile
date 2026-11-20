@@ -247,7 +247,6 @@ export function EditClientSheet({ clientId, clientName, onClose, onSaved, render
           <DateField
             error={errors.anniversary}
             label="Anniversary Date"
-            maximumDate={new Date()}
             onChange={(value) => { setAnniversary(value); clearError("anniversary"); }}
             pearlStyle
             placeholder="Select anniversary date"
