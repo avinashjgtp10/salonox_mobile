@@ -474,7 +474,7 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
                       {" "}
                       <DateField
                         pearlStyle
-                        label="Joined on *"
+                        label="Joined on"
                         value={form.values.joiningDate}
                         maximumDate={new Date()}
                         onChange={(value) =>

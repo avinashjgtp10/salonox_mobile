@@ -38,7 +38,9 @@ export function Avatar({ initials, tone = "lavender", size = 34 }: { initials: s
   );
 }
 
-export type PillTone = "success" | "warning" | "danger" | "neutral";
+// `lilac` is the Attendance screen's colour for approved time off — the same
+// one here, so On Leave does not have to borrow the red of a real absence.
+export type PillTone = "success" | "warning" | "danger" | "neutral" | "lilac" | "sky";
 export function StatusPill({ tone, label }: { tone: PillTone; label: string }) {
   return (
     <View style={[styles.pill, { backgroundColor: pearlTones[tone].bg }]} accessibilityLabel={label}>

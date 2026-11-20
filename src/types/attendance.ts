@@ -1,4 +1,4 @@
-export type AttendanceStatusKey = "absent" | "halfDay" | "late" | "notMarked" | "onLeave" | "present";
+export type AttendanceStatusKey = "absent" | "dayOff" | "halfDay" | "late" | "notMarked" | "onLeave" | "present";
 
 export type AttendanceActivity = {
   current_status: "NOT_CHECKED_IN" | "WORKING" | "ON_BREAK" | "CHECKED_OUT";
@@ -21,6 +21,12 @@ export type ManualAttendanceStatus = "absent" | "halfDay" | "late" | "onLeave" |
 
 export type AttendanceRecord = {
   onApprovedLeave?: boolean;
+  /**
+   * The staff member's schedule says they are not working today — a weekly off
+   * or a one-day off the owner set. Comes straight from `is_off_day` on
+   * /attendance/today, so no extra per-staff schedule request is needed.
+   */
+  isOffDay?: boolean;
   activity?: AttendanceActivity;
   avatarBg: string;
   avatarColor: string;

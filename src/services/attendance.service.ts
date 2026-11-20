@@ -214,11 +214,14 @@ export const normalizeAttendanceRecord = (entry: UnknownRecord): AttendanceRecor
     return null;
   }
 
-  if (!recordId) {
-    return null;
-  }
-
-  const id = recordId;
+  // /attendance/today returns a row for EVERY active staff member, with
+  // `attendance_id: null` for anyone who has no attendance row yet — someone who
+  // simply has not checked in, or who is off today. Dropping those entries lost
+  // the `is_off_day` and "not marked" information they carry, so the dashboard
+  // showed "Not Marked" for a staff member the owner had marked off. A staff id
+  // is enough to identify the row; the id is only synthetic until they punch in,
+  // and the edit action is unreachable without a real check-in time.
+  const id = recordId || `staff:${staffId}`;
 
   const staffName = toSafeString(
     firstValue(entry, ["staffName", "staff_name", "name", "fullName", "full_name"]),
@@ -270,6 +273,7 @@ export const normalizeAttendanceRecord = (entry: UnknownRecord): AttendanceRecor
     hoursWorked,
     id,
     initials: getInitials(staffName),
+    isOffDay: firstValue(entry, ["isOffDay", "is_off_day"]) === true,
     jobsToday,
     rawStatus,
     scheduledHours,

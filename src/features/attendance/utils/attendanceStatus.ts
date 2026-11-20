@@ -8,6 +8,7 @@ import type {
 import type { AttendanceErrorKind } from "@/middleware/attendance/attendance.thunk";
 
 export type AttendanceStatusIconName =
+  | "bed"
   | "cafe"
   | "checkmark-circle"
   | "close-circle"
@@ -62,6 +63,14 @@ const buildAttendanceStatusConfig = (
     key: "onLeave",
     label: "On Leave",
   },
+  dayOff: {
+    bg: Colors.bg2,
+    color: Colors.text2,
+    icon: "bed",
+    key: "dayOff",
+    // The web's wording for this badge ("Off Day", STATUS_CFG.off_day).
+    label: "Off Day",
+  },
   notMarked: {
     bg: Colors.bg2,
     color: Colors.text2,
@@ -89,7 +98,14 @@ export const getAttendanceBadgeConfig = (
 ): AttendanceStatusConfig | Omit<AttendanceStatusConfig, "key"> =>
   // Approved time off takes precedence; otherwise a live break overrides
   // the attendance badge for the owner's views.
-  record?.onApprovedLeave ? getAttendanceStatusConfig("onLeave", Colors) : record?.activity?.current_status === "ON_BREAK"
+  // Same order the web's AttendancePage uses (`displayStatus`): approved leave,
+  // then a scheduled day off whatever was punched, then a live break, then the
+  // recorded status. A day off has to beat the record because a staff member who
+  // never checks in on their day off is still marked absent server-side, which
+  // would otherwise hide the day off behind a red "Absent".
+  record?.onApprovedLeave || record?.statusKey === "onLeave" ? getAttendanceStatusConfig("onLeave", Colors)
+    : record?.isOffDay ? getAttendanceStatusConfig("dayOff", Colors)
+    : record?.activity?.current_status === "ON_BREAK"
     ? { bg: Colors.warningBg, color: Colors.warning, icon: "cafe", label: "On Break" }
     : record ? getAttendanceStatusConfig(record.statusKey, Colors) : buildNotMarkedStatusConfig(Colors);
 
@@ -126,6 +142,9 @@ export const statusKeyToManualStatus = (statusKey: AttendanceStatusKey): ManualA
   switch (statusKey) {
     case "present":
     case "notMarked":
+    // A day off is the schedule speaking, not a marked status — the owner
+    // opening the editor on one starts from "present", as with an unmarked day.
+    case "dayOff":
       return "present";
     case "late":
       return "late";
