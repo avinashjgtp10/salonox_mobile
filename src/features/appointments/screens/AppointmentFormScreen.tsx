@@ -4,7 +4,7 @@ import { NoteBox } from "@/components/pearl/Page";
 import { formatAppDate } from "@/utils/dateTime";
 import { Text } from "@/components/ui/AppTypography";
 import { BottomSheet } from "@/components/ui/BottomSheet";
-import { ClientDatesSheet } from "@/features/quickSale/components/ClientDatesSheet";
+import { EditClientSheet } from "@/features/quickSale/components/EditClientSheet";
 import { ClientPickerSheet } from "@/features/quickSale/components/ClientPickerSheet";
 import { StaffPickerSheet } from "@/features/quickSale/components/StaffPickerSheet";
 import { itemTimeLabel, localItemTime } from "@/features/quickSale/utils/itemTime";
@@ -57,6 +57,7 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
     handleSelectService,
     handleSetItemStaff,
     handleSetItemTime,
+    handleSetItemQuantity,
     form,
     selectedServices,
     errors,
@@ -188,6 +189,7 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
               onPickStaff={setStaffItemId}
               onPickTime={setTimeItemId}
               onRemove={handleRemoveSelectedService}
+              onSetQuantity={handleSetItemQuantity}
               services={selectedServices}
             />
           </View>
@@ -305,7 +307,7 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
         </View>
       </KeyboardAwareScrollView>
       <BookingBottomBar serviceCount={selectedServices.length} totalServiceDuration={totalServiceDuration} totalServicePrice={totalServicePrice} mutating={mutating} mode={mode} onSubmit={handleSubmit} />
-      <AppointmentSnackbar />
+      {!embedded ? <AppointmentSnackbar /> : null}
       <ClientPickerSheet
         onClose={() => setClientPickerVisible(false)}
         onSelect={(client) => { if (client) handleSelectClient(client); }}
@@ -316,7 +318,7 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
         visible={clientPickerVisible}
       />
       {form.clientId ? (
-        <ClientDatesSheet
+        <EditClientSheet
           clientId={form.clientId}
           clientName={selectedClient?.fullName ?? (mode === "edit" ? clientSearch : "")}
           onClose={() => setClientDatesVisible(false)}

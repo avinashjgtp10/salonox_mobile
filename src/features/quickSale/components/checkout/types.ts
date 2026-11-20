@@ -55,7 +55,13 @@ export type CheckoutSheetProps = {
   onRemoveCoupon: () => void;
   onRemoveItem: (lineId: string) => void;
   onRequireClientDetails?: () => void;
-  onSavePending: () => void;
+  /**
+   * Omit to hide the save button entirely. A brand-new Quick Sale has no save
+   * step at all (web parity: AppointmentModal hides its whole footer while
+   * `quickSale && !showPaymentSection`) — only an existing draft or booking
+   * can be saved, which is web's "Update Appointment".
+   */
+  onSavePending?: () => void;
   onSetConsumableActualQty: (lineId: string, productId: string, actualQty: number) => void;
   onSetQuantity: (lineId: string, quantity: number) => void;
   onToggleIncludeGst: () => void;

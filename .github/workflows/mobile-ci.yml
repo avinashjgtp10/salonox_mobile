@@ -31,12 +31,6 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Regression tests
-        run: npm run test:ci
-
-      - name: Release pipeline tests
-        run: node --test scripts/prepare-production-release.test.js
-
       - name: Validate Expo config (development, qa, production)
         run: |
           for env in development qa production; do

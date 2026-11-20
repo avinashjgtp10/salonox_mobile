@@ -14,6 +14,7 @@ export * from "./package.endpoints";
 export * from "./payment.endpoints";
 export * from "./product.endpoints";
 export * from "./productAudit.endpoints";
+export * from "./redemptionOtp.endpoints";
 export * from "./profile.endpoints";
 export * from "./sales.endpoints";
 export * from "./report.endpoints";

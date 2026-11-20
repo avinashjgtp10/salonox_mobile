@@ -103,7 +103,14 @@ export function ProductCatalogTab({ onSelect, search, selectedIds , pearlStyle =
   const categorySetRef = useRef(new Set<string>());
   const [categoryOptions, setCategoryOptions] = useState<CategoryChipOption[]>([{ id: null, label: "All" }]);
 
-  const visibleProducts = useMemo(() => uniqueById(products), [products]);
+  // Booking and billing sell retail stock only. Consumable-only products are
+  // used inside service recipes, never charged on their own, so they're kept
+  // out of this picker — same rule the web app applies (product_type retail /
+  // both). The server already filters, but a stale cached entry is guarded too.
+  const visibleProducts = useMemo(
+    () => uniqueById(products).filter((product) => !product.productType || product.productType === "retail" || product.productType === "both"),
+    [products],
+  );
 
   const fetchFirstPage = useCallback(
     (args?: { refresh?: boolean }) => {
@@ -112,6 +119,7 @@ export function ProductCatalogTab({ onSelect, search, selectedIds , pearlStyle =
           category: category ?? undefined,
           isActive: true,
           limit: 24,
+          productType: "retail,both",
           refresh: args?.refresh,
           reset: true,
           search: debouncedSearch.trim(),
@@ -156,6 +164,7 @@ export function ProductCatalogTab({ onSelect, search, selectedIds , pearlStyle =
         isActive: true,
         limit: pagination.limit,
         offset: pagination.nextOffset,
+        productType: "retail,both",
         search: debouncedSearch.trim(),
         sort_by: "name",
         sort_order: "asc",

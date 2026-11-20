@@ -8,6 +8,7 @@ import { appointmentServicesToSelectedServices, appointmentToForm, getSelectedSe
 import { APPOINTMENT_VALIDATION_FIELD_ORDER, getAppointmentPaymentStatus } from "@/features/appointments/utils/appointmentScreenHelpers";
 import { fetchServiceCatalog } from "@/features/appointments/utils/serviceCatalog";
 import { realtimePayloadMatchesStaff, staffIdMatches } from "@/features/appointments/utils/staffAssignment";
+import { sequenceStartTimes } from "@/features/appointments/utils/serviceTimeSequencing";
 import { localItemTime } from "@/features/quickSale/utils/itemTime";
 import { useAppForeground } from "@/hooks/useAppForeground";
 import { useAppToast } from "@/hooks/useAppToast";
@@ -134,6 +135,23 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
     [selectedServices],
   );
   const totalServicePrice = servicePricingTotals.grandTotal;
+  // Back-to-back timing: each row's start time is computed from the booking
+  // start and the durations of the earlier services sharing its staff member.
+  // A row the user timed by hand keeps its time and anchors the ones after it.
+  const sequencedServices = useMemo(() => {
+    const times = sequenceStartTimes(
+      selectedServices.map((service) => ({
+        durationMinutes: service.durationMinutes,
+        id: service.id,
+        manualStartTime: service.isManualTime ? localItemTime(service.startTime) : undefined,
+        occupiesTime: !service.itemKind,
+        staffId: service.staffId || form.staffId,
+      })),
+      form.startTime,
+    );
+
+    return selectedServices.map((service) => ({ ...service, startTime: times[service.id] ?? service.startTime ?? null }));
+  }, [form.staffId, form.startTime, selectedServices]);
   const defaultTimeSlots = useMemo(() => getDefaultTimeSlots(form.date), [form.date]);
   const allowedPastEditDate = mode === "edit" && existingAppointment
     ? toInputDate(existingAppointment.scheduledAt)
@@ -649,7 +667,7 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
   // Products / memberships / packages: tap to add, tap again to remove.
   const handleToggleCatalogItem = (
     kind: AppointmentItemKind,
-    item: { categoryId?: string | null; id: string; name: string; price: number },
+    item: { categoryId?: string | null; id: string; name: string; price: number; unitSize?: string },
   ) => {
     setSelectedServices((current) => {
       const existing = current.find(
@@ -673,6 +691,7 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
           name: item.name,
           price: Math.max(0, Number(item.price) || 0),
           quantity: 1,
+          unitSize: item.unitSize || undefined,
         },
       ];
     });
@@ -683,13 +702,29 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
     setSelectedServices((current) => current.filter((service) => service.id !== serviceId));
   };
 
+  // Per-line quantity stepper (Quick Sale parity). Dropping below 1 removes the
+  // line; the catalog total is cleared so pricing recomputes from price x qty.
+  const handleSetItemQuantity = (serviceId: string, quantity: number) => {
+    setSelectedServices((current) => {
+      if (quantity < 1) {
+        return current.filter((service) => service.id !== serviceId);
+      }
+
+      return current.map((service) =>
+        service.id === serviceId
+          ? { ...service, quantity, total: service.price * quantity }
+          : service,
+      );
+    });
+  };
+
   // Per-row staff / time, like the web's Services & Items table.
   const handleSetItemStaff = (itemId: string, staffId: string, staffName: string) => {
     setSelectedServices((current) => current.map((item) => item.id === itemId ? { ...item, staffId, staffName } : item));
   };
 
   const handleSetItemTime = (itemId: string, startTime: string) => {
-    setSelectedServices((current) => current.map((item) => item.id === itemId ? { ...item, startTime } : item));
+    setSelectedServices((current) => current.map((item) => item.id === itemId ? { ...item, startTime, isManualTime: true } : item));
   };
 
   const handleSelectStaff = (staffId: string) => {
@@ -803,7 +838,7 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
     );
     const calculatedEndTime = selectedSlot.endTime ?? form.endTime;
     const itemTime = (item: AppointmentSelectedService) => localItemTime(item.startTime);
-    const serviceItems = selectedServices
+    const serviceItems = sequencedServices
       .filter((service) => !service.itemKind)
       .map((service) => {
         const serviceId = getSelectedServiceCatalogId(service).trim();
@@ -861,7 +896,7 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
       };
     };
     const catalogLines = (kind: AppointmentItemKind) =>
-      selectedServices.filter((item) => item.itemKind === kind);
+      sequencedServices.filter((item) => item.itemKind === kind);
     const productItems = catalogLines("product").map((item) => ((item.rawItem ? { ...item.rawItem, ...rowOverrides(item) } : null) ?? {
       ...toCatalogLine(item),
       ...(item.categoryId ? { category_id: item.categoryId } : {}),
@@ -933,19 +968,27 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
     }
 
     const savedId = result.payload.appointment.id;
-    // Booked from the Calendar: the new appointment appearing on the grid is
-    // the confirmation, so just close without a toast.
+    const successMessage = mode === "create" ? "Appointment created successfully." : "Appointment updated successfully.";
+    // Booked from the Calendar: close the modal and confirm with the app-wide
+    // footer toast. The mutation sets a centered slice toast (shown by the
+    // in-modal AppointmentSnackbar) whose auto-clear timer dies when the modal
+    // unmounts — leaving it stuck mid-screen — so clear it and use the global
+    // toast that sits at the footer and dismisses itself like every other one.
     if (embedded) {
       dispatch(clearAppointmentToast());
       embedded.onRequestClose();
+      toast.showSuccess(successMessage);
       return;
     }
-    toast.showSuccess(mode === "create" ? "Appointment created successfully." : "Appointment updated successfully.");
+    // Confirm with the footer toast only; clear the mutation's centered slice
+    // toast so the details screen doesn't show a second, stuck one.
+    dispatch(clearAppointmentToast());
+    toast.showSuccess(successMessage);
     // Mutation thunks already refresh the list and dashboard. Navigate using
     // their cached appointment without repeating requests on the outgoing form.
     router.replace(`/appointments/${savedId}` as Href);
   };
 
 
-  return { styles, activeBranchId, handleToggleCatalogItem, serviceCatalogError, serviceCatalogLoading, setServicePickerVisible, handleServicePickerContinue, handleSelectService, handleSelectStaff, handleSetItemStaff, handleSetItemTime, form, selectedServices, errors, staffMembers, serviceCatalog, servicePickerVisible, scrollViewRef, clientDropdownOpen, serviceDropdownOpen, dismissClientDropdown, dismissServiceDropdown, setFieldRef, clientBookingMode, handleNewClient, handleClientSearchChange, handleSelectClient, handleSelectExistingClientMode, handleSelectWalkInClient, clientResults, clientResultsError, clientResultsLoading, clientSearch, clientSearchInputRef, selectedClient, updateForm, slotDisabledReason, schedulerLoading, handleSelectSlot, availableSlots, Colors, handleRemoveSelectedService, servicePricingTotals, totalServiceDuration, totalServicePrice, selectedStaff, setSendAppointmentSms, sendAppointmentSms, setSendAppointmentEmail, sendAppointmentEmail, formSubmitError, mutationError, mutating, handleSubmit };
+  return { styles, activeBranchId, handleToggleCatalogItem, serviceCatalogError, serviceCatalogLoading, setServicePickerVisible, handleServicePickerContinue, handleSelectService, handleSelectStaff, handleSetItemStaff, handleSetItemTime, handleSetItemQuantity, form, selectedServices: sequencedServices, errors, staffMembers, serviceCatalog, servicePickerVisible, scrollViewRef, clientDropdownOpen, serviceDropdownOpen, dismissClientDropdown, dismissServiceDropdown, setFieldRef, clientBookingMode, handleNewClient, handleClientSearchChange, handleSelectClient, handleSelectExistingClientMode, handleSelectWalkInClient, clientResults, clientResultsError, clientResultsLoading, clientSearch, clientSearchInputRef, selectedClient, updateForm, slotDisabledReason, schedulerLoading, handleSelectSlot, availableSlots, Colors, handleRemoveSelectedService, servicePricingTotals, totalServiceDuration, totalServicePrice, selectedStaff, setSendAppointmentSms, sendAppointmentSms, setSendAppointmentEmail, sendAppointmentEmail, formSubmitError, mutationError, mutating, handleSubmit };
 }

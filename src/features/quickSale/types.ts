@@ -63,6 +63,8 @@ export type CartItem = {
   duration?: string;
   /** Local HH:mm start time for this individual row. */
   startTime?: string;
+  /** True once the user sets this row's time by hand; auto-sequencing then keeps it. */
+  isManualTime?: boolean;
   itemId: string;
   itemType: CartItemSource;
   lineId: string;
@@ -79,6 +81,8 @@ export type CartItem = {
   staffName: string | null;
   taxAmount?: number;
   taxRate?: number;
+  /** Product pack size shown separately from quantity, e.g. "500 ml". */
+  unitSize?: string;
   unitPrice: number;
 };
 

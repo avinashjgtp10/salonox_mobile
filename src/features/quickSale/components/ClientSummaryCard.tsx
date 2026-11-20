@@ -1,11 +1,15 @@
 import { useRegionalPreferences } from "@/localization/preferences";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { pearl } from "@/components/auth/pearl/tokens";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
 import { useClientSummary } from "@/features/quickSale/hooks/useClientSummary";
+import { membershipService } from "@/services/membership.service";
+import { selectActiveBranchId } from "@/store/branch/branch.slice";
+import { useAppSelector } from "@/store/hooks";
+import type { LoyaltyEligibility } from "@/types/wallet";
 import { formatCurrency } from "@/features/quickSale/utils/money";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { formatAppDate } from "@/utils/dateTime";
@@ -53,17 +57,62 @@ export function ClientSummaryCard({
   const pending = loading || !metrics;
   const show = (value: string) => (pending ? "…" : value);
 
-  const activePackages = (metrics?.packages ?? [])
-    .filter((pkg) => pkg.status.trim().toLowerCase() === "active")
-    .map((pkg) => pkg.packageName)
-    .filter(Boolean);
-  const activeMemberships = (metrics?.activeMemberships ?? []).map((item) => item.membershipName).filter(Boolean);
+  // Loyalty ("automatic") membership — the web counts it alongside purchased
+  // memberships (e.g. "Membership (2)"), but it comes from the loyalty endpoint,
+  // not the client's purchased-membership history. Fetched here so the card
+  // works the same in Quick Sale and the Calendar form without prop plumbing.
+  const salonId = useAppSelector(selectActiveBranchId);
+  const [loyalty, setLoyalty] = useState<LoyaltyEligibility | null>(null);
+  useEffect(() => {
+    setLoyalty(null);
+    if (!clientId) return undefined;
+    let active = true;
+    membershipService.getLoyaltyEligibility(clientId, salonId)
+      .then((result) => { if (active) setLoyalty(result); })
+      .catch(() => { if (active) setLoyalty(null); });
+    return () => { active = false; };
+  }, [clientId, salonId]);
+
+  const activeMembershipRecords = metrics?.activeMemberships ?? [];
+  const loyaltyMembership = loyalty?.eligible ? loyalty : null;
+  const activeMemberships = [
+    ...activeMembershipRecords.map((item) => item.membershipName),
+    ...(loyaltyMembership?.name ? [loyaltyMembership.name] : []),
+  ].filter(Boolean);
+  const membershipCount = activeMembershipRecords.length + (loyaltyMembership ? 1 : 0);
   const membershipLabel = activeMemberships.length ? activeMemberships.join(", ") : membership || "N/A";
+  const activePackageRecords = (metrics?.packages ?? []).filter((pkg) => pkg.status.trim().toLowerCase() === "active");
+
+  // Which detail popover is open (like the web client card's (i) hover).
+  const [detail, setDetail] = useState<"package" | "membership" | null>(null);
 
   const stat = (label: string, value: string, tone?: "blue") => (
     <View key={label} style={s.stat}>
       <Text translate numberOfLines={1} style={s.label}>{label}</Text>
       <Text numberOfLines={2} style={[s.value, tone === "blue" && s.blue]}>{value}</Text>
+    </View>
+  );
+
+  // A stat with an (i) button that opens its details overlay, for package /
+  // membership — the mobile twin of the web card's hover popover.
+  const statWithInfo = (label: string, count: number, value: string, onInfo: () => void) => (
+    <View key={label} style={s.stat}>
+      <View style={s.statLabelRow}>
+        <Text translate numberOfLines={1} style={s.label}>{count > 1 ? `${label} (${count})` : label}</Text>
+        {count > 0 ? (
+          <Pressable accessibilityRole="button" accessibilityLabel={`${label} details`} hitSlop={8} onPress={onInfo}>
+            <Ionicons name="information-circle-outline" size={15} color={c.plum} />
+          </Pressable>
+        ) : null}
+      </View>
+      <Text numberOfLines={2} style={[s.value, s.blue]}>{value}</Text>
+    </View>
+  );
+
+  const detailRow = (rowLabel: string, rowValue: string) => (
+    <View key={rowLabel} style={s.detailRow}>
+      <Text translate style={s.detailLabel}>{rowLabel}</Text>
+      <Text style={s.detailValue}>{rowValue}</Text>
     </View>
   );
 
@@ -90,8 +139,12 @@ export function ClientSummaryCard({
 
       <View style={s.grid}>
         {stat("Total Revenue", show(formatCurrency(metrics?.totalSpend ?? 0)), "blue")}
-        {stat("Package", show(activePackages.length ? activePackages.join(", ") : "N/A"), "blue")}
-        {stat("Membership", show(membershipLabel), "blue")}
+        {pending
+          ? stat("Package", "…", "blue")
+          : statWithInfo("Package", activePackageRecords.length, activePackageRecords.length ? activePackageRecords.map((pkg) => pkg.packageName).join(", ") : "N/A", () => setDetail("package"))}
+        {pending
+          ? stat("Membership", "…", "blue")
+          : statWithInfo("Membership", membershipCount, activeMemberships.length ? membershipLabel : "N/A", () => setDetail("membership"))}
       </View>
 
       {error ? (
@@ -117,6 +170,59 @@ export function ClientSummaryCard({
         </View>
       ) : null}
       </>}
+
+      <Modal animationType="fade" onRequestClose={() => setDetail(null)} transparent visible={detail !== null}>
+        <Pressable accessibilityLabel="Close details" onPress={() => setDetail(null)} style={s.overlayBackdrop}>
+          <Pressable style={s.overlayCard}>
+            <View style={s.overlayHeader}>
+              <Text translate style={s.overlayTitle}>{detail === "package" ? "Packages" : "Memberships"}</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} onPress={() => setDetail(null)}>
+                <Ionicons name="close" size={20} color={c.label} />
+              </Pressable>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} style={s.overlayScroll}>
+              {detail === "package" ? (
+                activePackageRecords.length ? activePackageRecords.map((pkg) => (
+                  <View key={pkg.id} style={s.detailGroup}>
+                    <Text style={s.detailName}>{pkg.packageName}</Text>
+                    {detailRow("Status", pkg.status || "—")}
+                    {detailRow("Purchase Date", formatAppDate(pkg.createdDate ?? null) || "—")}
+                    {detailRow("Expiry Date", formatAppDate(pkg.expiryDate ?? null) || "—")}
+                    {detailRow("Sessions", pkg.totalSessions > 0 ? `${pkg.completedSessions}/${pkg.totalSessions} used` : "Unlimited")}
+                    {detailRow("Price", formatCurrency(pkg.totalAmount))}
+                  </View>
+                )) : <Text translate style={s.detailEmpty}>No active packages.</Text>
+              ) : (
+                membershipCount ? (
+                  <>
+                    {activeMembershipRecords.map((item) => (
+                      <View key={item.id} style={s.detailGroup}>
+                        <Text style={s.detailName}>{item.membershipName}</Text>
+                        {detailRow("Status", item.status || "—")}
+                        {detailRow("Purchase Date", formatAppDate(item.purchasedAt ?? null) || "—")}
+                        {detailRow("Expiry Date", formatAppDate(item.expiresAt ?? null) || "—")}
+                        {detailRow("Sessions", item.totalSessions > 0 ? `${item.remainingSessions}/${item.totalSessions} left` : "Unlimited")}
+                        {detailRow("Price", formatCurrency(item.pricePaid))}
+                        {item.membershipWalletBalance > 0 ? detailRow("Balance Amount", formatCurrency(item.membershipWalletBalance)) : null}
+                        {item.discountBalanceRemaining > 0 ? detailRow("Discount Left", formatCurrency(item.discountBalanceRemaining)) : null}
+                      </View>
+                    ))}
+                    {loyaltyMembership ? (
+                      <View style={s.detailGroup}>
+                        <Text style={s.detailName}>{loyaltyMembership.name || "Loyalty"}</Text>
+                        {detailRow("Type", "Loyalty (Automatic)")}
+                        {detailRow("Status", "active")}
+                        {detailRow("Current Discount", `${loyaltyMembership.discountPercent}% off`)}
+                        {detailRow("Next Tier", loyaltyMembership.nextTier ? `${loyaltyMembership.nextTier.discountPercent}% at ${loyaltyMembership.nextTier.thresholdValue} visits` : "Highest tier reached")}
+                      </View>
+                    ) : null}
+                  </>
+                ) : <Text translate style={s.detailEmpty}>No active memberships.</Text>
+              )}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -141,4 +247,16 @@ const s = StyleSheet.create({
   footerLink: { alignItems: "center", flexDirection: "row", gap: 6 },
   historyButton: { backgroundColor: c.ink, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 9 },
   historyText: { color: "#FFFFFF", fontSize: 13, fontWeight: "700" },
+  statLabelRow: { alignItems: "center", flexDirection: "row", gap: 4 },
+  overlayBackdrop: { alignItems: "center", backgroundColor: "rgba(15, 23, 32, 0.45)", flex: 1, justifyContent: "center", padding: 24 },
+  overlayCard: { backgroundColor: pearl.bgTop, borderColor: c.line, borderRadius: 20, borderWidth: 1, maxHeight: "72%", padding: 18, width: "100%" },
+  overlayHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: 12 },
+  overlayTitle: { color: c.fg, fontSize: 16, fontWeight: "800" },
+  overlayScroll: { flexGrow: 0 },
+  detailGroup: { backgroundColor: pearl.glass, borderColor: c.line, borderRadius: 14, borderWidth: 1, gap: 6, marginBottom: 12, padding: 14 },
+  detailName: { color: c.plum, fontSize: 14, fontWeight: "800", marginBottom: 2 },
+  detailRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", gap: 12 },
+  detailLabel: { color: c.label, fontSize: 12, fontWeight: "600" },
+  detailValue: { color: c.fg, flexShrink: 1, fontSize: 13, fontWeight: "700", textAlign: "right" },
+  detailEmpty: { color: c.label, fontSize: 13, paddingVertical: 8, textAlign: "center" },
 });

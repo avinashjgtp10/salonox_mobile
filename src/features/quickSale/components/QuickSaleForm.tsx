@@ -77,6 +77,13 @@ export function QuickSaleForm(p: Props) {
   const parts = /^Staff alert:\n([\s\S]*?)\n\nNotes:(?:\n([\s\S]*))?$/.exec(p.notes);
   const alert = parts?.[1] ?? "";
   const notes = parts ? parts[2] ?? "" : p.notes;
+  // Web parity: a save blocked by a line with no staff scrolls that line into
+  // view, so the flagged dropdown is never left off screen.
+  const firstMissingStaffLineId = p.cart.items.find(isMissingStaff)?.lineId ?? null;
+  const firstMissingStaffRow = useRef<View | null>(null);
+  useEffect(() => {
+    if (p.showStaffErrors && firstMissingStaffLineId) form.current?.revealField(firstMissingStaffRow.current);
+  }, [firstMissingStaffLineId, p.showStaffErrors]);
   const changeNotes = (nextAlert: string, nextNotes: string) => p.onChangeNotes(nextAlert ? `Staff alert:\n${nextAlert}\n\nNotes:\n${nextNotes}` : nextNotes);
   const field = (label: string, value: string, onChange: (value: string) => void, numeric = false, multiline = false) => (
     <FormField key={label} label={label} value={value} onChange={onChange} numeric={numeric} multiline={multiline} reveal={node => form.current?.revealField(node)} />
@@ -112,10 +119,10 @@ export function QuickSaleForm(p: Props) {
           {!p.cart.items.length ? <View style={s.empty}><Ionicons name="bag-outline" size={26} color={c.plum}/><Text translate style={s.name}>No items added yet</Text><Text translate style={s.muted}>Add a service, product, package or membership.</Text></View> : null}
           {p.cart.items.map(item => {
             const type = types[item.itemType] ?? types.service;
-            return <View key={item.lineId} style={s.lineCard}>
+            return <View key={item.lineId} collapsable={false} ref={item.lineId === firstMissingStaffLineId ? firstMissingStaffRow : undefined} style={s.lineCard}>
               <View style={[s.lineTop, { backgroundColor: type.bg }]}><Text translate style={[s.tag, {color: type.color}]}>{type.label}</Text><Pressable accessibilityLabel={`Remove ${item.name}`} onPress={() => p.onRemoveItem(item.lineId)} hitSlop={10}><Ionicons name="close" size={20} color="#E5484D"/></Pressable></View>
               <View style={s.lineBody}><Text style={s.name}>{item.name}</Text>
-                <Text style={s.muted}>{formatCurrency(item.unitPrice)}{item.quantity > 1 ? ' each' : ''}{item.duration ? ` · ${item.duration}` : ''}</Text>
+                <Text style={s.muted}>{formatCurrency(item.unitPrice)}{item.quantity > 1 ? ' each' : ''}{item.unitSize ? ` · ${item.unitSize}` : ''}{item.duration ? ` · ${item.duration}` : ''}</Text>
                 <View style={s.staffRow}>
                   <View style={s.staffField}><Text translate style={s.label}>Staff{requiresStaff(item) ? " *" : ""}</Text>
                   <Pressable accessibilityRole="button" accessibilityLabel={`Select staff for ${item.name}`} accessibilityHint="Assigns staff to this item only" onPress={() => { Keyboard.dismiss(); setStaffLine(item.lineId); }} style={[s.staffSelect, isMissingStaff(item) && (p.showStaffErrors ? s.staffError : s.staffRequired)]}>

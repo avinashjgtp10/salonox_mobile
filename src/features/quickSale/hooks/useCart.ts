@@ -1,6 +1,8 @@
-import { useCallback, useMemo, useReducer } from "react";
+import { useCallback, useMemo, useReducer, useRef } from "react";
 
 import type { CartItem, CartItemSource } from "@/features/quickSale/types";
+import { localItemTime } from "@/features/quickSale/utils/itemTime";
+import { parseDurationToMinutes, sequenceStartTimes } from "@/features/appointments/utils/serviceTimeSequencing";
 import { buildInitialConsumables, scaleConsumables } from "@/features/quickSale/utils/consumables";
 import { getPackageCoverageAllocations, reservePackageCoverage } from "@/features/quickSale/utils/packageCoverage";
 import { clampCartItemQuantity, normalizeAvailableStock } from "@/features/quickSale/utils/stock";
@@ -25,6 +27,7 @@ export type AddItemInput = {
   packageCoverageServiceId?: string;
   taxAmount?: number;
   taxRate?: number;
+  unitSize?: string;
   unitPrice: number;
 };
 
@@ -111,6 +114,7 @@ const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
         lineId: nextLineId(),
         name: action.input.name,
         note: "",
+        unitSize: action.input.unitSize,
         originalUnitPrice: action.input.unitPrice,
         packageCoverageClientPackageId: action.input.packageCoverageClientPackageId,
         packageCoverageRemaining: action.input.packageCoverageRemaining,
@@ -171,7 +175,7 @@ const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
     }
 
     case "setTime":
-      return state.map(item => item.lineId === action.lineId ? { ...item, startTime: action.startTime } : item);
+      return state.map(item => item.lineId === action.lineId ? { ...item, startTime: action.startTime, isManualTime: true } : item);
     case "setStaff":
       return state.map((item) =>
         item.lineId === action.lineId
@@ -318,13 +322,30 @@ const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
 
 export const useCart = (defaultTime?: string) => {
   const [rawItems, dispatch] = useReducer(cartReducer, []);
-  const items = useMemo(() => reservePackageCoverage(rawItems), [rawItems]);
+  // Stable fallback for carts opened without a slot time (e.g. dashboard Quick Sale).
+  const fallbackTime = useRef(localItemTime(new Date().toISOString()) ?? "09:00").current;
+  const baseTime = defaultTime ?? fallbackTime;
+  // Services sharing a staff member are timed back-to-back from the sale start;
+  // a row the user timed by hand keeps its time and anchors the rows after it.
+  const items = useMemo(() => {
+    const withCoverage = reservePackageCoverage(rawItems);
+    const times = sequenceStartTimes(
+      withCoverage.map((item) => ({
+        durationMinutes: parseDurationToMinutes(item.duration),
+        id: item.lineId,
+        manualStartTime: item.isManualTime ? item.startTime : undefined,
+        occupiesTime: item.itemType === "service",
+        staffId: item.staffId,
+      })),
+      baseTime,
+    );
+
+    return withCoverage.map((item) => ({ ...item, startTime: times[item.lineId] ?? item.startTime }));
+  }, [baseTime, rawItems]);
 
   const addItem = useCallback((input: AddItemInput) => {
-    const now = new Date();
-    const time = defaultTime ?? `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    dispatch({ input: { ...input, startTime: input.startTime ?? time }, type: "add" });
-  }, [defaultTime]);
+    dispatch({ input: { ...input, startTime: input.startTime ?? baseTime }, type: "add" });
+  }, [baseTime]);
 
   const removeItem = useCallback(
     (lineId: string) => {

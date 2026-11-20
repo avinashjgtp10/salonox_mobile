@@ -27,6 +27,7 @@ export function AppointmentItemsSection({
   onPickStaff,
   onPickTime,
   onRemove,
+  onSetQuantity,
   services,
 }: {
   // Each line falls back to the booking's staff and start time until changed.
@@ -37,6 +38,7 @@ export function AppointmentItemsSection({
   onPickStaff: (itemId: string) => void;
   onPickTime: (itemId: string) => void;
   onRemove: (itemId: string) => void;
+  onSetQuantity: (itemId: string, quantity: number) => void;
   services: AppointmentSelectedService[];
 }) {
   "use no memo";
@@ -78,6 +80,7 @@ export function AppointmentItemsSection({
               <Text style={s.name}>{item.name}</Text>
               <Text style={s.muted}>
                 {formatCurrency(item.price)}{quantity > 1 ? " each" : ""}
+                {item.unitSize ? ` · ${item.unitSize}` : ""}
                 {isService && item.durationMinutes ? ` · ${formatDurationLabel(item.durationMinutes)}` : ""}
               </Text>
               <View style={s.staffRow}>
@@ -109,7 +112,15 @@ export function AppointmentItemsSection({
                 </View>
               </View>
               <View style={s.row}>
-                <Text style={s.muted}>{quantity > 1 ? `Qty ${quantity}` : ""}</Text>
+                <View style={s.stepper}>
+                  <Pressable accessibilityLabel={`Decrease ${item.name}`} accessibilityRole="button" hitSlop={6} onPress={() => (quantity <= 1 ? onRemove(item.id) : onSetQuantity(item.id, quantity - 1))} style={s.step}>
+                    <Ionicons name="remove" size={18} color={c.plum} />
+                  </Pressable>
+                  <Text style={s.name}>{quantity}</Text>
+                  <Pressable accessibilityLabel={`Increase ${item.name}`} accessibilityRole="button" hitSlop={6} onPress={() => onSetQuantity(item.id, quantity + 1)} style={s.step}>
+                    <Ionicons name="add" size={18} color={c.plum} />
+                  </Pressable>
+                </View>
                 <Text style={s.total}>{formatCurrency(item.price * quantity)}</Text>
               </View>
             </View>

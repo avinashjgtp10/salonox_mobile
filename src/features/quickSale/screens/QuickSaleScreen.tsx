@@ -16,6 +16,10 @@ import { ScrollFooterContext } from "@/hooks/useScrollFooter";
 import { isStaffExperienceUser, STAFF_CALENDAR_ROUTE, STAFF_HOME_ROUTE } from "@/utils/routeResolver";
 import { canUseStaffQuickSale } from "@/utils/staffAccess";
 import { formatAppDate, formatAppTime } from "@/utils/dateTime";
+import { formatUnitSize } from "@/utils/productUnit";
+import { RedemptionOtpSheet } from "@/features/quickSale/components/RedemptionOtpSheet";
+import { redemptionOtpService } from "@/services/redemptionOtp.service";
+import { useRedemptionOtpConfig, type RedeemKind } from "@/services/redemptionOtpSettings";
 import { appAlert as Alert } from "@/services/appAlert";
 import {
   router,
@@ -24,7 +28,7 @@ import {
   useNavigation,
   type Href,
 } from "expo-router";
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { BackHandler, Keyboard, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -37,7 +41,7 @@ import {
   type DiscountApplyTarget,
 } from "@/features/quickSale/components/CheckoutSheet";
 import type { PackageBenefit } from "@/features/quickSale/components/checkout/types";
-import { ClientDatesSheet } from "@/features/quickSale/components/ClientDatesSheet";
+import { EditClientSheet } from "@/features/quickSale/components/EditClientSheet";
 import { ClientPickerSheet } from "@/features/quickSale/components/ClientPickerSheet";
 import { ErrorState } from "@/features/quickSale/components/StateViews";
 import { GlobalSearchBar } from "@/features/quickSale/components/GlobalSearchBar";
@@ -115,7 +119,6 @@ import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
 import { fetchUnreadCountThunk } from "@/middleware/notification/notification.thunk";
 import {
   checkoutSaleThunk,
-  createSaleThunk,
   deleteSaleThunk,
   fetchSaleByIdThunk,
   fetchSalesInitThunk,
@@ -248,6 +251,13 @@ function OwnerQuickSaleScreen({
   const [changeServiceLineId, setChangeServiceLineId] = useState<string | null>(null);
   const [isCheckoutVisible, setIsCheckoutVisible] = useState(false);
   const [pendingCheckoutPayment, setPendingCheckoutPayment] = useState<PendingCheckoutPayment | null>(null);
+  // WhatsApp OTP gate for redeeming a package session / membership benefit. When
+  // the salon requires it and the client is not yet verified, checkout pauses on
+  // this sheet; a successful verify resumes the stashed payment.
+  const { config: redemptionOtpConfig } = useRedemptionOtpConfig();
+  const [otpSheetVisible, setOtpSheetVisible] = useState(false);
+  const [otpPendingPayment, setOtpPendingPayment] = useState<PendingCheckoutPayment | null>(null);
+  const [otpKinds, setOtpKinds] = useState<RedeemKind[]>([]);
   const [shouldResumeCheckoutAtCharges, setShouldResumeCheckoutAtCharges] = useState(false);
   const [checkoutInitialStep, setCheckoutInitialStep] = useState<CheckoutInitialStep>("payment");
   const [shouldShowCheckoutStaffValidation, setShouldShowCheckoutStaffValidation] = useState(false);
@@ -824,6 +834,7 @@ function OwnerQuickSaleScreen({
         itemId: product.id,
         itemType: "product",
         name: product.name,
+        unitSize: formatUnitSize(product.bottleSize, product.measureUnit),
         unitPrice: product.price,
       });
     },
@@ -1414,7 +1425,12 @@ function OwnerQuickSaleScreen({
     // the missing staff dropdowns are flagged right on the form.
     if (cart.items.some(isMissingStaff)) {
       setShowFormStaffErrors(true);
-      if (isCheckoutVisible) setSubmitError("Assign staff to every item before saving.");
+      // Always say why nothing was saved. Save Pending is usually tapped from
+      // the bottom bar with the checkout sheet closed, where the sheet footer
+      // isn't on screen — the effect below turns this into an alert there, so
+      // the tap is never a silent no-op. Web does the same (AppointmentModal
+      // validate(), which also scrolls to the offending row).
+      setSubmitError("Assign staff to every item before saving.");
       return;
     }
 
@@ -1457,51 +1473,21 @@ function OwnerQuickSaleScreen({
         return;
       }
 
-      const payload = buildSaleDraftPayload();
-
-      // Calendar Quick Sale (owner or staff): book the slot as an appointment and
-      // link the pending sale to it, so the bill shows on the Calendar and can
-      // be tapped later to take payment. Staff always book, since they have no
-      // Sales screen to find drafts in.
-      let appointmentId: string | undefined;
-      if (!params.draftId && (embedded || isStaffExperienceUser(user))) {
-        try {
-          appointmentId = (await appointmentService.createAppointment(buildAppointmentPayload())).appointment.id;
-        } catch (error) {
-          setSubmitError(getApiErrorMessage(error));
-          return;
-        }
+      // Only an existing draft reaches here: a brand-new Quick Sale has no save
+      // step at all now (web parity), so it never books a slot or creates a
+      // pending bill of its own — it goes straight to Checkout.
+      const action = await dispatch(updateSaleThunk({ saleId: params.draftId!, updates: buildSaleDraftPayload() }));
+      if (!updateSaleThunk.fulfilled.match(action)) {
+        setSubmitError(getActionError(action.payload, "Unable to save this draft."));
+        return;
       }
-
-      let savedSale: SaleDetail;
-      if (params.draftId) {
-        const action = await dispatch(updateSaleThunk({ saleId: params.draftId, updates: payload }));
-        if (!updateSaleThunk.fulfilled.match(action)) {
-          setSubmitError(getActionError(action.payload, "Unable to save this draft."));
-          return;
-        }
-        savedSale = action.payload.sale;
-      } else {
-        const action = await dispatch(createSaleThunk(appointmentId ? { ...payload, appointmentId } : payload));
-        if (!createSaleThunk.fulfilled.match(action)) {
-          setSubmitError(appointmentId
-            ? `The appointment is booked on the Calendar, but its pending bill could not be saved: ${getActionError(action.payload, "please try again.")}`
-            : getActionError(action.payload, "Unable to save this draft."));
-          return;
-        }
-        savedSale = action.payload.sale;
-      }
+      const savedSale = action.payload.sale;
       setIsCheckoutVisible(false);
       if (!checkoutSubmission.commitSuccess()) {
         return;
       }
       setIsSaleFinalized(true);
       allowExpectedExitRef.current = true;
-      if (appointmentId) {
-        // Pull the new booking into the calendar store so the slot isn't empty.
-        void dispatch(fetchAppointmentByIdThunk(appointmentId));
-        void dispatch(fetchDashboardThunk());
-      }
       router.replace({
         params: {
           draftId: savedSale.id,
@@ -1552,6 +1538,15 @@ function OwnerQuickSaleScreen({
       case "paymentRecordedNeedsFollowUp":
         allowExpectedExitRef.current = true;
         setIsCheckoutVisible(false);
+        // A partial (or ₹0) payment leaves a real booking with a balance due —
+        // the same state the web reaches by typing 00. The appointment is
+        // already pulled into the calendar store by onPaymentRecorded; refresh
+        // the summaries so it shows in today's figures straight away too.
+        void dispatch(fetchDashboardThunk());
+        void dispatch(fetchUnreadCountThunk());
+        if (selectedClient.id) {
+          void dispatch(fetchClientHistoryThunk(selectedClient.id));
+        }
         clearFinishedSale();
         Alert.alert("Payment recorded", outcome.message);
         return;
@@ -1609,6 +1604,42 @@ function OwnerQuickSaleScreen({
       return;
     }
 
+    // Package / membership redemption OTP gate (Settings > Extras). Mirrors the
+    // backend's enforcement: when the salon requires an OTP for what this sale
+    // redeems and the client has no verified window, pause on the OTP sheet and
+    // resume this same payment once the client's code is verified. The backend
+    // still returns 428 if skipped, so this can't be bypassed.
+    // The "membership" switch covers every loyalty benefit the backend counts
+    // under it, not just the membership wallet: a loyalty discount and redeemed
+    // reward points need the same code (payments.service pushes 'membership' for
+    // apply_loyalty_discount and reward_points_used > 0, and the web's
+    // AppointmentModal asks on the same four).
+    const gateKinds: RedeemKind[] = [];
+    const redeemsMembershipBenefit =
+      resolvedPricingFlags.applyMembershipWallet ||
+      resolvedPricingFlags.applyMembershipDiscount ||
+      resolvedPricingFlags.applyLoyaltyDiscount ||
+      (resolvedPricingFlags.applyRewardPoints && totals.appliedRewardPointsValue > 0);
+    if (redeemsMembershipBenefit && redemptionOtpConfig.membership) {
+      gateKinds.push("membership");
+    }
+    if (packageCoveredServiceItems.length > 0 && redemptionOtpConfig.package) {
+      gateKinds.push("package");
+    }
+    if (gateKinds.length > 0) {
+      try {
+        const otpStatus = await redemptionOtpService.status(selectedClient.id);
+        if (otpStatus.required && !otpStatus.verified) {
+          setOtpPendingPayment(payment);
+          setOtpKinds(gateKinds);
+          setOtpSheetVisible(true);
+          return;
+        }
+      } catch {
+        // Status unreadable: fall through and let the backend 428 be the backstop.
+      }
+    }
+
     if (!checkoutSubmission.begin("checkingOut")) {
       return;
     }
@@ -1650,7 +1681,13 @@ function OwnerQuickSaleScreen({
           )
         : await runAppointmentCheckout(
             {
-              appointmentPayload: buildAppointmentPayload(),
+              // A Quick Sale books and checks out in one step, so the backend
+              // skips its "New Appointment Booked" push for this source and
+              // only "Payment Complete" is sent. An existing booking is
+              // updated instead of created, so it keeps its original source.
+              appointmentPayload: params.appointmentId
+                ? buildAppointmentPayload()
+                : { ...buildAppointmentPayload(), source: "quick_sale" },
               buildPaymentPayload: (appointmentId) => buildPaymentPayload(appointmentId, payment),
               payment,
               totals,
@@ -1694,6 +1731,18 @@ function OwnerQuickSaleScreen({
     requestAnimationFrame(() => void handleCompleteSale(payment));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isClientPickerVisible, pendingCheckoutPayment, selectedClient.id]);
+
+  // The client's WhatsApp OTP was verified: close the sheet and resume the exact
+  // payment that was paused, which now passes the redemption gate.
+  const handleOtpVerified = () => {
+    const payment = otpPendingPayment;
+    setOtpSheetVisible(false);
+    setOtpPendingPayment(null);
+    setOtpKinds([]);
+    if (payment) {
+      requestAnimationFrame(() => void handleCompleteSale(payment));
+    }
+  };
 
   useEffect(() => {
     if (!shouldResumeCheckoutAtCharges || !selectedClient.id || isClientPickerVisible) {
@@ -1872,9 +1921,13 @@ function OwnerQuickSaleScreen({
     );
   }
 
+  const Shell = paymentOnly ? Fragment : PearlBackground;
+
   return (
     <>
-      <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={paymentOnly ? styles.paymentOnlyRoot : [styles.safeArea, { backgroundColor: "transparent" }]}>
+      {/* Payment-only is an overlay: no opaque Pearl background, so the
+          appointment details sheet stays visible behind the payment sheet. */}
+      <Shell><SafeAreaView edges={["top", "bottom"]} style={paymentOnly ? styles.paymentOnlyRoot : [styles.safeArea, { backgroundColor: "transparent" }]}>
         {!embedded ? <AppStatusBar /> : null}
 
         {paymentOnly ? (
@@ -2033,7 +2086,7 @@ function OwnerQuickSaleScreen({
             isSaving={checkoutSubmission.isSaving}
             total={totals.grandTotal}
             onCheckout={() => { if (ensureClientSelected()) openCheckout("payment"); }}
-            onSavePending={() => { if (ensureClientSelected()) guardSave(() => void handleSavePending()); }}
+            onSavePending={isExistingBill ? () => { if (ensureClientSelected()) guardSave(() => void handleSavePending()); } : undefined}
             savePendingDisabled={cart.items.length === 0 || checkoutSubmission.isSaving || checkoutSubmission.isCheckingOut}
             saveOnly={editingCompletedSale}
           />
@@ -2057,10 +2110,12 @@ function OwnerQuickSaleScreen({
         />
 
         {selectedClient.id ? (
-          <ClientDatesSheet
+          <EditClientSheet
             clientId={selectedClient.id}
             clientName={selectedClient.name}
             onClose={() => setIsClientDatesVisible(false)}
+            // Keep the name and phone on the bill in step with the edit.
+            onSaved={(client) => setSelectedClient(clientFromListItem(client))}
             renderInline={embedded}
             visible={isClientDatesVisible}
           />
@@ -2167,7 +2222,7 @@ function OwnerQuickSaleScreen({
                 setIsClientPickerVisible(true);
               }
             : undefined}
-          onSavePending={() => { if (ensureClientSelected()) guardSave(() => void handleSavePending()); }}
+          onSavePending={isExistingBill ? () => { if (ensureClientSelected()) guardSave(() => void handleSavePending()); } : undefined}
           onSetConsumableActualQty={handleSetConsumableActualQty}
           onSetQuantity={handleSetQuantity}
           onToggleIncludeGst={() => setIncludeGst((current) => !current)}
@@ -2185,7 +2240,19 @@ function OwnerQuickSaleScreen({
           totals={totals}
           visible={isCheckoutVisible}
         />
-      </SafeAreaView></PearlBackground>
+
+        {selectedClient.id && otpSheetVisible ? (
+          <RedemptionOtpSheet
+            clientId={selectedClient.id}
+            clientName={selectedClient.name}
+            kinds={otpKinds}
+            onClose={() => { setOtpSheetVisible(false); setOtpPendingPayment(null); setOtpKinds([]); }}
+            onVerified={handleOtpVerified}
+            renderInline={embedded}
+            visible={otpSheetVisible}
+          />
+        ) : null}
+      </SafeAreaView></Shell>
     </>
   );
 }

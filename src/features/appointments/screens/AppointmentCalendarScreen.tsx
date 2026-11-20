@@ -233,7 +233,6 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
       <CalendarPreview
         readOnly={staffMode}
         quickSaleEnabled={!staffMode || staffQuickSale}
-        expandSingleColumn={ownOnly}
         showEmptyState={!loading && !error}
         appointments={visibleAppointments}
         date={date}

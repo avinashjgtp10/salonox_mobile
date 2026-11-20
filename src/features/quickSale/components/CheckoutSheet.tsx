@@ -419,6 +419,25 @@ function CheckoutSheetComponent({
       ? Math.max(0, Math.min(parseAmount(partialAmountInput), totals.grandTotal))
       : totals.grandTotal;
   const dueAmount = Math.max(0, totals.grandTotal - amountToCollect);
+  // Paying in full shows the grand total in the field, and keeps it in step as
+  // discounts or charges move the total. Typing anything that isn't that exact
+  // string switches to partial, so this never fights the keyboard.
+  useEffect(() => {
+    if (paymentType === "full") setPartialAmountInput(totals.grandTotal.toFixed(2));
+  }, [paymentType, totals.grandTotal]);
+  // Web parity (PaymentMethodPicker's pay-due-row): anything above the grand
+  // total is clamped to it rather than rejected, and typing the grand total
+  // back is the same as choosing Pay in Full.
+  // The typed text is the single source of truth, so every keystroke —
+  // backspace included — is kept exactly as entered. Matching on the raw text
+  // rather than its parsed value matters: deleting a digit from "100.00"
+  // leaves "100.0", which still PARSES to the grand total, so comparing
+  // numbers would snap the field back to "100.00" and make it impossible to
+  // clear. Only the exact full-amount string counts as Pay in Full.
+  const handleChangeAmountToCollect = (raw: string) => {
+    setPartialAmountInput(parseAmount(raw) > totals.grandTotal ? totals.grandTotal.toFixed(2) : raw);
+    setPaymentType(raw === totals.grandTotal.toFixed(2) ? "full" : "partial");
+  };
   const partialAmountExceedsTotal = paymentType === "partial" && parseAmount(partialAmountInput) > totals.grandTotal;
   const splitTotal = splitEntries.reduce((total, entry) => total + entry.amount, 0);
   const splitRemaining = Math.max(
@@ -608,7 +627,7 @@ function CheckoutSheetComponent({
       return;
     }
 
-    onSavePending();
+    onSavePending?.();
   };
 
   const handleSelectSinglePaymentMethod = (method: Exclude<SalePaymentMethod, "split">) => {
@@ -1151,29 +1170,30 @@ function CheckoutSheetComponent({
                     <ModeButton
                       active={paymentType === "partial"}
                       label="Partial Payment"
-                      onPress={() => setPaymentType("partial")}
+                      onPress={() => { setPaymentType("partial"); setPartialAmountInput(""); }}
                     />
                   </View>
-                  {paymentType === "partial" ? (
-                    <>
-                      <Text translate style={styles.inputLabel}>Amount to Collect Now</Text>
-                      <TextInput
-                        keyboardType="decimal-pad"
-                        onChangeText={setPartialAmountInput}
-                        placeholder="0"
-                        placeholderTextColor={Colors.placeholder}
-                        style={[styles.input, partialAmountExceedsTotal && styles.inputError]}
-                        value={partialAmountInput}
-                      />
-                      {partialAmountExceedsTotal ? (
-                        <Text style={styles.errorText}>
-                          Amount cannot exceed the grand total ({formatCurrency(totals.grandTotal)}).
-                        </Text>
-                      ) : (
-                        <Text style={styles.gstPreviewText}>Due after this payment: {formatCurrency(dueAmount)}</Text>
-                      )}
-                    </>
-                  ) : null}
+                  {/* Always editable, like the web's "Pay [amount] [x] Full" row:
+                      it shows the grand total while paying in full, and typing
+                      any other figure (0 included, for a booking that is saved
+                      unpaid) switches to partial on its own. Typing the full
+                      amount back switches to Pay in Full again. */}
+                  <Text translate style={styles.inputLabel}>Amount to Collect Now</Text>
+                  <TextInput
+                    keyboardType="decimal-pad"
+                    onChangeText={handleChangeAmountToCollect}
+                    placeholder={totals.grandTotal.toFixed(2)}
+                    placeholderTextColor={Colors.placeholder}
+                    style={[styles.input, partialAmountExceedsTotal && styles.inputError]}
+                    value={partialAmountInput}
+                  />
+                  {partialAmountExceedsTotal ? (
+                    <Text style={styles.errorText}>
+                      Amount cannot exceed the grand total ({formatCurrency(totals.grandTotal)}).
+                    </Text>
+                  ) : (
+                    <Text style={styles.gstPreviewText}>Due after this payment: {formatCurrency(dueAmount)}</Text>
+                  )}
                 </View>
               ) : null}
 
@@ -1333,7 +1353,7 @@ function CheckoutSheetComponent({
                   >
                     <Text translate style={styles.pendingButtonText}>Back</Text>
                   </TouchableOpacity>
-                ) : (
+                ) : onSavePending ? (
                   <TouchableOpacity
                     activeOpacity={0.84}
                     disabled={isBusy || !hasItems || chargesInvalid}
@@ -1349,7 +1369,7 @@ function CheckoutSheetComponent({
                       <Text translate style={styles.pendingButtonText}>Save Pending</Text>
                     )}
                   </TouchableOpacity>
-                )}
+                ) : null}
                 <Pressable
                   accessibilityRole="button"
                   disabled={
@@ -1509,7 +1529,7 @@ function BenefitCard({ card }: { card: ReturnType<typeof useBenefitCards>[number
       onPress={() => card.onToggle(!card.checked)}
       style={[
         styles.benefitCard,
-        card.checked && { backgroundColor: `${card.accent}14`, borderColor: card.accent },
+        card.checked && { backgroundColor: Colors.backgroundSelected, borderColor: card.accent },
       ]}
     >
       <View style={styles.benefitCardHeader}>
