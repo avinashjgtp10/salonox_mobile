@@ -70,9 +70,13 @@ export function NextAppointments({ refreshKey }: { refreshKey?: number }) {
 const attendanceTone = (label: string): PillTone => {
   const key = label.toLowerCase();
   if (key === "present") return "success";
-  if (key === "absent" || key === "on leave") return "danger";
-  if (key === "not marked") return "neutral";
-  return "warning"; // Late, Half Day, On Break
+  if (key === "absent") return "danger";
+  if (key === "on leave") return "lilac";
+  // An off day is a planned absence, not a problem — slate on the web, so
+  // neutral here, rather than borrowing the red of a genuine absence.
+  if (key === "not marked" || key === "off day") return "neutral";
+  if (key === "half day") return "sky"; // blue on the web, distinct from Late
+  return "warning"; // Late, On Break
 };
 
 const attendanceNote = (record: AttendanceRecord | null, label: string) => {
@@ -125,10 +129,13 @@ export function StaffOnFloor() {
           )}
         </Card>
       )}
-      <View style={styles.legend} accessibilityLabel="Status guide: Present, Late, Absent, Not marked">
+      <View style={styles.legend} accessibilityLabel="Status guide: Present, Late, On break, Absent, On leave, Off day, Not marked">
         <StatusPill tone="success" label="Present" />
         <StatusPill tone="warning" label="Late" />
+        <StatusPill tone="warning" label="On break" />
         <StatusPill tone="danger" label="Absent" />
+        <StatusPill tone="lilac" label="On leave" />
+        <StatusPill tone="neutral" label="Off day" />
         <StatusPill tone="neutral" label="Not marked" />
       </View>
     </>

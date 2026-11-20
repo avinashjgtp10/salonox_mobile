@@ -357,11 +357,11 @@ export default function AttendanceScreen() {
               status = row.schedule.tone === "leave" || row.schedule.tone === "off"
                 ? row.schedule.label
                 : record?.activity?.current_status === "ON_BREAK"
-                  ? "On break"
+                  ? "On Break"
                   : record?.statusKey === "notMarked" || !record
                     ? row.schedule.label
                     : record.statusKey === "halfDay"
-                      ? "Half day"
+                      ? "Half Day"
                       : record.statusKey.charAt(0).toUpperCase() +
                         record.statusKey.slice(1);
             return (
@@ -396,7 +396,7 @@ export default function AttendanceScreen() {
                       borderRadius: 20,
                       backgroundColor:
                         status === "On Leave" ? pearlTones.lilac.bg
-                          : status === "Day Off" ? pearl.warningBg
+                          : status === "Off Day" ? pearl.warningBg
                           : status === "Present" || status === "Working"
                           ? pearl.successBg
                           : status === "Late"
@@ -404,7 +404,7 @@ export default function AttendanceScreen() {
                             : pearl.glass,
                       color:
                         status === "On Leave" ? pearlTones.lilac.fg
-                        : status === "Day Off" ? pearl.warningText
+                        : status === "Off Day" ? pearl.warningText
                         : status === "Present" || status === "Working" ? pearl.successText : pearl.ink2,
                     }}
                   >
