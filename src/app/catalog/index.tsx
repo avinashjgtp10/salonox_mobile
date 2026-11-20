@@ -58,6 +58,7 @@ import type { PackageListItem } from "@/types/package";
 import type { Product } from "@/types/product";
 import type { ServiceListItem } from "@/types/service";
 import { formatCurrency as formatMoney } from "@/utils/currency";
+import { formatUnitSize } from "@/utils/productUnit";
 
 type CatalogItem = FilterableCatalogItem & {
   id: string;
@@ -98,7 +99,11 @@ const productToItem = (item: Product): CatalogItem => ({
   id: item.id,
   isActive: item.isActive,
   lowStockThreshold: item.lowStockThresholdBaseUnits ?? item.lowStockThreshold,
-  meta: `${item.stockQuantity} in stock${item.sku ? ` · ${item.sku}` : ""}`,
+  // What the row says about the product besides its stock: SKU and pack size,
+  // the same two the web's table carries next to the name. The quantity itself
+  // is left to the stock pill alone — it used to lead this line as well, so
+  // every product read "13 in stock … 13 in stock".
+  meta: [item.sku, formatUnitSize(item.bottleSize, item.measureUnit)].filter(Boolean).join(" · "),
   name: item.name,
   price: item.retailPrice ?? item.price,
   productType: item.productType,
@@ -170,7 +175,7 @@ const CatalogTableRow = memo(function CatalogTableRow({ colors, isDeleting, item
   return (
     <TouchableOpacity activeOpacity={0.8} disabled={!item.route && item.serviceCount === undefined} onPress={() => onOpen(item)} style={styles.tableRow}>
       <View style={[styles.itemIcon, { backgroundColor: tone.bg }]}><Ionicons name={stock != null ? "cube-outline" : item.serviceCount != null ? "albums-outline" : item.validFor ? "diamond-outline" : "cut-outline"} size={20} color={tone.fg} /></View>
-      <View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={2} style={styles.tableName}>{item.name}</Text><Text numberOfLines={2} style={styles.tableCell}>{item.category} · {item.meta}</Text></View>
+      <View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={2} style={styles.tableName}>{item.name}</Text><Text numberOfLines={2} style={styles.tableCell}>{[item.category, item.meta].filter(Boolean).join(" · ")}</Text></View>
       <View style={{ alignItems: "flex-end", gap: 5 }}><Text style={styles.tablePrice}>{formatMoney(item.price)}</Text>
         {stock != null ? <Text style={[styles.stockPill, { color: stock <= 0 ? pearl.dangerText : low ? pearl.warningText : pearl.successText, backgroundColor: stock <= 0 ? pearl.dangerBg : low ? pearl.warningBg : pearl.successBg }]}>{stock <= 0 ? "Out of stock" : low ? `${stock} left` : `${stock} in stock`}</Text> : !item.isActive ? <Text translate style={styles.tableCell}>Inactive</Text> : null}
       </View>
