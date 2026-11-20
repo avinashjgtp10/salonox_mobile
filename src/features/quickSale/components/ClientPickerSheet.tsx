@@ -360,7 +360,6 @@ export function ClientPickerSheet({
               <DateField
                 error={formErrors.anniversary}
                 label={requiredDates.require_doa ? "Anniversary Date*" : "Anniversary Date"}
-                maximumDate={new Date()}
                 onChange={(value) => {
                   setNewAnniversary(value);
                   setFormErrors((current) => ({ ...current, anniversary: undefined, form: undefined }));

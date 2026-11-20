@@ -42,7 +42,6 @@ export function validateClientDates(dob: string, anniversary: string) {
   if (dob && !isRealDate(dob)) errors.dob = "Enter a valid date of birth.";
   else if (dob && dob > today) errors.dob = "Date of birth can't be in the future.";
   if (anniversary && !isRealDate(anniversary)) errors.anniversary = "Enter a valid anniversary date.";
-  else if (anniversary && anniversary > today) errors.anniversary = "Anniversary can't be in the future.";
   else if (anniversary && dob && !errors.dob && anniversary < dob) errors.anniversary = "Anniversary can't be before the date of birth.";
   return errors;
 }
