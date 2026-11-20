@@ -16,6 +16,8 @@ export interface LanguageDef {
   code: string;
   /** Name in its own script — what the picker shows. */
   nativeName: string;
+  /** English name, shown beside the native one so the list stays searchable in English (web parity: languageLabel). */
+  englishName: string;
   /** Writing direction. Right-to-left languages need the page mirrored. */
   dir: "ltr" | "rtl";
   /** Locale for dates and clock times when this language is shown (month names in the language). Omitted = the currency's. */
@@ -23,17 +25,31 @@ export interface LanguageDef {
 }
 
 export const LANGUAGES: LanguageDef[] = [
-  { code: "en", nativeName: "English", dir: "ltr" },
-  { code: "hi", nativeName: "हिन्दी", dir: "ltr", dateLocale: "hi-IN" },
-  { code: "ar", nativeName: "العربية", dir: "rtl", dateLocale: "ar-AE" },
-  { code: "zh", nativeName: "简体中文", dir: "ltr", dateLocale: "zh-CN" },
-  { code: "ko", nativeName: "한국어", dir: "ltr", dateLocale: "ko-KR" },
-  { code: "ja", nativeName: "日本語", dir: "ltr", dateLocale: "ja-JP" },
-  { code: "th", nativeName: "ไทย", dir: "ltr", dateLocale: "th-TH-u-ca-gregory" },
-  { code: "id", nativeName: "Bahasa Indonesia", dir: "ltr", dateLocale: "id-ID" },
-  { code: "vi", nativeName: "Tiếng Việt", dir: "ltr", dateLocale: "vi-VN" },
-  { code: "ms", nativeName: "Bahasa Melayu", dir: "ltr", dateLocale: "ms-MY" },
+  { code: "en", nativeName: "English", englishName: "English", dir: "ltr" },
+  { code: "hi", nativeName: "हिन्दी", englishName: "Hindi", dir: "ltr", dateLocale: "hi-IN" },
+  { code: "ar", nativeName: "العربية", englishName: "Arabic", dir: "rtl", dateLocale: "ar-AE" },
+  { code: "zh", nativeName: "简体中文", englishName: "Chinese", dir: "ltr", dateLocale: "zh-CN" },
+  { code: "ko", nativeName: "한국어", englishName: "Korean", dir: "ltr", dateLocale: "ko-KR" },
+  { code: "ja", nativeName: "日本語", englishName: "Japanese", dir: "ltr", dateLocale: "ja-JP" },
+  { code: "th", nativeName: "ไทย", englishName: "Thai", dir: "ltr", dateLocale: "th-TH-u-ca-gregory" },
+  { code: "id", nativeName: "Bahasa Indonesia", englishName: "Indonesian", dir: "ltr", dateLocale: "id-ID" },
+  { code: "vi", nativeName: "Tiếng Việt", englishName: "Vietnamese", dir: "ltr", dateLocale: "vi-VN" },
+  { code: "ms", nativeName: "Bahasa Melayu", englishName: "Malay", dir: "ltr", dateLocale: "ms-MY" },
 ];
+
+/**
+ * What a language picker shows: the English name, then the same language in its
+ * own script — "Hindi – हिन्दी", "Arabic – العربية". English leads so the list
+ * reads and scans in one familiar language, and the native script confirms the
+ * choice. English itself is not repeated.
+ *
+ * The web's languageLabel puts these the other way round ("हिन्दी – Hindi"); the
+ * order here is the one the Region ticket asked for.
+ */
+export const languageLabel = (language: LanguageDef): string =>
+  language.nativeName === language.englishName
+    ? language.englishName
+    : `${language.englishName} – ${language.nativeName}`;
 
 /** A supported language code, or the default for anything else (blank, unknown, a regional tag like "ar-AE"). */
 export function normalizeLanguage(code: string | null | undefined): string {
