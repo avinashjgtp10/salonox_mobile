@@ -52,6 +52,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 
 import { useAppToast } from "@/hooks/useAppToast";
+import { getMembershipTypeLabel, membershipBenefitSummary } from "@/features/membership/membershipMeta";
 import type { Membership } from "@/types/membership";
 import type { ConsumableListItem } from "@/types/consumable";
 import type { PackageListItem } from "@/types/package";
@@ -143,10 +144,12 @@ const packageToItem = (item: PackageListItem): CatalogItem => ({
 
 const membershipToItem = (item: Membership): CatalogItem => ({
   appliesTo: item.appliesTo,
-  category: `${item.sessionType} membership`,
+  // The plan type, not the session type: every plan is "unlimited" now, so the
+  // useful label is Wallet / Discount Balance / Loyalty, same as on web.
+  category: `${getMembershipTypeLabel(item)} membership`,
   id: item.id,
   isActive: item.enableOnlineSales,
-  meta: item.validFor,
+  meta: membershipBenefitSummary(item),
   name: item.name,
   price: item.price,
   pricingType: item.pricingType,

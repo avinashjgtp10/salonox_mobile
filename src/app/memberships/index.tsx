@@ -33,6 +33,12 @@ import {
 } from "@/store/membership/membership.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import {
+  getMembershipAppliesToLabel,
+  getMembershipMeta,
+  getMembershipPricingType,
+  getMembershipTypeLabel,
+} from "@/features/membership/membershipMeta";
 import type { Membership } from "@/types/membership";
 import { formatAppDate } from "@/utils/dateTime";
 import { formatCurrency as formatMoney } from "@/utils/currency";
@@ -98,11 +104,45 @@ function EmptyState({ filter, onCreate }: { filter: FilterKey; onCreate: () => v
   );
 }
 
+/**
+ * The plan's benefit, one line per entry — a loyalty ladder lists every tier,
+ * the other two types describe the single benefit they grant.
+ */
+const getBenefitLines = (membership: Membership) => {
+  const type = getMembershipPricingType(membership);
+
+  if (type === "loyalty") {
+    return (membership.loyaltyTiers ?? []).map(
+      (tier) => `${tier.thresholdValue} visits → ${tier.discountPercent}% off`,
+    );
+  }
+
+  if (type === "percentage") {
+    const percent = membership.discountPercent ?? 0;
+
+    return membership.benefitType === "validity"
+      ? [`${percent}% off every eligible bill until expiry`]
+      : [
+          `${percent}% off every eligible bill`,
+          `${formatMoney(membership.discountBalance ?? membership.price)} discount balance`,
+        ];
+  }
+
+  const meta = getMembershipMeta(membership);
+  const bonus = meta.bonusCredit ?? 0;
+
+  return [
+    `${formatMoney(membership.price + bonus)} wallet value`,
+    ...(bonus > 0 ? [`includes ${formatMoney(bonus)} bonus credit`] : []),
+  ];
+};
+
 function MembershipCard({
   expanded,
   isDeleting,
   membership,
   onDelete,
+  onEdit,
   onToggleExpanded,
   onView,
 }: {
@@ -110,6 +150,7 @@ function MembershipCard({
   isDeleting: boolean;
   membership: Membership;
   onDelete: () => void;
+  onEdit: () => void;
   onToggleExpanded: () => void;
   onView: () => void;
 }) {
@@ -118,7 +159,8 @@ function MembershipCard({
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const status = getStatus(membership);
-  const benefits = membership.includedServices.map((service) => service.serviceName);
+  const isLoyalty = getMembershipPricingType(membership) === "loyalty";
+  const benefits = getBenefitLines(membership);
   const visibleBenefits = expanded ? benefits : benefits.slice(0, 2);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -130,7 +172,7 @@ function MembershipCard({
         </View>
         <View style={styles.cardTitleWrap}>
           <Text numberOfLines={1} style={styles.cardTitle}>{membership.name}</Text>
-          <Text style={styles.cardSubtitle}>{membership.sessionType} membership</Text>
+          <Text style={styles.cardSubtitle}>{`${getMembershipTypeLabel(membership)} · ${getMembershipAppliesToLabel(membership)}`}</Text>
         </View>
         <TouchableOpacity activeOpacity={0.82} onPress={() => setMenuOpen(true)} style={styles.iconMenu}>
           {isDeleting ? <ActivityIndicator color={Colors.error} size="small" /> : <Ionicons name="ellipsis-horizontal" size={18} color={Colors.text2} />}
@@ -138,14 +180,15 @@ function MembershipCard({
       </View>
 
       <View style={styles.metricGrid}>
-        <Metric label="Price" value={formatMoney(membership.price)} />
-        <Metric label="Validity" value={membership.validFor} />
+        {/* A loyalty plan is free and evergreen — it has neither a fee nor an expiry. */}
+        <Metric label={isLoyalty ? "Joining" : "Price"} value={isLoyalty ? "Free" : formatMoney(membership.price)} />
+        <Metric label="Validity" value={isLoyalty ? "No expiry" : membership.validFor} />
         <Metric label="Clients" value="Not tracked" />
         <Metric label="Updated" value={formatDate(membership.updatedAt)} />
       </View>
 
       <View style={styles.benefitsWrap}>
-        <Text translate style={styles.sectionMini}>Included Benefits</Text>
+        <Text translate style={styles.sectionMini}>Benefits</Text>
         {visibleBenefits.length > 0 ? (
           visibleBenefits.map((benefit) => (
             <View key={benefit} style={styles.benefitRow}>
@@ -175,6 +218,7 @@ function MembershipCard({
           <Pressable style={styles.menuSheet}>
             <Text style={styles.menuTitle}>{membership.name}</Text>
             <MenuAction icon="eye-outline" label="View" onPress={() => { setMenuOpen(false); onView(); }} />
+            <MenuAction icon="create-outline" label="Edit" onPress={() => { setMenuOpen(false); onEdit(); }} />
             <MenuAction danger icon="trash-outline" label="Delete" onPress={() => { setMenuOpen(false); onDelete(); }} />
           </Pressable>
         </Pressable>
@@ -351,6 +395,7 @@ function MembershipsScreenContent() {
             isDeleting={deletingIds.includes(item.id)}
             membership={item}
             onDelete={() => setDeleteTarget(item)}
+            onEdit={() => router.push(`/memberships/${item.id}/edit` as Href)}
             onToggleExpanded={() => setExpandedIds((ids) => (ids.includes(item.id) ? ids.filter((id) => id !== item.id) : [...ids, item.id]))}
             onView={() => router.push(`/memberships/${item.id}` as Href)}
           />
