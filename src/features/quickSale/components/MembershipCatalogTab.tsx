@@ -14,6 +14,7 @@ import { AppRadius } from "@/constants/layout";
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
 import { EmptyState, ErrorState, SkeletonBlock } from "@/features/quickSale/components/StateViews";
 import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
+import { getMembershipTypeLabel, membershipBenefitSummary } from "@/features/membership/membershipMeta";
 import { formatCurrency } from "@/features/quickSale/utils/money";
 import { clientMembershipService } from "@/services/clientMembership.service";
 import { membershipService } from "@/services/membership.service";
@@ -55,8 +56,10 @@ function MembershipCardComponent({ item, onPress, selected }: { item: Membership
           <Text numberOfLines={1} style={styles.rowTitle}>{item.name}</Text>
           <View style={styles.rowMetaRow}>
             <Text style={styles.rowPrice}>{formatCurrency(item.price)}</Text>
+            <Badge bg={Colors.bg2} color={Colors.text2} label={getMembershipTypeLabel(item)} size="sm" />
             {item.validFor ? <Badge bg={Colors.bg2} color={Colors.text2} label={item.validFor} size="sm" /> : null}
           </View>
+          <Text numberOfLines={1} style={styles.rowBenefit}>{membershipBenefitSummary(item)}</Text>
         </View>
         <View style={[styles.addButton, selected && styles.addButtonSelected]}>
           <Ionicons name={selected ? "checkmark" : "add"} size={16} color={selected ? Colors.onPrimary : Colors.primaryText} />
@@ -95,7 +98,11 @@ export function MembershipCatalogTab({ clientId, onSelect, salonId, search, sele
         clientId ? clientMembershipService.getClientAssignments(clientId, salonId) : Promise.resolve([]),
       ]);
 
-      setItems(memberships.items);
+      // Loyalty plans are free and unlock automatically off visit count — they
+      // have no price to charge, so they must never show up in a picker whose
+      // job is selling a plan to the client. Their discount is applied at
+      // checkout from the loyalty-eligibility endpoint instead.
+      setItems(memberships.items.filter((item) => item.pricingType !== "loyalty"));
       setClientMemberships(assignments.filter((assignment) => assignment.status === "active"));
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Unable to load memberships.");
@@ -239,9 +246,16 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     justifyContent: "center",
     width: 44,
   },
+  rowBenefit: {
+    color: Colors.text2,
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 3,
+  },
   rowMetaRow: {
     alignItems: "center",
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: Spacing.sm,
     marginTop: 3,
   },

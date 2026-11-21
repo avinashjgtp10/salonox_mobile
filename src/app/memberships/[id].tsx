@@ -34,6 +34,12 @@ import {
 } from "@/store/membership/membership.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
+import {
+  getMembershipAppliesToLabel,
+  getMembershipMeta,
+  getMembershipPricingType,
+  getMembershipTypeLabel,
+} from "@/features/membership/membershipMeta";
 import type { ClientListItem } from "@/types/client";
 import type { Membership } from "@/types/membership";
 import { formatAppDate } from "@/utils/dateTime";
@@ -55,7 +61,6 @@ type BenefitDisplay = {
 
 type MembershipDisplay = {
   benefits: BenefitDisplay[];
-  bonusCredit?: string;
   description: string;
 };
 
@@ -180,35 +185,6 @@ const collectPrivilegeBenefits = (value: unknown, fallbackKey = "benefit"): Bene
   });
 };
 
-const parseBonusCreditAmount = (value: unknown): number | undefined => {
-  if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
-
-  if (typeof value === "string") {
-    const parsedValue = Number(value.replace(/[^\d.]/g, ""));
-    return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : undefined;
-  }
-
-  if (isRecord(value)) {
-    return parseBonusCreditAmount(value.amount ?? value.value ?? value.credit ?? value.total);
-  }
-
-  return undefined;
-};
-
-const findBonusCredit = (value: unknown): number | undefined => {
-  const parsedValue = parseJsonLike(value);
-  if (!isRecord(parsedValue)) return parseBonusCreditAmount(parsedValue);
-
-  for (const [key, item] of Object.entries(parsedValue)) {
-    if (isBonusCreditKey(key)) {
-      const amount = parseBonusCreditAmount(item);
-      if (amount !== undefined) return amount;
-    }
-  }
-
-  return undefined;
-};
-
 const buildMembershipDisplay = (membership: Membership | null): MembershipDisplay => {
   if (!membership) {
     return { benefits: [], description: DESCRIPTION_FALLBACK };
@@ -241,13 +217,51 @@ const buildMembershipDisplay = (membership: Membership | null): MembershipDispla
     benefits.push(benefit);
   });
 
-  const bonusCredit = membership.bonusCredit ?? sources.map(findBonusCredit).find((amount) => amount !== undefined);
-
   return {
     benefits,
-    ...(bonusCredit !== undefined ? { bonusCredit: formatMoney(bonusCredit) } : {}),
     description: getReadableDescription(membership.description),
   };
+};
+
+/**
+ * The plan's configuration as label/value rows for whichever of the three types
+ * it is — the same figures the form collects, read back.
+ */
+const buildBenefitRows = (membership: Membership) => {
+  const type = getMembershipPricingType(membership);
+
+  if (type === "loyalty") {
+    const tiers = membership.loyaltyTiers ?? [];
+
+    return tiers.length > 0
+      ? tiers.map((tier, index) => ({
+          label: `Tier ${index + 1}`,
+          value: `${tier.thresholdValue} visits → ${tier.discountPercent}% off`,
+        }))
+      : [{ label: "Tiers", value: "No tiers configured" }];
+  }
+
+  if (type === "percentage") {
+    const isValidityBased = membership.benefitType === "validity";
+
+    return [
+      { label: "Membership Fee", value: formatMoney(membership.price) },
+      { label: "Discount %", value: `${membership.discountPercent ?? 0}%` },
+      { label: "Benefit Type", value: isValidityBased ? "Validity Based" : "Discount Balance" },
+      // A validity plan has no pool at all — the discount simply runs to expiry.
+      ...(isValidityBased
+        ? []
+        : [{ label: "Total Discount Balance", value: formatMoney(membership.discountBalance ?? membership.price) }]),
+    ];
+  }
+
+  const bonusCredit = getMembershipMeta(membership).bonusCredit ?? 0;
+
+  return [
+    { label: "Membership Fee", value: formatMoney(membership.price) },
+    { label: "Bonus Credit", value: formatMoney(bonusCredit) },
+    { label: "Total Wallet Value", value: formatMoney(membership.price + bonusCredit) },
+  ];
 };
 
 const getAssignedClientsErrorMessage = (error: string | null) => {
@@ -355,6 +369,8 @@ export default function MembershipDetailsScreen() {
 
   const status = getStatus(membership);
   const benefits = membershipDisplay.benefits;
+  const isLoyalty = getMembershipPricingType(membership) === "loyalty";
+  const benefitRows = buildBenefitRows(membership);
 
   return (
     <PearlBackground><SafeAreaView edges={["top"]} style={styles.safeArea}>
@@ -365,35 +381,37 @@ export default function MembershipDetailsScreen() {
         <View style={styles.hero}>
           <View style={styles.heroIcon}><Ionicons name="diamond-outline" size={30} color={Colors.primaryText} /></View>
           <Text style={styles.name}>{membership.name}</Text>
-          <Text style={styles.type}>{membership.sessionType} membership</Text>
+          <Text style={styles.type}>{`${getMembershipTypeLabel(membership)} membership`}</Text>
           <View style={[styles.statusBadge, status === "Active" ? styles.statusActive : styles.statusInactive]}>
             <Text style={[styles.statusText, status === "Active" ? styles.statusTextActive : styles.statusTextInactive]}>{status}</Text>
           </View>
           <View style={styles.heroStats}>
-            <Stat label="Price" value={formatMoney(membership.price)} />
-            <Stat label="Validity" value={membership.validFor} />
+            {/* A loyalty plan is free and evergreen: no fee, no expiry. */}
+            <Stat label={isLoyalty ? "Joining" : "Price"} value={isLoyalty ? "Free" : formatMoney(membership.price)} />
+            <Stat label="Validity" value={isLoyalty ? "No expiry" : membership.validFor} />
           </View>
         </View>
 
+        <Section title="Benefit Configuration">
+          {benefitRows.map((row) => (
+            <Detail key={row.label} label={row.label} value={row.value} />
+          ))}
+        </Section>
+
         <Section title="Overview">
           <Detail label="Description" value={membershipDisplay.description} />
-          <Detail label="Discount" value={membership.taxRate ? `${membership.taxRate}%` : "No discount configured"} />
+          <Detail label="Membership Type" value={getMembershipTypeLabel(membership)} />
+          <Detail label="Applies To" value={getMembershipAppliesToLabel(membership)} />
           <Detail label="Active Clients" value={String(assignedClients.filter((item) => item.status === "active").length)} />
           <Detail label="Created Date" value={formatDate(membership.createdAt)} />
           <Detail label="Last Updated" value={formatDate(membership.updatedAt)} />
         </Section>
 
+        {/* Only for plans that still carry included services or privileges —
+            the three current types configure their benefit above instead. */}
+        {benefits.length > 0 ? (
         <Section title="Included Benefits">
-          {membershipDisplay.bonusCredit ? (
-            <View style={styles.bonusCreditRow}>
-              <Ionicons name="wallet-outline" size={17} color={Colors.primaryText} />
-              <View style={styles.benefitCopy}>
-                <Text translate numberOfLines={1} style={styles.benefitTitle}>Bonus Credit</Text>
-                <Text numberOfLines={1} style={styles.benefitMeta}>{membershipDisplay.bonusCredit}</Text>
-              </View>
-            </View>
-          ) : null}
-          {benefits.length > 0 ? benefits.map((benefit) => (
+          {benefits.map((benefit) => (
             <View key={benefit.id} style={styles.benefitRow}>
               <Ionicons name="checkmark-circle-outline" size={17} color={Colors.primaryText} />
               <View style={styles.benefitCopy}>
@@ -401,8 +419,9 @@ export default function MembershipDetailsScreen() {
                 {benefit.meta ? <Text numberOfLines={1} ellipsizeMode="tail" style={styles.benefitMeta}>{benefit.meta}</Text> : null}
               </View>
             </View>
-          )) : membershipDisplay.bonusCredit ? null : <Text translate style={styles.mutedText}>No benefits available.</Text>}
+          ))}
         </Section>
+        ) : null}
 
         <Section title="Assigned Clients">
           {assignedClientsLoading ? (
@@ -438,6 +457,9 @@ export default function MembershipDetailsScreen() {
         </TouchableOpacity>
         <TouchableOpacity activeOpacity={0.88} disabled={assignmentMutating} onPress={() => setClientPickerVisible(true)} style={styles.secondaryAction}>
           {assignmentMutating ? <ActivityIndicator color={pearl.accentDeep} size="small" /> : <Ionicons name="person-add-outline" size={17} color={Colors.primaryText} />}
+        </TouchableOpacity>
+        <TouchableOpacity activeOpacity={0.88} onPress={() => router.push(`/memberships/${membership.id}/edit` as Href)} style={styles.secondaryAction}>
+          <Ionicons name="create-outline" size={17} color={Colors.primaryText} />
         </TouchableOpacity>
       </View>
 
@@ -584,7 +606,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   detailRow: { borderBottomColor: Colors.border, borderBottomWidth: 1, paddingVertical: 11 },
   detailLabel: { color: Colors.text2, fontSize: 12, fontWeight: "800" },
   detailValue: { color: Colors.heading, fontSize: 14, fontWeight: "800", marginTop: 4 },
-  bonusCreditRow: { alignItems: "center", backgroundColor: Colors.bg2, borderRadius: Radius.md, flexDirection: "row", marginBottom: Spacing.xs, paddingHorizontal: Spacing.sm, paddingVertical: 10 },
   benefitRow: { alignItems: "center", flexDirection: "row", paddingVertical: 9 },
   benefitCopy: { flex: 1, marginLeft: Spacing.sm, minWidth: 0 },
   benefitTitle: { color: Colors.heading, fontSize: 14, fontWeight: "800" },

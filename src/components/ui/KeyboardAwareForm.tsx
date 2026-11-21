@@ -137,8 +137,13 @@ export const KeyboardAwareForm = forwardRef<KeyboardAwareFormHandle, KeyboardAwa
       keyboardTop.current = null;
       generation.current += 1;
       clearTimer();
+      // Dropping the Android keyboard padding is all that happens here: the form
+      // stays where the user left it. It used to scroll back to the top, which
+      // was invisible on a short sign-in form but threw you out of a long one
+      // (Catalog -> Membership) every time the keyboard closed. Removing the
+      // padding shrinks the content, and the ScrollView clamps the offset to the
+      // new maximum by itself, so a short form still settles at the top.
       setKeyboardHeight(0);
-      scroll.current?.scrollTo({ y: 0, animated: true });
     });
     return () => {
       shown.remove(); hidden.remove();

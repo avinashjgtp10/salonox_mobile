@@ -17,6 +17,7 @@ import type {
   UpdateServiceRequest,
   UpdateServiceResponse,
   CategoryType,
+  CategoryScope,
 } from "@/types/service";
 import { createListSnapshotCache, snapshotKey } from "@/utils/listSnapshotCache";
 
@@ -160,6 +161,11 @@ const getNestedCategoryArray = (value: unknown): ServiceApiCategory[] => {
   return [];
 };
 
+const getCategoryScope = (value: unknown): CategoryScope | undefined => {
+  const text = toSafeString(value).toLowerCase();
+  return text === "both" || text === "product" || text === "service" ? text : undefined;
+};
+
 const normalizeCategoryList = (payload: unknown): ServiceCategoryItem[] => {
   const categoryMap = new Map<string, ServiceCategoryItem>();
   const list = getNestedCategoryArray(payload);
@@ -167,9 +173,12 @@ const normalizeCategoryList = (payload: unknown): ServiceCategoryItem[] => {
   for (const item of list) {
     const id = getOwnCategoryId(item);
     const name = getOwnCategoryName(item);
+    // Carried through so a caller that needs both sides at once (the membership
+    // form's service/product restriction pickers) can split one fetch itself.
+    const type = getCategoryScope(item.type);
 
     if (id && name) {
-      categoryMap.set(id, { id, name });
+      categoryMap.set(id, { id, name, ...(type ? { type } : {}) });
     }
   }
 
@@ -487,6 +496,18 @@ export const serviceService = {
     const response = await api.get<ApiResponse<unknown>>("/categories", {
       params,
     });
+
+    return normalizeCategoryList(response.data?.data ?? response.data);
+  },
+
+  /**
+   * Every category of the salon, service and product alike, each carrying its own
+   * `type`. The membership form needs both sides from one fetch: a plan's benefit
+   * can be narrowed to service categories and product categories independently,
+   * and a category tagged "both" is a legitimate pick on either side.
+   */
+  async getAllCategories(_salonId?: string | null): Promise<ServiceCategoryItem[]> {
+    const response = await api.get<ApiResponse<unknown>>("/categories");
 
     return normalizeCategoryList(response.data?.data ?? response.data);
   },
