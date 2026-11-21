@@ -272,7 +272,12 @@ const normalizeSchedule = (entry: UnknownRecord, staffId: string): StaffSchedule
     });
   }
 
-  const days = WEEK_DAYS.map((day) => normalizeDayEntry(daysByName.get(day) ?? {}, day));
+  const days = WEEK_DAYS.map((day) => {
+    const entry = daysByName.get(day);
+    return entry
+      ? normalizeDayEntry(entry, day)
+      : { day, isOff: true, startTime: null, endTime: null };
+  });
 
   return {
     days,

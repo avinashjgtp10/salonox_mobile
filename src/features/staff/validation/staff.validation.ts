@@ -107,12 +107,12 @@ export const validateStaffForm = (
 
   for (const [field, label] of [["startTime", "Start Time"], ["endTime", "End Time"]] as const) {
     if (!isPresent(values[field])) {
-      errors[field] = `${label} is required.`;
+      if (isPresent(values.startTime) || isPresent(values.endTime)) errors[field] = "Enter both a Start Time and an End Time.";
     } else if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(values[field]!)) {
       errors[field] = `Select a valid ${label.toLowerCase()}.`;
     }
   }
-  if (!errors.startTime && !errors.endTime && values.endTime! <= values.startTime!) {
+  if (values.startTime && values.endTime && !errors.startTime && !errors.endTime && values.endTime <= values.startTime!) {
     errors.endTime = "End Time must be later than Start Time.";
   }
 

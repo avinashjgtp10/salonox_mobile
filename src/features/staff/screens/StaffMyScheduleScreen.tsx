@@ -24,7 +24,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 const WEEK_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
 const DEFAULT_DAYS: ScheduleDayEntry[] = WEEK_DAYS.map((day) => ({
-  day, endTime: null, isOff: day === "sunday", startTime: null,
+  day, endTime: null, isOff: true, startTime: null,
 }));
 
 const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
