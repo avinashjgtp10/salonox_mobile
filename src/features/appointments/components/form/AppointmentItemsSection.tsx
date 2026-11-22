@@ -5,10 +5,12 @@ import { Text } from "@/components/ui/AppTypography";
 import type { PickerTab } from "@/features/appointments/components/form/ServiceCatalogPicker";
 import type { AppointmentSelectedService } from "@/features/appointments/types/appointmentForm";
 import { formatDurationLabel } from "@/features/appointments/utils/appointmentForm";
-import { s as legacyStyles, types } from "@/features/quickSale/components/QuickSaleForm";
+import { FormField, s as legacyStyles, types } from "@/features/quickSale/components/QuickSaleForm";
 import { itemTimeLabel, localItemTime } from "@/features/quickSale/utils/itemTime";
-import { formatCurrency } from "@/features/quickSale/utils/money";
+import { formatCurrency, parseAmount } from "@/features/quickSale/utils/money";
+import { currencyLabel } from "@/utils/currency";
 import { Ionicons } from "@expo/vector-icons";
+import { useState } from "react";
 import { Keyboard, Pressable, ScrollView, View } from "react-native";
 
 const ADD_OPTIONS: [PickerTab, string][] = [
@@ -27,6 +29,8 @@ export function AppointmentItemsSection({
   onPickStaff,
   onPickTime,
   onRemove,
+  onSetDiscount,
+  onSetPrice,
   onSetQuantity,
   services,
 }: {
@@ -38,11 +42,15 @@ export function AppointmentItemsSection({
   onPickStaff: (itemId: string) => void;
   onPickTime: (itemId: string) => void;
   onRemove: (itemId: string) => void;
+  onSetDiscount: (itemId: string, discount: number) => void;
+  onSetPrice: (itemId: string, price: number) => void;
   onSetQuantity: (itemId: string, quantity: number) => void;
   services: AppointmentSelectedService[];
 }) {
   "use no memo";
   useRegionalPreferences();
+  // One line at a time, like Quick Sale: the link reads Edit, then Done.
+  const [editing, setEditing] = useState<string | null>(null);
   const itemCount = services.reduce((total, item) => total + (item.quantity ?? 1), 0);
 
   return (
@@ -68,6 +76,10 @@ export function AppointmentItemsSection({
         const quantity = item.quantity ?? 1;
         const staffName = item.staffName || defaultStaffName;
         const time = localItemTime(item.startTime) ?? localItemTime(defaultTime);
+        // The pricing totals treat a line discount as per unit, so the row
+        // total has to as well, or an edited line reads higher than the booking.
+        const lineDiscount = Math.min(Math.max(item.discountAmount ?? 0, 0), Math.max(item.price, 0));
+        const lineTotal = Math.max(0, (item.price - lineDiscount) * quantity);
         return (
           <View key={item.id} style={s.lineCard}>
             <View style={[s.lineTop, { backgroundColor: type.bg }]}>
@@ -121,8 +133,31 @@ export function AppointmentItemsSection({
                     <Ionicons name="add" size={18} color={c.plum} />
                   </Pressable>
                 </View>
-                <Text style={s.total}>{formatCurrency(item.price * quantity)}</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel={`${editing === item.id ? "Close" : "Edit"} price and discount for ${item.name}`} onPress={() => setEditing(editing === item.id ? null : item.id)}>
+                  <Text translate style={s.link}>{editing === item.id ? "Done" : "Edit"}</Text>
+                </Pressable>
+                <Text style={s.total}>{formatCurrency(lineTotal)}</Text>
               </View>
+              {editing === item.id ? (
+                <View style={s.editor}>
+                  <View style={s.row}>
+                    <FormField
+                      label={currencyLabel("Price (₹)")}
+                      multiline={false}
+                      numeric
+                      onChange={(value) => onSetPrice(item.id, parseAmount(value))}
+                      value={String(item.price)}
+                    />
+                    <FormField
+                      label={currencyLabel("Discount (₹)")}
+                      multiline={false}
+                      numeric
+                      onChange={(value) => onSetDiscount(item.id, parseAmount(value))}
+                      value={String(item.discountAmount ?? 0)}
+                    />
+                  </View>
+                </View>
+              ) : null}
             </View>
           </View>
         );
