@@ -29,7 +29,7 @@ import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { fetchAppointmentsThunk } from "@/middleware/appointment/appointment.thunk";
 import { fetchAttendanceOverviewThunk, hydrateAttendanceFromCacheThunk } from "@/middleware/attendance/attendance.thunk";
 import { fetchClientsThunk } from "@/middleware/client/client.thunk";
-import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
+import { fetchDashboardThunk, hydrateDashboardFromCacheThunk } from "@/middleware/dashboard/dashboard.thunk";
 import { fetchNotificationsThunk, fetchUnreadCountThunk } from "@/middleware/notification/notification.thunk";
 import { fetchInventorySummaryThunk, fetchProductsThunk } from "@/middleware/product/product.thunk";
 import { fetchStaffThunk } from "@/middleware/staff/staff.thunk";
@@ -135,22 +135,34 @@ export default function DashboardScreen() {
 
   const fetchStartupData = useCallback(() => {
     if (!isAuthenticated) return;
-    void Promise.allSettled([
+
+    // First wave: only what this screen puts on screen. These used to share
+    // the connection with list prefetches for other screens, which delayed
+    // the figures the salon is actually waiting on.
+    const firstPaint = Promise.allSettled([
       dispatch(fetchDashboardThunk()),
       ...(canLoadAttendance ? [dispatch(fetchAttendanceOverviewThunk())] : []),
       ...(canLoadInventory ? [dispatch(fetchInventorySummaryThunk())] : []),
       ...(canLoadAppointments ? [dispatch(fetchAppointmentsThunk(todayAppointmentsQuery(today)))] : []),
       dispatch(fetchUnreadCountThunk()),
-      dispatch(fetchNotificationsThunk({ refresh: true })),
-      ...(canLoadInventory ? [dispatch(fetchProductsThunk({ offset: 0, reset: true }))] : []),
       // `all` rather than the default first page of 10: "Staff on the floor"
       // lists every active member, and the list comes back ordered managers
       // first, then staff, then anyone with no role yet — so on a salon with
       // more than ten people a newly added member sits past the first page and
       // never appeared on the dashboard at all.
       ...(canLoadStaff ? [dispatch(fetchStaffThunk({ all: true, page: 1, reset: true }))] : []),
+      // The dashboard reads only the client total from this, but it is still
+      // needed for the stat tile.
       ...(canLoadClients ? [dispatch(fetchClientsThunk({ offset: 0, reset: true, refresh: true }))] : []),
     ]);
+
+    // Second wave: warm-ups for other screens. The notifications list is read
+    // when its sheet opens and the product list on the inventory screen, so
+    // neither needs to compete with the first paint.
+    void firstPaint.then(() => {
+      void dispatch(fetchNotificationsThunk({ refresh: true }));
+      if (canLoadInventory) void dispatch(fetchProductsThunk({ offset: 0, reset: true }));
+    });
   }, [dispatch, isAuthenticated, today, canLoadAppointments, canLoadAttendance, canLoadInventory, canLoadStaff, canLoadClients]);
 
   useEffect(() => {
@@ -159,6 +171,8 @@ export default function DashboardScreen() {
     if (didRunStartupFetchRef.current === identity) return;
     didRunStartupFetchRef.current = identity;
     if (canLoadAttendance) void dispatch(hydrateAttendanceFromCacheThunk());
+    // Put the previous session's figures up first; the fetch below replaces them.
+    void dispatch(hydrateDashboardFromCacheThunk());
     fetchStartupData();
   }, [dispatch, fetchStartupData, isAuthenticated, user?.id, user?.salonId, canLoadAttendance, canLoadAppointments, canLoadInventory, canLoadStaff, canLoadClients]);
 

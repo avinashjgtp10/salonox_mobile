@@ -96,9 +96,8 @@ function MiniBillBarComponent({
             numberOfLines={1}
             style={[styles.ctaText, disabled && styles.disabledText]}
           >
-            {isPricingLoading ? "Updating total…" : `Checkout \u00b7 ${formatCurrency(total)}`}
+            {`Checkout · ${formatCurrency(total)}`}
           </Text>
-          {isPricingLoading ? <ActivityIndicator size="small" color={DISABLED_TEXT} /> : null}
           </LinearGradient>
         </Pressable>}
       </View>

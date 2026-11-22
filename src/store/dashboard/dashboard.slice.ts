@@ -1,6 +1,6 @@
 import { createSlice } from "@reduxjs/toolkit";
 
-import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
+import { fetchDashboardThunk, hydrateDashboardFromCacheThunk } from "@/middleware/dashboard/dashboard.thunk";
 import {
   cancelAppointmentThunk,
   confirmAppointmentThunk,
@@ -35,6 +35,8 @@ const EMPTY_DASHBOARD_METRICS: DashboardMetrics = {
 
 type DashboardState = {
   isModuleLocked: boolean;
+  /** Showing the previous session's snapshot while the live figures load. */
+  isFromCache: boolean;
   appointments: DashboardAppointment[];
   error: string | null;
   inventoryAlerts: DashboardInventoryAlert[];
@@ -50,6 +52,7 @@ type DashboardState = {
 
 const initialState: DashboardState = {
   isModuleLocked: false,
+  isFromCache: false,
   appointments: [],
   error: null,
   inventoryAlerts: [],
@@ -70,14 +73,33 @@ const dashboardSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(fetchDashboardThunk.pending, (state) => {
-        const hasExistingData = state.lastFetchedAt !== null;
+        // A snapshot counts as something to show, so the screen refreshes over
+        // it instead of falling back to skeletons.
+        const hasExistingData = state.lastFetchedAt !== null || state.isFromCache;
 
         state.error = null;
         state.isRefreshing = hasExistingData;
         state.status = hasExistingData ? "succeeded" : "loading";
       })
+      .addCase(hydrateDashboardFromCacheThunk.fulfilled, (state, action) => {
+        // Live data may have landed while the snapshot was being read.
+        if (!action.payload || state.lastFetchedAt !== null) return;
+
+        state.appointments = action.payload.todayAppointments;
+        state.inventoryAlerts = action.payload.inventoryAlerts;
+        state.isFromCache = true;
+        state.metrics = action.payload.metrics;
+        state.quickSaleRevenueToday = action.payload.quickSaleRevenueToday;
+        state.quickSaleServices = action.payload.quickSaleServices;
+        state.requestedDate = action.payload.requestedDate;
+        state.topClient = action.payload.topClient;
+        // `lastFetchedAt` stays null: this is a starting picture, not a fetch,
+        // so the request in flight still replaces it and the screen still
+        // reports that it is refreshing.
+      })
       .addCase(fetchDashboardThunk.fulfilled, (state, action) => {
         state.isModuleLocked = false;
+        state.isFromCache = false;
         state.error = null;
         state.isRefreshing = false;
         state.lastFetchedAt = Date.now();
@@ -136,4 +158,5 @@ export const selectDashboardRefreshing = (state: RootState) => state.dashboard.i
 export const selectDashboardIsLoading = (state: RootState) =>
   state.dashboard.status === "loading";
 export const selectDashboardLastFetchedAt = (state: RootState) => state.dashboard.lastFetchedAt;
+export const selectDashboardIsFromCache = (state: RootState) => state.dashboard.isFromCache;
 export default dashboardSlice.reducer;
