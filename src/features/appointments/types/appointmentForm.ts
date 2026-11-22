@@ -37,6 +37,9 @@ export type AppointmentSelectedService = ServiceListItem & {
   consumables?: ConsumableUsageItem[];
   discount?: number;
   isPackageService?: boolean;
+  // Set once the row's Price / Discount is edited by hand. An edit-mode line
+  // is otherwise sent back from `rawItem` untouched, which would drop the edit.
+  isPricingEdited?: boolean;
   quantity?: number;
   staffId?: string | null;
   staffName?: string | null;

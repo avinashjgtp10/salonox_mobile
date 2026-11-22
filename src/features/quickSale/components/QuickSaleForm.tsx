@@ -171,7 +171,11 @@ export function QuickSaleForm(p: Props) {
   </>;
 }
 
-function FormField({ label, value, onChange, numeric, multiline, reveal }: { label: string; value: string; onChange: (value: string) => void; numeric: boolean; multiline: boolean; reveal: (node: View | null) => void }) {
+/** The bill line's inline Price / Discount input. Shared with the appointment
+ * booking form so its per-line editor matches Quick Sale.
+ * `reveal` is optional: a form that already scrolls focused inputs into view
+ * (KeyboardAwareScrollView) needs no manual nudge. */
+export function FormField({ label, value, onChange, numeric, multiline, reveal }: { label: string; value: string; onChange: (value: string) => void; numeric: boolean; multiline: boolean; reveal?: (node: View | null) => void }) {
   "use no memo";
   useRegionalPreferences();
   const ref = useRef<View>(null);
@@ -181,7 +185,7 @@ function FormField({ label, value, onChange, numeric, multiline, reveal }: { lab
   return <View ref={ref} collapsable={false} style={s.field}><Text translate style={s.label}>{label}</Text><TextInput accessibilityLabel={label} value={focused ? draft : value} onChangeText={next => {
     if (numeric && !/^\d*(\.\d{0,2})?$/.test(next)) return;
     setDraft(next); onChange(next);
-  }} onFocus={() => { setDraft(value); setFocused(true); reveal(ref.current); }} onBlur={() => setFocused(false)} placeholder={numeric ? '0' : `Add ${label.toLowerCase()}…`} placeholderTextColor={c.muted} keyboardType={numeric ? 'decimal-pad' : 'default'} multiline={multiline} textAlignVertical={multiline ? 'top' : 'center'} style={[s.input, multiline && s.multiline]}/></View>;
+  }} onFocus={() => { setDraft(value); setFocused(true); reveal?.(ref.current); }} onBlur={() => setFocused(false)} placeholder={numeric ? '0' : `Add ${label.toLowerCase()}…`} placeholderTextColor={c.muted} keyboardType={numeric ? 'decimal-pad' : 'default'} multiline={multiline} textAlignVertical={multiline ? 'top' : 'center'} style={[s.input, multiline && s.multiline]}/></View>;
 }
 
 export const s = StyleSheet.create({
