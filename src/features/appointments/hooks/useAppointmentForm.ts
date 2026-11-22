@@ -718,6 +718,29 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
     });
   };
 
+  // Per-line Price / Discount, revealed by the row's Edit link (Quick Sale
+  // parity). The booking's own price field is derived from these lines by the
+  // effect above, so an edit here flows into the total and the saved payload.
+  const handleSetItemPrice = (itemId: string, price: number) => {
+    setSelectedServices((current) => current.map((service) => {
+      if (service.id !== itemId) return service;
+      const quantity = Math.max(1, Math.trunc(service.quantity ?? 1));
+      const nextPrice = Math.max(0, price);
+      return { ...service, isPricingEdited: true, price: nextPrice, total: nextPrice * quantity };
+    }));
+  };
+
+  // Written to three fields on purpose: `discountAmount` is what the pricing
+  // totals read, `discount` is what the payload sends, and a percentage left
+  // over from the catalog would otherwise win over the amount just typed.
+  const handleSetItemDiscount = (itemId: string, discount: number) => {
+    setSelectedServices((current) => current.map((service) => {
+      if (service.id !== itemId) return service;
+      const nextDiscount = Math.min(Math.max(0, discount), Math.max(0, service.price));
+      return { ...service, discount: nextDiscount, discountAmount: nextDiscount, discountPercent: 0, isPricingEdited: true };
+    }));
+  };
+
   // Per-row staff / time, like the web's Services & Items table.
   const handleSetItemStaff = (itemId: string, staffId: string, staffName: string) => {
     setSelectedServices((current) => current.map((item) => item.id === itemId ? { ...item, staffId, staffName } : item));
@@ -877,10 +900,18 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
 
     const itemStartTime = combineDateTime(form.date, selectedSlot.value);
     // Only a row's own staff / time, so an untouched edit-mode row keeps its saved values.
-    const rowOverrides = (item: AppointmentSelectedService) => ({
-      ...(item.staffId ? { staff_id: item.staffId, staff_name: item.staffName ?? undefined } : {}),
-      ...(itemTime(item) ? { start_time: combineDateTime(form.date, itemTime(item)!) } : {}),
-    });
+    const rowOverrides = (item: AppointmentSelectedService) => {
+      const quantity = Math.max(1, Math.trunc(item.quantity ?? 1));
+      return {
+        ...(item.staffId ? { staff_id: item.staffId, staff_name: item.staffName ?? undefined } : {}),
+        ...(itemTime(item) ? { start_time: combineDateTime(form.date, itemTime(item)!) } : {}),
+        // A hand-edited price has to beat the row's saved copy, which is spread
+        // in first precisely so untouched server fields survive.
+        ...(item.isPricingEdited
+          ? { discount: item.discount ?? 0, price: item.price, quantity, total: item.total ?? item.price * quantity }
+          : {}),
+      };
+    };
     const toCatalogLine = (item: AppointmentSelectedService) => {
       const quantity = Math.max(1, Math.trunc(item.quantity ?? 1));
       return {
@@ -990,5 +1021,5 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
   };
 
 
-  return { styles, activeBranchId, handleToggleCatalogItem, serviceCatalogError, serviceCatalogLoading, setServicePickerVisible, handleServicePickerContinue, handleSelectService, handleSelectStaff, handleSetItemStaff, handleSetItemTime, handleSetItemQuantity, form, selectedServices: sequencedServices, errors, staffMembers, serviceCatalog, servicePickerVisible, scrollViewRef, clientDropdownOpen, serviceDropdownOpen, dismissClientDropdown, dismissServiceDropdown, setFieldRef, clientBookingMode, handleNewClient, handleClientSearchChange, handleSelectClient, handleSelectExistingClientMode, handleSelectWalkInClient, clientResults, clientResultsError, clientResultsLoading, clientSearch, clientSearchInputRef, selectedClient, updateForm, slotDisabledReason, schedulerLoading, handleSelectSlot, availableSlots, Colors, handleRemoveSelectedService, servicePricingTotals, totalServiceDuration, totalServicePrice, selectedStaff, setSendAppointmentSms, sendAppointmentSms, setSendAppointmentEmail, sendAppointmentEmail, formSubmitError, mutationError, mutating, handleSubmit };
+  return { styles, activeBranchId, handleToggleCatalogItem, serviceCatalogError, serviceCatalogLoading, setServicePickerVisible, handleServicePickerContinue, handleSelectService, handleSelectStaff, handleSetItemStaff, handleSetItemTime, handleSetItemQuantity, handleSetItemPrice, handleSetItemDiscount, form, selectedServices: sequencedServices, errors, staffMembers, serviceCatalog, servicePickerVisible, scrollViewRef, clientDropdownOpen, serviceDropdownOpen, dismissClientDropdown, dismissServiceDropdown, setFieldRef, clientBookingMode, handleNewClient, handleClientSearchChange, handleSelectClient, handleSelectExistingClientMode, handleSelectWalkInClient, clientResults, clientResultsError, clientResultsLoading, clientSearch, clientSearchInputRef, selectedClient, updateForm, slotDisabledReason, schedulerLoading, handleSelectSlot, availableSlots, Colors, handleRemoveSelectedService, servicePricingTotals, totalServiceDuration, totalServicePrice, selectedStaff, setSendAppointmentSms, sendAppointmentSms, setSendAppointmentEmail, sendAppointmentEmail, formSubmitError, mutationError, mutating, handleSubmit };
 }

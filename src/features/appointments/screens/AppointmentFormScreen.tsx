@@ -58,6 +58,8 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
     handleSetItemStaff,
     handleSetItemTime,
     handleSetItemQuantity,
+    handleSetItemPrice,
+    handleSetItemDiscount,
     form,
     selectedServices,
     errors,
@@ -189,6 +191,8 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
               onPickStaff={setStaffItemId}
               onPickTime={setTimeItemId}
               onRemove={handleRemoveSelectedService}
+              onSetDiscount={handleSetItemDiscount}
+              onSetPrice={handleSetItemPrice}
               onSetQuantity={handleSetItemQuantity}
               services={selectedServices}
             />
