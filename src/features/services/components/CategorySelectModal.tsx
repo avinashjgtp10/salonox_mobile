@@ -2,9 +2,8 @@ import { pearl } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppRadius } from "@/constants/layout";
 import { DashboardSpacing as Spacing } from "@/constants/theme";
@@ -43,7 +42,6 @@ export function CategorySelectModal({
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const toast = useAppToast();
-  const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
 
   const categories = useAppSelector((state) => selectCategoriesByType(state, type));
@@ -56,19 +54,33 @@ export function CategorySelectModal({
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [createValidationError, setCreateValidationError] = useState<string | null>(null);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  // One attempt per type per TTL, recorded whatever the outcome. An empty list
+  // and a failed fetch are both final answers here: retrying them on their own
+  // result would re-trigger this effect and loop (the salon with no categories
+  // yet is exactly the one opening this sheet to create its first).
+  const lastFetchAttemptRef = useRef<Partial<Record<CategoryType, number>>>({});
+
+  const fetchCategories = useCallback(() => {
+    lastFetchAttemptRef.current[type] = Date.now();
+    void dispatch(fetchCategoriesThunk({ type }));
+  }, [dispatch, type]);
 
   useEffect(() => {
-    const categoriesAreStale =
-      !categoriesLoadedAt || Date.now() - categoriesLoadedAt > CATEGORY_CACHE_TTL_MS;
-
-    if (visible && !categoriesLoading && (categories.length === 0 || categoriesError || categoriesAreStale)) {
-      void dispatch(fetchCategoriesThunk({ type }));
+    if (!visible || categoriesLoading) {
+      return;
     }
-  }, [categories.length, categoriesError, categoriesLoadedAt, categoriesLoading, dispatch, type, visible]);
+
+    const lastAttempt = Math.max(categoriesLoadedAt ?? 0, lastFetchAttemptRef.current[type] ?? 0);
+    if (lastAttempt && Date.now() - lastAttempt <= CATEGORY_CACHE_TTL_MS) {
+      return;
+    }
+
+    fetchCategories();
+  }, [categoriesLoadedAt, categoriesLoading, fetchCategories, type, visible]);
 
   const handleRetryFetch = () => {
-    void dispatch(fetchCategoriesThunk({ type }));
+    fetchCategories();
   };
 
   const handleSelect = (category: ServiceCategoryItem) => {
@@ -107,31 +119,12 @@ export function CategorySelectModal({
     }
   };
 
-  useEffect(() => {
-    if (!createModalOpen) {
-      setKeyboardHeight(0);
-      return undefined;
-    }
-
-    setKeyboardHeight(Keyboard.metrics()?.height ?? 0);
-
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const onShow = (event: { endCoordinates?: { height?: number } }) => {
-      setKeyboardHeight(event.endCoordinates?.height ?? 0);
-    };
-    const onHide = () => setKeyboardHeight(0);
-    const showSub = Keyboard.addListener(showEvent, onShow);
-    const hideSub = Keyboard.addListener(hideEvent, onHide);
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, [createModalOpen]);
-
-  const createSheetBottom = keyboardHeight > 0 ? keyboardHeight + Spacing.xl : Math.max(insets.bottom, Spacing.lg);
-  const createSheetMaxHeight = Math.max(280, windowHeight - createSheetBottom - Math.max(insets.top, Spacing.lg));
+  // This sheet is centred rather than bottom-anchored, and deliberately does
+  // not track the keyboard height. It lives in a Modal nested inside another
+  // Modal, and in that position the Android keyboard events never arrive: the
+  // measured offset stayed 0, so a bottom-anchored sheet sat entirely behind
+  // the keyboard. Centring needs no keyboard measurement to clear it.
+  const createSheetMaxHeight = Math.max(280, windowHeight * 0.6);
 
   return (
     <Modal animationType="fade" onRequestClose={onClose} transparent visible={visible}>
@@ -211,10 +204,7 @@ export function CategorySelectModal({
               onPress={(e) => e.stopPropagation()}
               style={[
                 styles.createSheet,
-                {
-                  marginBottom: createSheetBottom,
-                  maxHeight: createSheetMaxHeight,
-                },
+                { maxHeight: createSheetMaxHeight },
               ]}
             >
               <View style={styles.header}>
@@ -224,56 +214,62 @@ export function CategorySelectModal({
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.createInputGroup}>
-                <Text translate style={styles.createInputLabel}>Category Name</Text>
-                <TextInput
-                  autoCapitalize="words"
-                  autoFocus
-                  editable={!creatingCategory}
-                  onChangeText={(text) => {
-                    setNewCategoryName(text);
-                    if (createValidationError) setCreateValidationError(null);
-                  }}
-                  placeholder="Enter category name"
-                  placeholderTextColor={Colors.placeholder}
-                  returnKeyType="done"
-                  style={styles.createTextInput}
-                  value={newCategoryName}
-                />
-                {createValidationError ? (
-                  <Text style={styles.createErrorText}>{createValidationError}</Text>
-                ) : null}
-                {createCategoryError ? (
-                  <Text style={styles.createErrorText}>{createCategoryError}</Text>
-                ) : null}
-              </View>
-
-              <View style={styles.createActions}>
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  disabled={creatingCategory}
-                  onPress={handleCloseCreateModal}
-                  style={styles.cancelButton}
-                >
-                  <Text translate style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  activeOpacity={0.88}
-                  disabled={creatingCategory}
-                  onPress={handleCreateCategorySubmit}
-                  style={[styles.saveCategoryButton, creatingCategory && styles.buttonDisabled]}
-                >
-                  {creatingCategory ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                  ) : (
-                    <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
-                  )}
-                  <Text translate style={styles.saveCategoryButtonText}>
-                    {creatingCategory ? "Saving..." : "Save Category"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              <ScrollView
+                bounces={false}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                <View style={styles.createInputGroup}>
+                  <Text translate style={styles.createInputLabel}>Category Name</Text>
+                  <TextInput
+                    autoCapitalize="words"
+                    autoFocus
+                    editable={!creatingCategory}
+                    onChangeText={(text) => {
+                      setNewCategoryName(text);
+                      if (createValidationError) setCreateValidationError(null);
+                    }}
+                    placeholder="Enter category name"
+                    placeholderTextColor={Colors.placeholder}
+                    returnKeyType="done"
+                    style={styles.createTextInput}
+                    value={newCategoryName}
+                  />
+                  {createValidationError ? (
+                    <Text style={styles.createErrorText}>{createValidationError}</Text>
+                  ) : null}
+                  {createCategoryError ? (
+                    <Text style={styles.createErrorText}>{createCategoryError}</Text>
+                  ) : null}
+                </View>
+  
+                <View style={styles.createActions}>
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    disabled={creatingCategory}
+                    onPress={handleCloseCreateModal}
+                    style={styles.cancelButton}
+                  >
+                    <Text translate style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+  
+                  <TouchableOpacity
+                    activeOpacity={0.88}
+                    disabled={creatingCategory}
+                    onPress={handleCreateCategorySubmit}
+                    style={[styles.saveCategoryButton, creatingCategory && styles.buttonDisabled]}
+                  >
+                    {creatingCategory ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
+                    )}
+                    <Text translate style={styles.saveCategoryButtonText}>
+                      {creatingCategory ? "Saving..." : "Save Category"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
             </Pressable>
           </Pressable>
         </KeyboardAvoidingView>
@@ -410,14 +406,16 @@ const createStyles = (Colors: ThemeColors) =>
       fontSize: 12,
       marginTop: 4,
     },
-    // Bottom-anchored so the New Category sheet sits just above the keyboard.
+    // Centred, so the keyboard cannot cover the sheet (see createSheetMaxHeight).
     createOverlay: {
       backgroundColor: "rgba(15, 23, 32, 0.45)",
       flex: 1,
-      justifyContent: "flex-end",
+      justifyContent: "center",
     },
     createSheet: {
-      backgroundColor: Colors.card,
+      // Opaque, like the picker sheet behind it: the glass `Colors.card` token
+      // is translucent, which over a dimmed overlay reads as a broken dialog.
+      backgroundColor: "#F8F7FB",
       borderRadius: AppRadius.card,
       margin: Spacing.lg,
       padding: Spacing.lg,

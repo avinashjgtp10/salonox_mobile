@@ -43,6 +43,7 @@ import type {
 } from "@/types/auth";
 import { preserveSalonId } from "@/utils/authUser";
 import { branchSessionStorage, connectedBranchesService } from "@/services/connectedBranches.service";
+import { dashboardCache } from "@/services/dashboardCache";
 
 const withOnboardingStatus = <T extends AuthUser>(
   user: T,
@@ -111,6 +112,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       tokenStorage.clearSession(),
       branchSessionStorage.write(null),
       branchStorage.clearActiveBranchId(),
+      // The cached dashboard figures belong to the account signing out.
+      dashboardCache.clear(),
     ]);
       // Token storage is cleared only after successful server unregistration.
       // Preserve it on session expiry so the next session can clean it up.

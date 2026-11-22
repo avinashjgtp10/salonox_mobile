@@ -32,6 +32,7 @@ export type CheckoutSheetProps = {
   isApplyingCoupon: boolean;
   isCheckingOut: boolean;
   isPricingLoading: boolean;
+  isPricingPending: boolean;
   isSaving: boolean;
   isSuccess: boolean;
   pricingError: string | null;
