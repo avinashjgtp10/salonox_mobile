@@ -8,6 +8,16 @@ export type PackageListQuery = {
   status?: PackageStatus;
 };
 
+/**
+ * Which table a listed package came from. "template" rows are package
+ * templates (`/package-templates`) — the reusable definition the web Catalog's
+ * Packages → Templates tab creates and the one the app's Add Package writes.
+ * "catalog" rows come from the older `/packages` package-builder table, which
+ * is read-only here. Editing and deleting have to hit the matching endpoint,
+ * so a listed row has to say which it is.
+ */
+export type PackageSource = "catalog" | "template";
+
 export type PackageListItem = {
   basePrice: number;
   category: string | null;
@@ -19,6 +29,7 @@ export type PackageListItem = {
   id: string;
   name: string;
   serviceIds: string[];
+  source: PackageSource;
   status: PackageStatus;
 };
 
@@ -40,7 +51,15 @@ export type PackageTemplate = {
   createdAt: string;
   description: string | null;
   discount: number;
+  /**
+   * Optional aggregate cap: once a sold copy of this template has this many
+   * TOTAL completed sessions across all its services combined, the client's
+   * package closes early, whatever each service has left. null = no cap.
+   */
+  expireAfterServices: number | null;
+  /** Exact day count for the expiry — the source of truth. */
   expiryDays: number | null;
+  /** Kept only as a rounded, human-friendly label derived from expiryDays. */
   expiryMonths: number | null;
   gstPercentage: number;
   id: string;
@@ -50,6 +69,28 @@ export type PackageTemplate = {
   salonId: string;
   services: PackageTemplateService[];
 };
+
+/** One service line as sent when saving a template. */
+export type PackageTemplateServiceInput = {
+  price: number;
+  serviceName: string;
+  totalSessions: number;
+};
+
+export type CreatePackageTemplateRequest = {
+  basePrice: number;
+  description?: string | null;
+  discount?: number;
+  expireAfterServices?: number | null;
+  expiryDays?: number | null;
+  expiryMonths?: number | null;
+  gstPercentage?: number;
+  name: string;
+  neverExpires?: boolean;
+  services: PackageTemplateServiceInput[];
+};
+
+export type UpdatePackageTemplateRequest = Partial<CreatePackageTemplateRequest>;
 
 export type ClientPackageService = {
   catalogServiceId: string | null;

@@ -12,6 +12,7 @@ export type StaffSchedule = {
 };
 
 export type UpdateScheduleItemRequest = {
+  breaks?: unknown[];
   day_of_week: number;
   end_time?: string | null;
   is_available: boolean;

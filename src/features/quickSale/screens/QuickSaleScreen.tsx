@@ -12,6 +12,7 @@ import { localItemTime } from "../utils/itemTime";
 import { Text } from "@/components/ui/AppTypography";
 import { Redirect } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
+import { prefetchPaymentMethods } from "@/hooks/usePaymentMethods";
 import { ScrollFooterContext } from "@/hooks/useScrollFooter";
 import { isStaffExperienceUser, STAFF_CALENDAR_ROUTE, STAFF_HOME_ROUTE } from "@/utils/routeResolver";
 import { canUseStaffQuickSale } from "@/utils/staffAccess";
@@ -375,6 +376,12 @@ function OwnerQuickSaleScreen({
     void dispatch(fetchSalesInitThunk());
   }, [dispatch]);
 
+  // Warm the payment methods while the bill is still being built, so opening
+  // checkout does not start that request and wait on it.
+  useEffect(() => {
+    if (user?.id) void prefetchPaymentMethods(`${user.id}:${user.salonId ?? ""}`);
+  }, [user?.id, user?.salonId]);
+
   useEffect(() => {
     if (!embedded || !initialSlot?.staffName || selectedQuickSaleStaff || !initData?.staff.length) {
       return;
@@ -584,6 +591,7 @@ function OwnerQuickSaleScreen({
     : "flat";
   const {
     isPricingLoading,
+    isPricingPending,
     pricingError,
     resetPricing,
     resolvedPricingFlags,
@@ -1580,7 +1588,9 @@ function OwnerQuickSaleScreen({
   };
 
   const handleCompleteSale = async (payment: PendingCheckoutPayment) => {
-    if (isPricingLoading || pricingError) {
+    // Backstop only: the checkout sheet already holds a submit until the
+    // totals have caught up, so this should not normally be reached.
+    if (isPricingPending || pricingError) {
       setSubmitError(pricingError ?? "Wait for the updated total before completing the sale.");
       return;
     }
@@ -2082,7 +2092,7 @@ function OwnerQuickSaleScreen({
           <MiniBillBar
             embedded={embedded}
             isPricingLoading={isPricingLoading}
-            disabled={cart.items.length === 0 || isPricingLoading || Boolean(pricingError) || cart.items.some(isMissingStaff)}
+            disabled={cart.items.length === 0 || Boolean(pricingError) || cart.items.some(isMissingStaff)}
             isSaving={checkoutSubmission.isSaving}
             total={totals.grandTotal}
             onCheckout={() => { if (ensureClientSelected()) openCheckout("payment"); }}
@@ -2174,6 +2184,7 @@ function OwnerQuickSaleScreen({
           isApplyingCoupon={isApplyingCoupon}
           isCheckingOut={checkoutSubmission.isCheckingOut}
           isPricingLoading={isPricingLoading}
+          isPricingPending={isPricingPending}
           pricingError={pricingError}
           isSaving={checkoutSubmission.isSaving}
           isSuccess={checkoutSubmission.isSuccess}

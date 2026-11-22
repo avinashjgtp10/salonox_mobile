@@ -31,7 +31,7 @@ import {
 import { StaffTextField } from "../components/StaffTextField";
 import { StaffFormPermissions } from "../components/StaffFormPermissions";
 import { StaffTimeField } from "../components/StaffTimeField";
-import { STAFF_WEEKLY_OFF_OPTIONS, STAFF_PAY_TYPE_OPTIONS } from "../types/staffFeature.types";
+import { STAFF_PAY_TYPE_OPTIONS } from "../types/staffFeature.types";
 import type { StaffProfileFormValues } from "../types/staffFeature.types";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentUser } from "@/store/user/user.slice";
@@ -49,7 +49,6 @@ const ACCEPTED_AVATAR_MIME_TYPES = new Set([
 
 type StaffValidationField = keyof StaffProfileFormValues;
 const VALIDATION_FIELD_ORDER: StaffValidationField[] = [
-  "weeklyOff",
   "payType",
   "fullName",
   "email",
@@ -125,7 +124,7 @@ const STEP_FIELDS: (keyof StaffProfileFormValues)[][] = [
   [
     "fullName", "phone", "designation",
     "startTime", "endTime", "joiningDate",
-    "dob", "gender", "weeklyOff", "payType", "address",
+    "dob", "gender", "payType", "address",
     "fixedSalary", "hourlyRate", "workingHoursPerDay",
   ],
   ["roleLevel", "email", "password", "confirmPassword"],
@@ -138,7 +137,7 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
   useStaffDetails(staffId);
   const currentUser = useAppSelector(selectCurrentUser);
   const [step, setStep] = useState(params.step === "2" || params.step === "3" ? 1 : 0),
-    [picker, setPicker] = useState<"designation" | "gender" | "weeklyOff" | null>(null),
+    [picker, setPicker] = useState<"designation" | "gender" | null>(null),
     [stepError, setStepError] = useState(""),
     [avatarValidationError, setAvatarValidationError] = useState<string | null>(
       null,
@@ -165,7 +164,7 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
         {
           ref: refs[field],
           disabled:
-            ["dob", "joiningDate", "roleLevel", "gender", "startTime", "endTime", "weeklyOff", "payType"].includes(field) || (field === "hourlyRate" && form.values.payType !== "Hourly") || (field === "fixedSalary" && form.values.payType !== "Fixed salary"),
+            ["dob", "joiningDate", "roleLevel", "gender", "startTime", "endTime", "payType"].includes(field) || (field === "hourlyRate" && form.values.payType !== "Hourly") || (field === "fixedSalary" && form.values.payType !== "Fixed salary"),
         },
       ]),
     }),
@@ -459,13 +458,14 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
                 </View>
                 <View style={staffUi.formCard}>
                   <Text translate style={staffUi.heading}>Working hours</Text>
+                  <Text style={staffUi.muted}>Leave both times blank for no new shifts. Set individual days in Scheduled Shifts.</Text>
                   {(["startTime", "endTime"] as const).map((key) => (
                     <View key={key} ref={(view) => setFieldRef(key, view)}>
                       <StaffTimeField
-                        label={key === "startTime" ? "Start Time *" : "End Time *"}
+                        label={key === "startTime" ? "Start Time" : "End Time"}
                         value={form.values[key]}
                         onChange={(value) => form.updateField(key, value)}
-                        disabled={form.submitting}
+                        disabled={form.submitting || !form.canSetShiftHours}
                         error={form.validationErrors[key] || (stepError ? form.allValidationErrors[key] : undefined)}
                       />
                     </View>
@@ -531,7 +531,7 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
 
                   </View>
                                     <View style={{ flexDirection: "row", gap: 12 }}>
-                    {(["gender", "weeklyOff"] as const).map(key => <TouchableOpacity key={key} style={{ flex: 1 }} onPress={() => setPicker(key)}><Text translate style={staffUi.label}>{key === "gender" ? "Gender" : "Weekly off"}</Text><View style={staffUi.input}><Text>{form.values[key] || "Optional"}</Text></View></TouchableOpacity>)}
+                    <TouchableOpacity style={{ flex: 1 }} onPress={() => setPicker("gender")}><Text translate style={staffUi.label}>Gender</Text><View style={staffUi.input}><Text>{form.values.gender || "Optional"}</Text></View></TouchableOpacity>
                   </View>
                                     <Text translate style={staffUi.label}>Pay type</Text>
                   <View style={staffUi.tabs}>
@@ -650,11 +650,11 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
           avoidKeyboard
           pearlStyle
           centered={false}
-          title={picker === "weeklyOff" ? "Weekly off" : picker === "gender" ? "Gender" : "Designation"}
+          title={picker === "gender" ? "Gender" : "Designation"}
           visible={!!picker}
           onClose={() => setPicker(null)}
         >
-          {(picker === "weeklyOff" ? [...STAFF_WEEKLY_OFF_OPTIONS] : picker === "gender"
+          {(picker === "gender"
             ? ["Female", "Male", "Other"]
             : [
                 "Stylist",
@@ -671,8 +671,7 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
               label={value}
               icon="person-outline"
               onPress={() => {
-                if (picker === "weeklyOff") form.updateField("weeklyOff", value as StaffProfileFormValues["weeklyOff"]);
-                else if (picker) form.updateField(picker, value);
+                if (picker) form.updateField(picker, value);
                 setPicker(null);
               }}
             />

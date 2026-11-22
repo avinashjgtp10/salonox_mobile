@@ -95,8 +95,6 @@ export const mapStaffFormToRequest = (
     email: trimValue(values.email)?.toLowerCase(),
     first_name: name.first_name,
     gender: trimValue(values.gender),
-    work_start_time: values.startTime.trim(),
-    work_end_time: values.endTime.trim(),
     job_title: trimValue(values.designation),
     joined_date: trimValue(values.joiningDate),
     last_name: name.last_name,

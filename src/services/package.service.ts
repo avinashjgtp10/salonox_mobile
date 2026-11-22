@@ -5,11 +5,14 @@ import type { ApiResponse } from "@/types/auth";
 import type {
   ClientPackage,
   ClientPackageService,
+  CreatePackageTemplateRequest,
   PackageListItem,
   PackageListQuery,
   PackageListResponse,
+  PackageSource,
   PackageTemplate,
   PackageTemplateService,
+  UpdatePackageTemplateRequest,
 } from "@/types/package";
 
 type AnyRecord = Record<string, unknown>;
@@ -122,6 +125,7 @@ const normalizePackage = (raw: AnyRecord): PackageListItem => {
     id: toSafeString(firstValue(raw, ["id", "_id"])),
     name: toSafeString(firstValue(raw, ["name", "packageName", "package_name"]), "Package"),
     serviceIds,
+    source: "catalog",
     status: toSafeString(firstValue(raw, ["status"]), "Active"),
   };
 };
@@ -146,6 +150,9 @@ const normalizePackageTemplate = (raw: AnyRecord): PackageTemplate => {
     createdAt: toSafeString(firstValue(raw, ["createdAt", "created_at"])),
     description: toNullableString(firstValue(raw, ["description"])),
     discount: toSafeNumber(firstValue(raw, ["discount"])),
+    expireAfterServices: firstValue(raw, ["expireAfterServices", "expire_after_services"]) === undefined
+      ? null
+      : toSafeNumber(firstValue(raw, ["expireAfterServices", "expire_after_services"])) || null,
     expiryDays: firstValue(raw, ["expiryDays", "expiry_days"]) === undefined
       ? null
       : toSafeNumber(firstValue(raw, ["expiryDays", "expiry_days"])),
@@ -176,6 +183,7 @@ const templateToPackageListItem = (template: PackageTemplate): PackageListItem =
   id: template.id,
   name: template.name,
   serviceIds: template.services.map((service) => service.id).filter(Boolean),
+  source: "template",
   status: "Active",
 });
 
@@ -255,12 +263,26 @@ const normalizeClientPackage = (raw: AnyRecord): ClientPackage => {
 };
 
 export const packageService = {
-  /** Catalog management includes all statuses; sale pickers keep using getPackages. */
+  /**
+   * Catalog management includes all statuses; sale pickers keep using getPackages.
+   *
+   * Package templates come first and legacy `/packages` rows after, the same
+   * merge the sale picker does — a package added from the app or from the web
+   * Catalog's Packages → Templates tab is a template, so without them the
+   * Packages tab would never show what it had just created. Unlike the sale
+   * picker this keeps templates whose expiry has lapsed: managing a package
+   * you can no longer sell (to fix or delete it) is the whole point here.
+   */
   async getManagementPackages(salonId?: string | null): Promise<PackageListItem[]> {
-    return loadAllPages(async (page) => {
-      const result = await this.getCatalogPackages({ page, limit: CATALOG_PACKAGE_PAGE_LIMIT }, salonId);
-      return { items: result.items, hasMore: page * CATALOG_PACKAGE_PAGE_LIMIT < result.total };
-    });
+    const [templates, catalogPackages] = await Promise.all([
+      this.getPackageTemplates(salonId),
+      loadAllPages(async (page) => {
+        const result = await this.getCatalogPackages({ page, limit: CATALOG_PACKAGE_PAGE_LIMIT }, salonId);
+        return { items: result.items, hasMore: page * CATALOG_PACKAGE_PAGE_LIMIT < result.total };
+      }),
+    ]);
+
+    return mergePackageSources(templates.map(templateToPackageListItem), catalogPackages);
   },
   async completeClientPackageSession(
     clientPackageId: string,
@@ -310,6 +332,27 @@ export const packageService = {
     return extractItems(response.data.data).map(normalizePackageTemplate);
   },
 
+  async getPackageTemplateById(templateId: string): Promise<PackageTemplate> {
+    const response = await api.get<ApiResponse<PackageEnvelope>>(PACKAGE.TEMPLATE_DETAIL(templateId));
+
+    return normalizePackageTemplate(extractItems(response.data.data)[0] ?? {});
+  },
+
+  async createPackageTemplate(payload: CreatePackageTemplateRequest): Promise<PackageTemplate> {
+    const response = await api.post<ApiResponse<PackageEnvelope>>(PACKAGE.TEMPLATE_CREATE, payload);
+
+    return normalizePackageTemplate(extractItems(response.data.data)[0] ?? {});
+  },
+
+  async updatePackageTemplate(
+    templateId: string,
+    payload: UpdatePackageTemplateRequest,
+  ): Promise<PackageTemplate> {
+    const response = await api.patch<ApiResponse<PackageEnvelope>>(PACKAGE.TEMPLATE_UPDATE(templateId), payload);
+
+    return normalizePackageTemplate(extractItems(response.data.data)[0] ?? {});
+  },
+
   async getCatalogPackages(query: PackageListQuery = {}, salonId?: string | null): Promise<PackageListResponse> {
     const response = await api.get<ApiResponse<PackageEnvelope>>(PACKAGE.LIST, {
       params: {
@@ -325,7 +368,19 @@ export const packageService = {
     };
   },
 
-  async deletePackage(id: string): Promise<{ id: string; message?: string }> {
+  /**
+   * `source` comes from the listed row and sends the delete straight to the
+   * table it belongs to. Without it the legacy endpoint is tried first and the
+   * template one only after a 404, which still works — listed rows carry a
+   * source, so that path is only for callers that have an id alone.
+   */
+  async deletePackage(id: string, source?: PackageSource): Promise<{ id: string; message?: string }> {
+    if (source === "template") {
+      const response = await api.delete<ApiResponse<unknown>>(PACKAGE.TEMPLATE_DELETE(id));
+
+      return { id, message: response.data.message };
+    }
+
     try {
       const response = await api.delete<ApiResponse<unknown>>(PACKAGE.DELETE(id));
 

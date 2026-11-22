@@ -2,6 +2,7 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import { isUserLogoutInProgress } from "@/services/authLifecycle";
+import { dashboardCache } from "@/services/dashboardCache";
 import { dashboardService } from "@/services/dashboard.service";
 import { isNetworkOnline } from "@/services/networkStatus";
 import type { RootState } from "@/store";
@@ -17,7 +18,7 @@ type FetchDashboardRejectValue = {
   status?: number;
 };
 
-type DashboardFetchResult = {
+export type DashboardFetchResult = {
   inventoryAlerts: Awaited<ReturnType<typeof dashboardService.getOwnerDashboard>>["inventoryAlerts"];
   metrics: Awaited<ReturnType<typeof dashboardService.getOwnerDashboard>>["metrics"];
   quickSaleRevenueToday: Awaited<ReturnType<typeof dashboardService.getOwnerDashboard>>["quickSaleRevenueToday"];
@@ -36,7 +37,11 @@ export const fetchDashboardThunk = createAsyncThunk<
     const state = getState();
     const salonId = selectActiveBranchId(state);
 
-    return await dashboardService.getOwnerDashboard(new Date(), salonId);
+    const dashboard = await dashboardService.getOwnerDashboard(new Date(), salonId);
+    // Kept for the next launch, which shows it while this request runs again.
+    void dashboardCache.set(salonId, dashboard);
+
+    return dashboard;
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
     const response = error instanceof ApiError
@@ -79,4 +84,23 @@ export const fetchDashboardThunk = createAsyncThunk<
       !state.dashboard.isRefreshing
     );
   },
+});
+
+/**
+ * Puts the previous session's dashboard on screen straight away, so a cold
+ * launch shows figures instead of skeletons while the live request runs.
+ * The slice ignores the result once real data has arrived.
+ */
+export const hydrateDashboardFromCacheThunk = createAsyncThunk<
+  DashboardFetchResult | null,
+  void,
+  { state: RootState }
+>("dashboard/hydrateFromCache", async (_, { getState }) => {
+  const state = getState();
+  if (!hasBusinessDashboard(selectCurrentUser(state))) return null;
+
+  return (await dashboardCache.get(selectActiveBranchId(state)))?.data ?? null;
+}, {
+  // Never overwrite figures that are already live.
+  condition: (_, { getState }) => (getState() as RootState).dashboard.lastFetchedAt === null,
 });

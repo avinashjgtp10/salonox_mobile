@@ -49,7 +49,7 @@ const DAY_TO_BACKEND_INDEX: Record<string, number> = {
 const DEFAULT_DAYS: ScheduleDayEntry[] = WEEK_DAYS.map((day) => ({
   day,
   endTime: null,
-  isOff: day === "sunday",
+  isOff: true,
   startTime: null,
 }));
 

@@ -66,6 +66,7 @@ function CheckoutSheetComponent({
   isApplyingCoupon,
   isCheckingOut,
   isPricingLoading,
+  isPricingPending,
   isSaving,
   isSuccess,
   items,
@@ -493,11 +494,16 @@ function CheckoutSheetComponent({
     hasItems &&
     !chargesInvalid &&
     (noPaymentRequired || !partialAmountExceedsTotal) &&
-    !isPricingLoading &&
+    // A recalculation in flight no longer disables the button: a tap made
+    // during one is held by handleComplete until the new totals land.
     !pricingError &&
     (noPaymentRequired || (paymentConfig.ready && !paymentConfig.error)) &&
     (noPaymentRequired || paymentMethod !== "split" || (splitEntries.length > 0 && !splitMismatch));
   const showPaymentMethodValidation = paymentValidationAttempted && !noPaymentRequired && paymentMethod === null;
+  // Set when Complete is tapped mid-recalculation; released below once the
+  // settled totals have rendered.
+  const [submitHeldForPricing, setSubmitHeldForPricing] = useState(false);
+  const handleCompleteRef = useRef<() => Promise<void>>(async () => {});
 
   const groupedItems = useMemo(
     () => [
@@ -584,6 +590,14 @@ function CheckoutSheetComponent({
       return;
     }
 
+    // The totals are still catching up with the bill. Remember the tap and
+    // run it again from a render that has the settled figures, rather than
+    // charging what is currently on screen.
+    if (isPricingPending) {
+      setSubmitHeldForPricing(true);
+      return;
+    }
+
     if (!noPaymentRequired && paymentMethod === null) {
       setPaymentValidationAttempted(true);
       scrollRef.current?.scrollTo({ y: 0, animated: true });
@@ -619,6 +633,21 @@ function CheckoutSheetComponent({
       setMethodError(error instanceof Error ? error.message : "Unable to verify payment methods. Please try again.");
     } finally { methodCheckLock.current = false; setCheckingMethod(false); }
   };
+
+  handleCompleteRef.current = handleComplete;
+
+  // Runs the held tap once the settled totals have rendered, so the sale is
+  // submitted with the figures the cashier ends up seeing.
+  useEffect(() => {
+    if (!submitHeldForPricing) return;
+    if (!visible || pricingError) {
+      setSubmitHeldForPricing(false);
+      return;
+    }
+    if (isPricingPending) return;
+    setSubmitHeldForPricing(false);
+    void handleCompleteRef.current();
+  }, [isPricingPending, pricingError, submitHeldForPricing, visible]);
 
   const handleSavePending = () => {
     if (hasMissingStaff) {
@@ -1389,15 +1418,10 @@ function CheckoutSheetComponent({
                   ]}
                 >
                   <View collapsable={false} pointerEvents="none" style={styles.completeButtonContent}>
-                  {isCheckingOut || checkingMethod ? (
+                  {isCheckingOut || checkingMethod || submitHeldForPricing ? (
                       <>
                         <ActivityIndicator color={Colors.onPrimary} size="small" />
                       <Text translate style={styles.completeButtonText}>{checkingMethod ? "Checking payment method…" : "Processing sale..."}</Text>
-                      </>
-                    ) : checkoutStep === "payment" && isPricingLoading ? (
-                      <>
-                        <ActivityIndicator color={Colors.onPrimary} size="small" />
-                        <Text translate style={styles.completeButtonText}>Updating pricing...</Text>
                       </>
                     ) : isSuccess ? (
                       <>

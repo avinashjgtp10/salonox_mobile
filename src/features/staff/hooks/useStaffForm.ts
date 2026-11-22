@@ -1,6 +1,8 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 
+import { usePermissions } from "@/hooks/usePermissions";
+import { staffShiftService, type ScheduledShift } from "@/services/staffShift.service";
 import { useAppToast } from "@/hooks/useAppToast";
 import {
   createStaffThunk,
@@ -10,7 +12,8 @@ import {
 import { getApiErrorMessage } from "@/services/api";
 import { staffPermissionsService } from "@/services/staffPermissions.service";
 import { staffService } from "@/services/staff.service";
-import { staffScheduleService } from "@/services/staffSchedule.service";
+import { updateStaffScheduleThunk } from "@/middleware/staff/staffSchedule.thunk";
+import { getWorkingHoursUpdate } from "@/features/staff/utils/staffWorkingHours";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { OWNER_CALENDAR_ROUTE } from "@/utils/routeResolver";
 import {
@@ -44,7 +47,6 @@ const EMPTY_STAFF_FORM: StaffProfileFormValues = {
   fullName: "",
   gender: "",
   payType: "",
-  weeklyOff: "",
   startTime: "",
   endTime: "",
   isLoginEnabled: true,
@@ -82,6 +84,26 @@ export const useStaffForm = (staffId?: string | null) => {
   const { fromCalendar } = useLocalSearchParams<{ fromCalendar?: string }>();
   const dispatch = useAppDispatch();
   const toast = useAppToast();
+  const { can } = usePermissions();
+  const canViewShifts = can("view_scheduled_shifts");
+  const canEditShifts = can("add_working_hours") || can("edit_working_hours");
+  const [baseline, setBaseline] = useState<{ staffId: string; rows: ScheduledShift[] } | null>(null);
+  const canSetShiftHours = canEditShifts && (!staffId || baseline?.staffId === staffId);
+  useEffect(() => {
+    if (!staffId || !(canViewShifts || canEditShifts)) return;
+    let active = true;
+    setBaseline(null);
+    staffShiftService.list(staffId).then((rows) => {
+      if (!active) return;
+      const weekly = rows.filter((row) => !row.date);
+      const first = weekly.find((row) => row.is_available && row.start_time && row.end_time);
+      setValues((current) => ({ ...current, startTime: first?.start_time?.slice(0, 5) ?? "", endTime: first?.end_time?.slice(0, 5) ?? "" }));
+      setBaseline({ staffId, rows: weekly });
+    }).catch(() => {
+      if (active) toast.showWarning("Could not load working hours. Reopen this form to retry.");
+    });
+    return () => { active = false; };
+  }, [staffId, canViewShifts, canEditShifts, toast]);
   const staffMember = useAppSelector((state) =>
     selectStaffById(state, staffId),
   );
@@ -124,7 +146,7 @@ export const useStaffForm = (staffId?: string | null) => {
 
     const phone = toFormPhone(staffMember.phone, staffMember.phoneCountryCode);
 
-    setValues({
+    setValues((current) => ({
       address: staffMember.address ?? "",
       avatarUrl: staffMember.avatarUrl ?? "",
       confirmPassword: "",
@@ -136,9 +158,8 @@ export const useStaffForm = (staffId?: string | null) => {
       fullName: staffMember.name,
       gender: staffMember.gender === "-" ? "" : staffMember.gender,
       payType: "",
-      weeklyOff: "",
-      startTime: staffMember.workStartTime?.slice(0, 5) ?? "",
-      endTime: staffMember.workEndTime?.slice(0, 5) ?? "",
+      startTime: current.startTime,
+      endTime: current.endTime,
       isLoginEnabled: false,
       joiningDate: toIsoJoiningDate(staffMember.joiningDate),
       notes: staffMember.notes,
@@ -150,7 +171,7 @@ export const useStaffForm = (staffId?: string | null) => {
         staffMember.workingHoursPerDay != null
           ? String(staffMember.workingHoursPerDay)
           : "",
-    });
+    }));
     setTouched({});
   }, [staffMember]);
 
@@ -286,15 +307,12 @@ export const useStaffForm = (staffId?: string | null) => {
           );
         }
       }
-      if (nextStaffId && (!isEditMode || values.weeklyOff)) {
+      const updates = canSetShiftHours && getWorkingHoursUpdate(
+        isEditMode ? baseline?.rows ?? [] : [], values.startTime, values.endTime,
+      );
+      if (nextStaffId && updates) {
         try {
-          const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-          await staffScheduleService.updateSchedule(nextStaffId, { items: days.map((day, index) => ({
-            day_of_week: index,
-            is_available: day !== values.weeklyOff.toLowerCase(),
-            start_time: values.startTime,
-            end_time: values.endTime,
-          })) });
+          await dispatch(updateStaffScheduleThunk({ staffId: nextStaffId, updates })).unwrap();
         } catch (error) {
           toast.showWarning("Staff saved, but the working schedule could not be saved: " + getApiErrorMessage(error));
         }
@@ -314,6 +332,7 @@ export const useStaffForm = (staffId?: string | null) => {
   };
 
   return {
+    canSetShiftHours,
     avatarError,
     avatarUploading,
     duplicateEmailError,

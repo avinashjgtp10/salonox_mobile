@@ -75,6 +75,11 @@ export const useQuickSalePricing = ({
 }: UseQuickSalePricingInput) => {
   const [backendTotalsResponse, setBackendTotalsResponse] = useState<CalculateTotalsResponse | null>(null);
   const [isPricingLoading, setIsPricingLoading] = useState(false);
+  // True from the moment the bill changes until the matching totals arrive —
+  // the debounce window included. `isPricingLoading` covers only the request
+  // itself and drives what is shown; this one guards checkout against
+  // submitting against totals that are still catching up.
+  const [isPricingPending, setIsPricingPending] = useState(false);
   const [pricingError, setPricingError] = useState<string | null>(null);
   const [resolvedPricingFlags, setResolvedPricingFlags] = useState<RedemptionPricingFlags>({});
   const extraChargesTotal = useMemo(
@@ -90,13 +95,19 @@ export const useQuickSalePricing = ({
       setIsPricingLoading(false);
       setPricingError(null);
       setResolvedPricingFlags({});
+      setIsPricingPending(false);
       return;
     }
 
-    setIsPricingLoading(true);
+    // Pending from the moment the bill changes — including the debounce window
+    // — so a checkout started mid-edit waits for the real total. The visible
+    // loading flag is set only once the request is actually in flight, so
+    // editing the bill no longer flickers the checkout button.
+    setIsPricingPending(true);
     setPricingError(null);
 
     const timer = setTimeout(async () => {
+      setIsPricingLoading(true);
       try {
         const serviceRows: ApiLineItem[] = [];
         const productRows: ApiLineItem[] = [];
@@ -134,11 +145,13 @@ export const useQuickSalePricing = ({
           setBackendTotalsResponse(response.totals);
           setResolvedPricingFlags(response.flags);
           setIsPricingLoading(false);
+          setIsPricingPending(false);
         }
       } catch (error) {
         if (isSubscribed) {
           setPricingError(error instanceof Error ? error.message : "Unable to calculate pricing.");
           setIsPricingLoading(false);
+          setIsPricingPending(false);
         }
       }
     }, 500);
@@ -159,6 +172,7 @@ export const useQuickSalePricing = ({
     includeGst,
     overallDiscountInput,
     selectedClientId,
+    setIsPricingPending,
     tipInput,
   ]);
 
@@ -178,6 +192,7 @@ export const useQuickSalePricing = ({
   const resetPricing = useCallback(() => {
     setBackendTotalsResponse(null);
     setIsPricingLoading(false);
+    setIsPricingPending(false);
     setPricingError(null);
     setResolvedPricingFlags({});
   }, []);
@@ -185,6 +200,7 @@ export const useQuickSalePricing = ({
   return {
     extraChargesTotal,
     isPricingLoading,
+    isPricingPending,
     pricingError,
     resetPricing,
     resolvedPricingFlags,

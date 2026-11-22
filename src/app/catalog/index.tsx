@@ -52,6 +52,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 
 import { useAppToast } from "@/hooks/useAppToast";
+import { getMembershipTypeLabel, membershipBenefitSummary } from "@/features/membership/membershipMeta";
 import type { Membership } from "@/types/membership";
 import type { ConsumableListItem } from "@/types/consumable";
 import type { PackageListItem } from "@/types/package";
@@ -132,6 +133,9 @@ const consumableToItem = (item: ConsumableListItem, assignedServicesByConsumable
 
 const packageToItem = (item: PackageListItem): CatalogItem => ({
   category: item.category ?? "Service package",
+  // Only package templates are editable here — rows from the older /packages
+  // package-builder table have no edit screen in the app and are read-only.
+  ...(item.source === "template" ? { editRoute: `/packages/${item.id}/edit` as Href } : {}),
   id: item.id,
   isActive: item.status.toLowerCase() === "active",
   meta: `${item.serviceIds.length} service${item.serviceIds.length === 1 ? "" : "s"}`,
@@ -143,10 +147,12 @@ const packageToItem = (item: PackageListItem): CatalogItem => ({
 
 const membershipToItem = (item: Membership): CatalogItem => ({
   appliesTo: item.appliesTo,
-  category: `${item.sessionType} membership`,
+  // The plan type, not the session type: every plan is "unlimited" now, so the
+  // useful label is Wallet / Discount Balance / Loyalty, same as on web.
+  category: `${getMembershipTypeLabel(item)} membership`,
   id: item.id,
   isActive: item.enableOnlineSales,
-  meta: item.validFor,
+  meta: membershipBenefitSummary(item),
   name: item.name,
   price: item.price,
   pricingType: item.pricingType,
@@ -383,7 +389,7 @@ export default function CatalogScreen() {
         await consumableService.deleteConsumable(item.id);
         toast.showSuccess("Consumable deleted successfully.");
       } else if (activeTab === "packages") {
-        await packageService.deletePackage(item.id);
+        await packageService.deletePackage(item.id, packages.find((pkg) => pkg.id === item.id)?.source);
         toast.showSuccess("Package deleted successfully.");
       }
 
@@ -393,7 +399,7 @@ export default function CatalogScreen() {
     } finally {
       setDeletingId(null);
     }
-  }, [activeTab, dispatch, loadCatalog, toast]);
+  }, [activeTab, dispatch, loadCatalog, packages, toast]);
 
   const confirmDelete = useCallback((item: CatalogItem) => {
     const label = TABS.find((tab) => tab.key === activeTab)?.label ?? "item";
@@ -515,6 +521,7 @@ export default function CatalogScreen() {
           { label: "Product", hint: "Retail or salon-use stock", icon: "cube-outline", route: "/stock/new" },
           { label: "Membership", hint: "Wallet, discounts or loyalty", icon: "diamond-outline", route: "/memberships/new" },
           { label: "Consumable", hint: "Stock used during services", icon: "flask-outline", route: "/consumables/new" },
+          { label: "Package", hint: "Services bundled with sessions", icon: "albums-outline", route: "/packages/new" },
         ] as const).map((choice) => <TouchableOpacity key={choice.label} style={styles.choice} onPress={() => { setAddVisible(false); router.push(choice.route as Href); }}><View style={[styles.itemIcon, { backgroundColor: pearlTones.rose.bg }]}><Ionicons name={choice.icon} size={20} color={pearl.accentDeep} /></View><View style={{ flex: 1 }}><Text translate style={styles.tableName}>{choice.label}</Text><Text style={styles.tableCell}>{choice.hint}</Text></View><Ionicons name="chevron-forward" size={18} color={pearl.muted} /></TouchableOpacity>)}</View>
       </BottomSheet>
       <BottomSheet pearlStyle centered={false} title={actionItem?.name ?? "Item actions"} visible={!!actionItem} onClose={() => setActionItem(null)}>

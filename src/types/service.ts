@@ -65,6 +65,7 @@ export type ServiceApiCategory = {
   parent_category_id?: string | number | null;
   parent_category_name?: string | null;
   title?: string | null;
+  type?: string | null;
 };
 
 export type ServiceApiPagination = {
@@ -128,9 +129,20 @@ export type ServiceListResponse = {
 export type ServiceCategoryItem = {
   id: string;
   name: string;
+  /**
+   * Which side(s) of the catalog the category itself belongs to. `service_categories`
+   * is one shared table for service and product categories, distinguished only by
+   * this column, and a category tagged "both" is a valid pick on either side.
+   * Missing on older cached entries saved before the column existed — treat that
+   * as unknown rather than excluded from either side.
+   */
+  type?: CategoryScope;
 };
 
 export type CategoryType = "service" | "product";
+
+/** A category's own `type` column, which — unlike CategoryType — can be "both". */
+export type CategoryScope = "both" | "product" | "service";
 
 export type CreateServiceRequest = {
   category?: string;

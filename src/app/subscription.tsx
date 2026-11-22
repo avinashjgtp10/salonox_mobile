@@ -1,21 +1,21 @@
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl, pearlGradients, pearlRadius, pearlShadow } from "@/components/auth/pearl/tokens";
+import { LinearGradient } from "expo-linear-gradient";
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
 import { useAppForeground } from "@/hooks/useAppForeground";
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import { isSubscriptionActive, PLAN_CYCLES, subscriptionService } from "@/services/subscription.service";
-import { useAppTheme } from "@/theme/ThemeProvider";
 import type { CatalogPlan, PlanCycle, PlanPaymentStatus } from "@/types/subscription";
 import { formatAppDate } from "@/utils/dateTime";
 import { resolveAuthenticatedRoute } from "@/utils/routeResolver";
@@ -60,9 +60,18 @@ type Phase =
   | { kind: "timeout" }
   | { kind: "paid"; status: PlanPaymentStatus };
 
+/** The pearl primary-button surface: the design system's gradient, as used by PrimaryButton. */
+function PrimaryFill({ children, style }: { children: ReactNode; style: StyleProp<ViewStyle> }) {
+  return (
+    <LinearGradient colors={pearlGradients.primary} end={{ x: 1, y: 1 }} start={{ x: 0, y: 0 }} style={style}>
+      {children}
+    </LinearGradient>
+  );
+}
+
 export default function SubscriptionScreen() {
-  const { colors, scheme } = useAppTheme();
-  const styles = useMemo(() => createStyles(colors, scheme), [colors, scheme]);
+  // Styled straight from the pearl tokens, so there is no theme object to track.
+  const styles = useMemo(() => createStyles(), []);
   const insets = useSafeAreaInsets();
   const { signOut, user, switchSalon } = useAuth();
   const toast = useAppToast();
@@ -226,15 +235,17 @@ export default function SubscriptionScreen() {
     if (phase.kind === "paid") {
       return (
         <View accessibilityRole="alert" style={[styles.panel, styles.successPanel]}>
-          <Ionicons name="checkmark-circle" size={40} color={colors.success} />
+          <Ionicons name="checkmark-circle" size={40} color={pearl.success} />
           <Text translate style={styles.panelTitle}>Payment successful</Text>
           <Text style={styles.panelText}>
             {phase.status.planName ? `${phase.status.planName} is active` : "Your plan is active"}
             {phase.status.endsAt ? ` until ${formatAppDate(phase.status.endsAt)}` : ""}.
           </Text>
-          <Pressable accessibilityRole="button" onPress={goToApp} style={styles.primaryButton}>
-            <Text translate style={styles.primaryButtonText}>Continue</Text>
-            <Ionicons name="arrow-forward" size={18} color={colors.onPrimary} />
+          <Pressable accessibilityRole="button" onPress={goToApp} style={styles.primaryButtonWrap}>
+            <PrimaryFill style={styles.primaryButton}>
+              <Text translate style={styles.primaryButtonText}>Continue</Text>
+              <Ionicons name="arrow-forward" size={18} color={pearl.white} />
+            </PrimaryFill>
           </Pressable>
         </View>
       );
@@ -259,15 +270,17 @@ export default function SubscriptionScreen() {
     if (phase.kind === "timeout") {
       return (
         <View accessibilityRole="alert" style={styles.panel}>
-          <Ionicons name="time-outline" size={32} color={colors.warning} />
+          <Ionicons name="time-outline" size={32} color={pearl.warningText} />
           <Text translate style={styles.panelTitle}>Payment is processing</Text>
           <Text translate style={styles.panelText}>{"We'll update you shortly. If you've paid, tap Retry in a moment."}</Text>
           <Pressable
             accessibilityRole="button"
             onPress={() => setPhase({ kind: "waiting", startedAt: Date.now(), url: null })}
-            style={styles.primaryButton}
+            style={styles.primaryButtonWrap}
           >
-            <Text translate style={styles.primaryButtonText}>Retry</Text>
+            <PrimaryFill style={styles.primaryButton}>
+              <Text translate style={styles.primaryButtonText}>Retry</Text>
+            </PrimaryFill>
           </Pressable>
           <Pressable accessibilityRole="button" onPress={stopWaiting} style={styles.linkButton}>
             <Text translate style={styles.linkText}>Choose a plan instead</Text>
@@ -290,7 +303,7 @@ export default function SubscriptionScreen() {
     if (catalogError && catalog.length === 0) {
       return (
         <View accessibilityRole="alert" style={styles.errorCard}>
-          <Ionicons name="alert-circle-outline" size={20} color={colors.error} />
+          <Ionicons name="alert-circle-outline" size={20} color={pearl.dangerText} />
           <Text style={styles.errorText}>{catalogError}</Text>
           <Pressable accessibilityRole="button" onPress={() => { setIsLoading(true); void loadCatalog().finally(() => setIsLoading(false)); }}>
             <Text translate style={styles.retryText}>Retry</Text>
@@ -301,7 +314,7 @@ export default function SubscriptionScreen() {
     if (catalog.length === 0) {
       return (
         <View style={styles.panel}>
-          <Ionicons name="card-outline" size={28} color={colors.text2} />
+          <Ionicons name="card-outline" size={28} color={pearl.muted} />
           <Text translate style={styles.panelText}>No plans are available right now. Please contact support.</Text>
         </View>
       );
@@ -326,7 +339,7 @@ export default function SubscriptionScreen() {
 
         {checkoutError ? (
           <View accessibilityRole="alert" style={styles.errorCard}>
-            <Ionicons name="alert-circle-outline" size={20} color={colors.error} />
+            <Ionicons name="alert-circle-outline" size={20} color={pearl.dangerText} />
             <Text style={styles.errorText}>{checkoutError.message}</Text>
             <Pressable accessibilityRole="button" onPress={() => void choosePlan(checkoutError.plan, checkoutError.cycle)}>
               <Text translate style={styles.retryText}>Retry</Text>
@@ -348,7 +361,7 @@ export default function SubscriptionScreen() {
                   <Text style={styles.planName}>{plan.name}</Text>
                   {popular ? (
                     <View style={styles.popularPill}>
-                      <Ionicons name="star" size={11} color={colors.onPrimary} />
+                      <Ionicons name="star" size={11} color={pearl.white} />
                       <Text translate style={styles.popularText}>Most Popular</Text>
                     </View>
                   ) : null}
@@ -371,16 +384,18 @@ export default function SubscriptionScreen() {
                   accessibilityState={{ busy: isStarting, disabled }}
                   disabled={disabled}
                   onPress={() => void choosePlan(plan, cycle)}
-                  style={[styles.primaryButton, disabled && !isStarting && styles.buttonDisabled]}
+                  style={[styles.primaryButtonWrap, disabled && !isStarting && styles.buttonDisabled]}
                 >
-                  {isStarting ? (
-                    <ActivityIndicator color={colors.onPrimary} />
-                  ) : (
-                    <>
-                      <Text style={styles.primaryButtonText}>Choose {plan.name}</Text>
-                      <Ionicons name="arrow-forward" size={18} color={colors.onPrimary} />
-                    </>
-                  )}
+                  <PrimaryFill style={styles.primaryButton}>
+                    {isStarting ? (
+                      <ActivityIndicator color={pearl.white} />
+                    ) : (
+                      <>
+                        <Text style={styles.primaryButtonText}>Choose {plan.name}</Text>
+                        <Ionicons name="arrow-forward" size={18} color={pearl.white} />
+                      </>
+                    )}
+                  </PrimaryFill>
                 </Pressable>
               </View>
             );
@@ -391,7 +406,7 @@ export default function SubscriptionScreen() {
   };
 
   return (
-    <LinearGradient colors={[colors.bg, colors.bg2]} style={styles.screen}>
+    <PearlBackground>
       <RefreshViewport><ScrollView
         contentContainerStyle={[
           styles.content,
@@ -402,7 +417,7 @@ export default function SubscriptionScreen() {
       >
         {!!mainSalonId && <Pressable accessibilityRole="button" disabled={returning} style={styles.linkButton} onPress={() => { setReturning(true); void switchSalon(mainSalonId).catch(error => toast.showError(getApiErrorMessage(error))).finally(() => setReturning(false)); }}><Text translate style={styles.linkText}>{returning ? "Switching salon…" : "Back to main account"}</Text></Pressable>}
         <View style={styles.heroIcon}>
-          <Ionicons name="alert-circle-outline" size={30} color={colors.error} />
+          <Ionicons name="alert-circle-outline" size={30} color={pearl.dangerText} />
         </View>
         <Text translate accessibilityRole="header" style={styles.title}>Your subscription has ended</Text>
         <Text translate style={styles.subtitle}>
@@ -422,60 +437,56 @@ export default function SubscriptionScreen() {
           <Text translate style={styles.logoutText}>{isSigningOut ? "Signing out…" : "Logout"}</Text>
         </Pressable>
       </ScrollView></RefreshViewport>
-    </LinearGradient>
+    </PearlBackground>
   );
 }
 
-const createStyles = (colors: ReturnType<typeof useAppTheme>["colors"], scheme: "light" | "dark") =>
+const createStyles = () =>
   StyleSheet.create({
-    screen: { flex: 1 },
     content: { gap: 16, paddingHorizontal: 20 },
-    heroIcon: { alignItems: "center", alignSelf: "center", backgroundColor: colors.errorBg, borderRadius: 32, height: 64, justifyContent: "center", width: 64 },
-    title: { color: colors.heading, fontSize: 26, fontWeight: "900", lineHeight: 32, textAlign: "center" },
-    subtitle: { color: colors.text2, fontSize: 14, fontWeight: "500", lineHeight: 21, textAlign: "center" },
-    cycleToggle: { alignSelf: "center", backgroundColor: colors.card, borderColor: colors.border, borderRadius: 999, borderWidth: 1, flexDirection: "row", padding: 4 },
+    heroIcon: { alignItems: "center", alignSelf: "center", backgroundColor: pearl.dangerBg, borderRadius: 32, height: 64, justifyContent: "center", width: 64 },
+    title: { color: pearl.ink, fontSize: 26, fontWeight: "900", letterSpacing: -0.6, lineHeight: 32, textAlign: "center" },
+    subtitle: { color: pearl.ink2, fontSize: 14, fontWeight: "500", lineHeight: 21, textAlign: "center" },
+    cycleToggle: { alignSelf: "center", backgroundColor: pearl.glassStrong, borderColor: pearl.glassBorder, borderRadius: 999, borderWidth: 1, flexDirection: "row", padding: 4 },
     cycleOption: { borderRadius: 999, minHeight: 40, justifyContent: "center", paddingHorizontal: 16 },
-    cycleOptionActive: { backgroundColor: colors.primary },
-    cycleText: { color: colors.text2, fontSize: 13, fontWeight: "700" },
-    cycleTextActive: { color: colors.onPrimary },
+    cycleOptionActive: { backgroundColor: pearl.accentTint },
+    cycleText: { color: pearl.muted, fontSize: 13, fontWeight: "700" },
+    cycleTextActive: { color: pearl.accentDeep },
     planList: { gap: 14 },
     planCard: {
-      backgroundColor: colors.card,
-      borderColor: colors.border,
-      borderRadius: 22,
+      backgroundColor: pearl.glassStrong,
+      borderColor: pearl.glassBorder,
+      borderRadius: pearlRadius.card,
       borderWidth: 1,
-      elevation: 4,
       gap: 8,
       padding: 18,
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 12 },
-      shadowOpacity: scheme === "dark" ? 0.2 : 0.08,
-      shadowRadius: 22,
+      ...pearlShadow.card,
     },
-    planCardPopular: { borderColor: colors.primaryText, borderWidth: 1.5 },
+    planCardPopular: { borderColor: pearl.accent, borderWidth: 1.5 },
     planHeader: { alignItems: "center", flexDirection: "row", gap: 10, justifyContent: "space-between" },
-    planName: { color: colors.heading, flexShrink: 1, fontSize: 20, fontWeight: "900" },
-    popularPill: { alignItems: "center", backgroundColor: colors.primaryText, borderRadius: 999, flexDirection: "row", gap: 4, paddingHorizontal: 10, paddingVertical: 4 },
-    popularText: { color: colors.onPrimary, fontSize: 11, fontWeight: "800" },
-    planTagline: { color: colors.text2, fontSize: 13, lineHeight: 19 },
+    planName: { color: pearl.ink, flexShrink: 1, fontSize: 20, fontWeight: "900" },
+    popularPill: { alignItems: "center", backgroundColor: pearl.accentDeep, borderRadius: 999, flexDirection: "row", gap: 4, paddingHorizontal: 10, paddingVertical: 4 },
+    popularText: { color: pearl.white, fontSize: 11, fontWeight: "800" },
+    planTagline: { color: pearl.ink2, fontSize: 13, lineHeight: 19 },
     priceRow: { alignItems: "flex-end", flexDirection: "row", marginTop: 4 },
-    price: { color: colors.heading, fontSize: 28, fontWeight: "900" },
-    per: { color: colors.text2, fontSize: 14, fontWeight: "600", marginBottom: 4 },
-    gst: { color: colors.text2, fontSize: 12 },
-    primaryButton: { alignItems: "center", alignSelf: "stretch", backgroundColor: colors.primary, borderRadius: 999, flexDirection: "row", gap: 8, justifyContent: "center", marginTop: 8, minHeight: 50, paddingHorizontal: 16 },
-    primaryButtonText: { color: colors.onPrimary, fontSize: 15, fontWeight: "800" },
+    price: { color: pearl.ink, fontSize: 28, fontWeight: "900" },
+    per: { color: pearl.muted, fontSize: 14, fontWeight: "600", marginBottom: 4 },
+    gst: { color: pearl.muted, fontSize: 12 },
+    primaryButtonWrap: { alignSelf: "stretch", borderRadius: 999, marginTop: 8, ...pearlShadow.button },
+    primaryButton: { alignItems: "center", alignSelf: "stretch", borderRadius: 999, flexDirection: "row", gap: 8, justifyContent: "center", minHeight: 50, overflow: "hidden", paddingHorizontal: 16 },
+    primaryButtonText: { color: pearl.white, fontSize: 15, fontWeight: "800" },
     buttonDisabled: { opacity: 0.5 },
-    secondaryButton: { alignItems: "center", alignSelf: "stretch", borderColor: colors.primaryText, borderRadius: 999, borderWidth: 1.5, justifyContent: "center", minHeight: 48 },
-    secondaryButtonText: { color: colors.primaryText, fontSize: 14, fontWeight: "800" },
+    secondaryButton: { alignItems: "center", alignSelf: "stretch", borderColor: pearl.accent, borderRadius: 999, borderWidth: 1.5, justifyContent: "center", minHeight: 48 },
+    secondaryButtonText: { color: pearl.accentDeep, fontSize: 14, fontWeight: "800" },
     linkButton: { minHeight: 44, justifyContent: "center", paddingHorizontal: 8 },
-    linkText: { color: colors.text2, fontSize: 13, fontWeight: "700", textDecorationLine: "underline" },
-    panel: { alignItems: "center", backgroundColor: colors.card, borderColor: colors.border, borderRadius: 22, borderWidth: 1, gap: 10, padding: 22 },
-    successPanel: { borderColor: colors.successBorder },
-    panelTitle: { color: colors.heading, fontSize: 17, fontWeight: "800", textAlign: "center" },
-    panelText: { color: colors.text2, fontSize: 13, lineHeight: 19, textAlign: "center" },
-    errorCard: { alignItems: "center", backgroundColor: colors.errorBg, borderColor: colors.errorBorder, borderRadius: 16, borderWidth: 1, flexDirection: "row", gap: 10, paddingHorizontal: 14, paddingVertical: 12 },
-    errorText: { color: colors.error, flex: 1, fontSize: 13, fontWeight: "700", lineHeight: 18 },
-    retryText: { color: colors.primaryText, fontSize: 13, fontWeight: "800", paddingHorizontal: 4, paddingVertical: 8 },
-    logoutButton: { alignItems: "center", backgroundColor: colors.card, borderColor: colors.border, borderRadius: 12, borderWidth: 1, justifyContent: "center", marginTop: 4, minHeight: 48 },
-    logoutText: { color: colors.text, fontSize: 14, fontWeight: "700" },
+    linkText: { color: pearl.ink2, fontSize: 13, fontWeight: "700", textDecorationLine: "underline" },
+    panel: { alignItems: "center", backgroundColor: pearl.glassStrong, borderColor: pearl.glassBorder, borderRadius: pearlRadius.card, borderWidth: 1, gap: 10, padding: 22, ...pearlShadow.card },
+    successPanel: { borderColor: pearl.successBorder },
+    panelTitle: { color: pearl.ink, fontSize: 17, fontWeight: "800", textAlign: "center" },
+    panelText: { color: pearl.ink2, fontSize: 13, lineHeight: 19, textAlign: "center" },
+    errorCard: { alignItems: "center", backgroundColor: pearl.dangerBg, borderColor: pearl.dangerBorder, borderRadius: pearlRadius.field, borderWidth: 1, flexDirection: "row", gap: 10, paddingHorizontal: 14, paddingVertical: 12 },
+    errorText: { color: pearl.dangerText, flex: 1, fontSize: 13, fontWeight: "700", lineHeight: 18 },
+    retryText: { color: pearl.accentDeep, fontSize: 13, fontWeight: "800", paddingHorizontal: 4, paddingVertical: 8 },
+    logoutButton: { alignItems: "center", backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderRadius: pearlRadius.field, borderWidth: 1, justifyContent: "center", marginTop: 4, minHeight: 48 },
+    logoutText: { color: pearl.ink2, fontSize: 14, fontWeight: "700" },
   });

@@ -12,6 +12,10 @@ import type {
   MembershipListQuery,
   MembershipListResponse,
   MembershipRow,
+  MembershipAppliesTo,
+  MembershipBenefitType,
+  MembershipPricingType,
+  LoyaltyTier,
   UpdateMembershipRequest,
   UpdateMembershipResponse,
 } from "@/types/membership";
@@ -107,6 +111,49 @@ const getMembershipFromPayload = (payload: MembershipApiData): Membership | Memb
   return payload;
 };
 
+const PRICING_TYPES: MembershipPricingType[] = ["value", "percentage", "loyalty"];
+const BENEFIT_TYPES: MembershipBenefitType[] = ["discount_balance", "validity"];
+const APPLIES_TO_VALUES: MembershipAppliesTo[] = ["services", "products", "both"];
+
+const toPricingType = (value: unknown): MembershipPricingType | undefined => {
+  const text = toSafeString(value);
+  return PRICING_TYPES.find((type) => type === text);
+};
+
+const toBenefitType = (value: unknown): MembershipBenefitType | undefined => {
+  const text = toSafeString(value);
+  return BENEFIT_TYPES.find((type) => type === text);
+};
+
+const toAppliesTo = (value: unknown): MembershipAppliesTo | undefined => {
+  const text = toSafeString(value);
+  return APPLIES_TO_VALUES.find((type) => type === text);
+};
+
+/**
+ * Restriction id arrays arrive as a JSONB array, or NULL when the plan is
+ * unrestricted on that side. An empty array is kept distinct from "absent":
+ * the backend only touches columns whose key is present in the body, so the
+ * form has to be able to send an explicit "no restriction".
+ */
+const toIdList = (value: unknown): string[] | undefined => {
+  if (!Array.isArray(value)) return undefined;
+
+  return value.map((item) => toSafeString(item)).filter(Boolean);
+};
+
+/** A loyalty ladder, sorted ascending by threshold — the order tiers unlock in. */
+const toLoyaltyTiers = (value: unknown): LoyaltyTier[] | undefined => {
+  if (!Array.isArray(value)) return undefined;
+
+  const tiers = value.filter(isRecord).map((tier) => ({
+    discountPercent: toSafeNumber(tier.discountPercent ?? tier.discount_percent),
+    thresholdValue: toSafeNumber(tier.thresholdValue ?? tier.threshold_value),
+  }));
+
+  return tiers.length > 0 ? tiers.sort((a, b) => a.thresholdValue - b.thresholdValue) : undefined;
+};
+
 const normalizeIncludedService = (service: IncludedService): IncludedService => ({
   serviceId: toSafeString(service.serviceId),
   serviceName: toSafeString(service.serviceName),
@@ -138,11 +185,35 @@ const normalizeMembership = (raw: Membership | MembershipRow): Membership => {
       ? { taxRate: toOptionalNumber(record.taxRate ?? record.tax_rate) }
       : {}),
     colour: toSafeString(record.colour),
-    ...(toOptionalString(record.pricingType ?? record.pricing_type)
-      ? { pricingType: toOptionalString(record.pricingType ?? record.pricing_type) }
+    ...(toPricingType(record.pricingType ?? record.pricing_type)
+      ? { pricingType: toPricingType(record.pricingType ?? record.pricing_type) }
       : {}),
-    ...(toOptionalString(record.appliesTo ?? record.applies_to)
-      ? { appliesTo: toOptionalString(record.appliesTo ?? record.applies_to) }
+    ...(toOptionalNumber(record.discountPercent ?? record.discount_percent) !== undefined
+      ? { discountPercent: toOptionalNumber(record.discountPercent ?? record.discount_percent) }
+      : {}),
+    ...(toBenefitType(record.benefitType ?? record.benefit_type)
+      ? { benefitType: toBenefitType(record.benefitType ?? record.benefit_type) }
+      : {}),
+    ...(toOptionalNumber(record.discountBalance ?? record.discount_balance) !== undefined
+      ? { discountBalance: toOptionalNumber(record.discountBalance ?? record.discount_balance) }
+      : {}),
+    ...(toLoyaltyTiers(record.loyaltyTiers ?? record.loyalty_tiers)
+      ? { loyaltyTiers: toLoyaltyTiers(record.loyaltyTiers ?? record.loyalty_tiers) }
+      : {}),
+    ...(toAppliesTo(record.appliesTo ?? record.applies_to)
+      ? { appliesTo: toAppliesTo(record.appliesTo ?? record.applies_to) }
+      : {}),
+    ...(toIdList(record.serviceCategoryIds ?? record.service_category_ids)
+      ? { serviceCategoryIds: toIdList(record.serviceCategoryIds ?? record.service_category_ids) }
+      : {}),
+    ...(toIdList(record.productCategoryIds ?? record.product_category_ids)
+      ? { productCategoryIds: toIdList(record.productCategoryIds ?? record.product_category_ids) }
+      : {}),
+    ...(toIdList(record.serviceIds ?? record.service_ids)
+      ? { serviceIds: toIdList(record.serviceIds ?? record.service_ids) }
+      : {}),
+    ...(toIdList(record.productIds ?? record.product_ids)
+      ? { productIds: toIdList(record.productIds ?? record.product_ids) }
       : {}),
     enableOnlineSales: toSafeBoolean(record.enableOnlineSales ?? record.enable_online_sales),
     enableOnlineRedemption: toSafeBoolean(record.enableOnlineRedemption ?? record.enable_online_redemption),
