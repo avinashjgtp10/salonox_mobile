@@ -92,7 +92,7 @@ export function ScreenShell({
 
   const screen = (
     <SafeAreaView edges={safeAreaEdges} style={[styles.safeArea, topSurfaceColor ? { backgroundColor: topSurfaceColor } : undefined]}>
-      <AppStatusBar backgroundColor={topSurfaceColor} />
+      <AppStatusBar />
       {scrollable ? (
         <RefreshViewport><TourScrollView
           contentContainerStyle={[styles.content, contentStyle, { paddingBottom: contentBottomPadding }]}

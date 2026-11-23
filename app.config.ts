@@ -121,13 +121,15 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         foregroundImage: adaptiveIconForeground,
         backgroundImage: "./assets/images/android-launcher-background.png",
       },
-      // Edge-to-edge (SDK 54 default) makes the 3-button nav bar transparent
-      // and ignores navigationBarColor, so app content slides under it. Turn
-      // it off so the nav bar gets a solid themed background and content
-      // stays fully above it. Gesture-nav devices have no bar either way.
-      // Expo's type pins this to `true` (opt-in only); the runtime still
-      // honours `false` to leave edge-to-edge off.
-      edgeToEdgeEnabled: false as unknown as true,
+      // Edge-to-edge (SDK 54 default) must stay ON. Turning it off made
+      // Android reserve opaque status/navigation bars painted with the flat
+      // theme colour (#F6F7FA), which does not match the Pearl gradient — so
+      // release builds showed a pale strip under the tab bar and an unmerged
+      // band behind the status bar, while dev clients (built before the flag)
+      // looked correct. The tab bar already offsets itself by
+      // insets.bottom (AppTabLayout) and screens use SafeAreaView/
+      // useSafeAreaInsets, so content stays clear of both bars.
+      // Android 15+ forces edge-to-edge for targetSdk 35+ regardless.
       predictiveBackGestureEnabled: false,
       softwareKeyboardLayoutMode: "resize",
       permissions: [
