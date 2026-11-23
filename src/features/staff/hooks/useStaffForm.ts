@@ -49,7 +49,9 @@ const EMPTY_STAFF_FORM: StaffProfileFormValues = {
   payType: "",
   startTime: "",
   endTime: "",
-  isLoginEnabled: true,
+  // App login is optional: a staff member can be created with no credentials
+  // at all (the backend accepts a staff row with no email). The admin opts in.
+  isLoginEnabled: false,
   joiningDate: "",
   notes: "",
   password: "",

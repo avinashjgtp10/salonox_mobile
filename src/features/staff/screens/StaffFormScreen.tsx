@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, createRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, createRef } from "react";
 import { Keyboard, Switch, TouchableOpacity, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams, type Href } from "expo-router";
@@ -17,6 +17,7 @@ import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { pearl } from "@/components/auth/pearl/tokens";
 import { appAlert as Alert } from "@/services/appAlert";
 import { getApiErrorMessage } from "@/services/api";
+import { authService } from "@/services/authService";
 import { useValidationScroll } from "@/hooks/useValidationScroll";
 import { STAFF_ROLE_OPTIONS } from "../validation/staff.validation";
 import { useStaffForm } from "../hooks/useStaffForm";
@@ -143,6 +144,68 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
       null,
     );
   const [permissionOverrides, setPermissionOverrides] = useState<Record<string, boolean>>({});
+  // ── Login email verification ──────────────────────────────────────────────
+  // Mirrors the web Add Staff page: with login on, the address is proved by a
+  // one-time code before it can be saved as a way into the salon's account.
+  // An address already on file counts as proved; editing it needs a new code.
+  const [emailOtp, setEmailOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpBusy, setOtpBusy] = useState(false);
+  const [otpMessage, setOtpMessage] = useState("");
+  const [otpError, setOtpError] = useState("");
+  const verifiedEmail = useRef("");
+  const loginEmail = form.values.email.trim();
+  const needsEmailOtp =
+    form.values.isLoginEnabled && loginEmail !== "" && loginEmail !== verifiedEmail.current;
+  const savedEmail = form.staffMember?.email;
+  useEffect(() => {
+    if (mode === "edit" && savedEmail && savedEmail !== "-") {
+      verifiedEmail.current = savedEmail;
+    }
+  }, [mode, savedEmail]);
+  const resetOtp = useCallback(() => {
+    setEmailOtp("");
+    setOtpSent(false);
+    setOtpBusy(false);
+    setOtpMessage("");
+    setOtpError("");
+  }, []);
+  const sendLoginOtp = async () => {
+    if (!loginEmail || otpBusy) return;
+    setOtpBusy(true);
+    setOtpError("");
+    setOtpMessage("");
+    try {
+      const result = await authService.sendEmailOtp({ email: loginEmail });
+      setOtpSent(true);
+      setOtpMessage(result.message);
+    } catch (e) {
+      setOtpError(getApiErrorMessage(e));
+    } finally {
+      setOtpBusy(false);
+    }
+  };
+  const verifyLoginOtp = async () => {
+    const code = emailOtp.trim();
+    if (!code || otpBusy) {
+      if (!code) setOtpError("Enter the code we sent.");
+      return;
+    }
+    setOtpBusy(true);
+    setOtpError("");
+    try {
+      await authService.verifyEmailOtp({ email: loginEmail, otp: code });
+      verifiedEmail.current = loginEmail;
+      setOtpMessage("Login email verified.");
+      setOtpSent(false);
+      setEmailOtp("");
+      setStepError("");
+    } catch (e) {
+      setOtpError(getApiErrorMessage(e));
+    } finally {
+      setOtpBusy(false);
+    }
+  };
   const [permissionsReady, setPermissionsReady] = useState(false);
   const { scrollToFirstError, scrollViewRef, setFieldRef } =
     useValidationScroll(VALIDATION_FIELD_ORDER);
@@ -364,6 +427,17 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
     setStep(step + 1);
   };
   const submit = () => {
+    // The login email has to be proved before it becomes a way in, same as the
+    // web's Add Staff page. Only when login is on and the address has changed.
+    if (needsEmailOtp) {
+      setStep(1);
+      setStepError(
+        otpSent
+          ? "Enter the code sent to the login email to verify it."
+          : "Verify the login email before saving.",
+      );
+      return;
+    }
     const errors = Object.keys(
       form.allValidationErrors,
     ) as (keyof StaffProfileFormValues)[];
@@ -546,23 +620,84 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
             ) : null}
             {step === 1 ? (
               <>
-                <View style={staffUi.formCard}>
-                  <Text translate style={staffUi.heading}>Access level</Text>
-                  <View style={staffUi.tabs}>
-                    {STAFF_ROLE_OPTIONS.map(role => <TouchableOpacity key={role} disabled={form.submitting} onPress={() => { setPermissionOverrides({}); form.updateField("roleLevel", role); }} style={[staffUi.tab, role === form.values.roleLevel && { backgroundColor: pearl.glassStrong }]}><Text style={staffUi.rowTitle}>{role}</Text></TouchableOpacity>)}
-                  </View>
-                  <Text translate style={staffUi.muted}>Managers can see reports and edit bookings for everyone.</Text>
-                </View>
-                <StaffFormPermissions disabled={form.submitting} role={form.values.roleLevel || "Staff"} staffId={form.values.roleLevel === (form.staffMember?.permissionLevel?.toLowerCase() === "manager" ? "Manager" : "Staff") ? staffId : null} overrides={permissionOverrides} onChange={setPermissionOverrides} onReady={setPermissionsReady} />
+                {/* App login leads this step: whether this person can sign in
+                    at all decides whether the rest of the step even matters. */}
                 <View style={staffUi.formCard}>
                   <Text translate style={staffUi.heading}>App login</Text>
-                  {mode === "edit" ? <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                    <Text translate style={[staffUi.rowTitle, { flex: 1 }]}>Set a new password</Text>
-                    <Switch value={form.values.isLoginEnabled} onValueChange={value => form.updateField("isLoginEnabled", value)} disabled={form.submitting} />
-                  </View> : null}
-                  {(mode === "create" || form.values.isLoginEnabled) ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text translate style={staffUi.rowTitle}>
+                        {mode === "edit" ? "Set a new password" : "Allow this staff member to sign in"}
+                      </Text>
+                      <Text translate style={staffUi.muted}>
+                        {mode === "edit"
+                          ? "Their current login stays as it is unless you set a new one here."
+                          : "Optional. Leave it off to save their details without login access."}
+                      </Text>
+                    </View>
+                    <Switch
+                      value={form.values.isLoginEnabled}
+                      onValueChange={value => {
+                        form.updateField("isLoginEnabled", value);
+                        if (!value) resetOtp();
+                      }}
+                      disabled={form.submitting}
+                    />
+                  </View>
+                  {form.values.isLoginEnabled ? (
                     <>
                       {field("email", "Login email *", "Email address")}
+                      {needsEmailOtp ? (
+                        <>
+                          <Text translate style={staffUi.muted}>
+                            Verify this address with a one-time code before saving.
+                          </Text>
+                          {otpSent ? (
+                            <>
+                              <TextInput
+                                accessibilityLabel="Verification code"
+                                keyboardType="number-pad"
+                                maxLength={6}
+                                onChangeText={setEmailOtp}
+                                placeholder="6-digit code"
+                                placeholderTextColor={pearl.placeholder}
+                                style={staffUi.input}
+                                value={emailOtp}
+                              />
+                              <View style={{ flexDirection: "row", gap: 12 }}>
+                                <View style={{ flex: 1 }}>
+                                  <StaffButton
+                                    disabled={otpBusy || form.submitting}
+                                    label={otpBusy ? "Verifying…" : "Verify code"}
+                                    onPress={() => void verifyLoginOtp()}
+                                  />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                  <StaffButton
+                                    secondary
+                                    disabled={otpBusy || form.submitting}
+                                    label="Resend"
+                                    onPress={() => void sendLoginOtp()}
+                                  />
+                                </View>
+                              </View>
+                            </>
+                          ) : (
+                            <StaffButton
+                              secondary
+                              disabled={otpBusy || form.submitting || !loginEmail || !!form.allValidationErrors.email}
+                              label={otpBusy ? "Sending…" : "Send verification code"}
+                              onPress={() => void sendLoginOtp()}
+                            />
+                          )}
+                        </>
+                      ) : loginEmail ? (
+                        <Text translate style={staffUi.muted}>Login email verified.</Text>
+                      ) : null}
+                      {otpMessage ? <Text style={staffUi.muted}>{otpMessage}</Text> : null}
+                      {otpError ? (
+                        <Text accessibilityRole="alert" style={staffUi.error}>{otpError}</Text>
+                      ) : null}
                       <PasswordField
                         pearlStyle
                         label="Password *"
@@ -571,18 +706,14 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
                           setFieldRef("password", input);
                         }}
                         value={form.values.password}
-                        onChangeText={(value) =>
-                          form.updateField("password", value)
-                        }
+                        onChangeText={(value) => form.updateField("password", value)}
                         placeholder="At least 8 characters"
                         error={form.validationErrors.password || (stepError ? form.allValidationErrors.password : undefined)}
                         autoComplete="off"
                         importantForAutofill="no"
                         returnKeyType="next"
                         submitBehavior="submit"
-                        onSubmitEditing={() =>
-                          refs.confirmPassword.current?.focus()
-                        }
+                        onSubmitEditing={() => refs.confirmPassword.current?.focus()}
                       />
                       <PasswordField
                         pearlStyle
@@ -592,9 +723,7 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
                           setFieldRef("confirmPassword", input);
                         }}
                         value={form.values.confirmPassword}
-                        onChangeText={(value) =>
-                          form.updateField("confirmPassword", value)
-                        }
+                        onChangeText={(value) => form.updateField("confirmPassword", value)}
                         error={form.validationErrors.confirmPassword || (stepError ? form.allValidationErrors.confirmPassword : undefined)}
                         autoComplete="off"
                         importantForAutofill="no"
@@ -607,6 +736,14 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
                     </>
                   ) : null}
                 </View>
+                <View style={staffUi.formCard}>
+                  <Text translate style={staffUi.heading}>Access level</Text>
+                  <View style={staffUi.tabs}>
+                    {STAFF_ROLE_OPTIONS.map(role => <TouchableOpacity key={role} disabled={form.submitting} onPress={() => { setPermissionOverrides({}); form.updateField("roleLevel", role); }} style={[staffUi.tab, role === form.values.roleLevel && { backgroundColor: pearl.glassStrong }]}><Text style={staffUi.rowTitle}>{role}</Text></TouchableOpacity>)}
+                  </View>
+                  <Text translate style={staffUi.muted}>Managers can see reports and edit bookings for everyone.</Text>
+                </View>
+                <StaffFormPermissions notice={form.values.isLoginEnabled ? undefined : "Turn on app login above first — permissions only apply to staff who can sign in."} disabled={form.submitting || !form.values.isLoginEnabled} role={form.values.roleLevel || "Staff"} staffId={form.values.roleLevel === (form.staffMember?.permissionLevel?.toLowerCase() === "manager" ? "Manager" : "Staff") ? staffId : null} overrides={permissionOverrides} onChange={setPermissionOverrides} onReady={setPermissionsReady} />
               </>
             ) : null}
             {stepError || form.error ? (
