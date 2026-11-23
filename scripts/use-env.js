@@ -34,11 +34,23 @@ const managedKeys = new Set([
   "EXPO_PUBLIC_SOCKET_URL",
   "EXPO_PUBLIC_WEB_REGISTRATION_URL",
 ]);
+// Keys the chosen .env.<name> already defines. Anything it carries must not be
+// preserved from the old .env.local as well, or every run appends a second copy
+// on top of the template's own — which is how .env.local grew to 87 identical
+// Google client-ID blocks. Comment and blank lines are never preserved for the
+// same reason: they belong to the template, which re-emits them each run.
+const sourceKeys = new Set(
+  source
+    .split(/\r?\n/)
+    .map((line) => line.split("=")[0]?.trim())
+    .filter((key) => key && !key.startsWith("#")),
+);
 const preservedLines = existing
   .split(/\r?\n/)
   .filter((line) => {
+    if (!line.trim() || line.trim().startsWith("#")) return false;
     const key = line.split("=")[0]?.trim();
-    return key && !managedKeys.has(key);
+    return key && line.includes("=") && !managedKeys.has(key) && !sourceKeys.has(key);
   });
 
 const nextEnv = [

@@ -114,7 +114,7 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
     : TIME_OPTIONS;
   return (
     <PearlBackground><SafeAreaView edges={embedded ? [] : ["top"]} style={[styles.safeArea, styles.bookingScreen]}>
-      {embedded ? null : <AppStatusBar backgroundColor="transparent" />}
+      {embedded ? null : <AppStatusBar />}
       <ServiceCatalogPicker
         error={serviceCatalogError}
         initialTab={pickerTab}

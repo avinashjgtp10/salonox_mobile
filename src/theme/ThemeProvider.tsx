@@ -69,8 +69,9 @@ export function ThemeProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (Platform.OS === "android") {
+      // Only the icon/button style: under edge-to-edge the navigation bar is
+      // transparent and setBackgroundColorAsync is a no-op that warns.
       NavigationBar.setStyle(scheme === "dark" ? "light" : "dark");
-      NavigationBar.setBackgroundColorAsync(colors.bg).catch(() => {});
     }
 
     SystemUI.setBackgroundColorAsync(colors.bg).catch(() => {});

@@ -45,6 +45,16 @@ export function StaffPermissionsScreen() {
     [saving, setSaving] = useState(false),
     [error, setError] = useState("");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  // Optimistic values for the switches currently being saved. The Switch is a
+  // controlled component reading `effective`, which only ever held server
+  // state — so a tap animated the switch across, the immediate re-render snapped
+  // it back to its old value, and the server response flipped it again once the
+  // request landed. That three-step flicker is what reads as the toggle
+  // "dancing". Holding the intended value here until the response arrives keeps
+  // the switch where the user put it.
+  const [pending, setPending] = useState<Record<string, boolean>>({});
+  const [changingRole, setChangingRole] = useState(false);
+  const [managerIds, setManagerIds] = useState<string[]>([]);
   const request = useRef(0);
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
@@ -70,6 +80,9 @@ export function StaffPermissionsScreen() {
       ]);
       setCatalog(permissions);
       setStaff(members);
+      // Not fatal: without it the Manager pill stays tappable and the backend
+      // still rejects a second Manager with its own message.
+      setManagerIds(await staffPermissionsService.managerIds().catch(() => []));
     } catch (e) {
       setError(getApiErrorMessage(e));
     } finally {
@@ -83,6 +96,7 @@ export function StaffPermissionsScreen() {
     const generation = ++request.current;
     setView(null);
     setExpanded({});
+    setPending({});
     if (!selected) return;
     setLoadingPermissions(true);
     setError("");
@@ -102,33 +116,85 @@ export function StaffPermissionsScreen() {
     };
   }, [selected]);
   const effective = useMemo(
-    () =>
-      Object.fromEntries(
+    () => ({
+      ...Object.fromEntries(
         view?.permissions.map((p) => [p.key, p.effective]) ?? [],
       ),
-    [view],
+      ...pending,
+    }),
+    [view, pending],
   );
-  const save = async (key: string, enabled: boolean) => {
-    if (!selected || !view || saving) return;
+  const saveOverrides = async (overrides: Record<string, boolean>) => {
+    if (!selected || !view || saving || !Object.keys(overrides).length) return;
     const staffId = selected;
     setSaving(true);
     setError("");
-    const keys = enabled
-      ? cascadeOnKeys(catalog, key)
-      : cascadeOffKeys(catalog, key);
-    keys.add(key);
+    // Show the new values straight away; the response replaces them, and a
+    // failure drops them so the switches fall back to the server's answer.
+    setPending((current) => ({ ...current, ...overrides }));
     try {
-      const result = await staffPermissionsService.save(
-        staffId,
-        Object.fromEntries([...keys].map((k) => [k, enabled])),
-      );
-      if (selectedRef.current === staffId) setView(result);
+      const result = await staffPermissionsService.save(staffId, overrides);
+      if (selectedRef.current === staffId) {
+        setView(result);
+        setPending({});
+      }
     } catch (e) {
-      if (selectedRef.current === staffId) setError(getApiErrorMessage(e));
+      if (selectedRef.current === staffId) {
+        setError(getApiErrorMessage(e));
+        setPending({});
+      }
     } finally {
       setSaving(false);
     }
   };
+  /** Every key `permissions` turns on/off with itself, as one save payload. */
+  const bulkOverrides = (permissions: StaffPermission[], enabled: boolean) => {
+    const overrides: Record<string, boolean> = {};
+    for (const permission of permissions) {
+      overrides[permission.key] = enabled;
+      const related = enabled
+        ? cascadeOnKeys(catalog, permission.key)
+        : cascadeOffKeys(catalog, permission.key);
+      for (const key of related) overrides[key] = enabled;
+    }
+    return overrides;
+  };
+  const changeRole = async (roleName: "Staff" | "Manager") => {
+    if (!selected || saving || changingRole || view?.role?.name === roleName) return;
+    const staffId = selected;
+    setChangingRole(true);
+    setError("");
+    try {
+      const result = await staffPermissionsService.assignNamedRole(staffId, roleName);
+      const owners = await staffPermissionsService.managerIds().catch(() => null);
+      if (selectedRef.current === staffId) {
+        setView(result);
+        setPending({});
+        // Keeps the Manager pill correct for every other staff member in the
+        // list now that this one has taken or released the role.
+        if (owners) setManagerIds(owners);
+      }
+    } catch (e) {
+      if (selectedRef.current === staffId) setError(getApiErrorMessage(e));
+    } finally {
+      setChangingRole(false);
+    }
+  };
+  const save = (key: string, enabled: boolean) => {
+    const keys = enabled
+      ? cascadeOnKeys(catalog, key)
+      : cascadeOffKeys(catalog, key);
+    keys.add(key);
+    return saveOverrides(
+      Object.fromEntries([...keys].map((k) => [k, enabled])),
+    );
+  };
+  // Master switch, like the web role editor's: every permission on or off in a
+  // single call. Running the cascade per key also pulls in prerequisites that
+  // this screen hides from the catalog (view_sales and friends), so nothing is
+  // left granted-but-unreachable.
+  const allOn =
+    catalog.length > 0 && catalog.every((p) => effective[p.key] === true);
   const modules = sortModuleNames(
     [...new Set(catalog.map((p) => p.module))],
     (name) => name,
@@ -245,6 +311,103 @@ export function StaffPermissionsScreen() {
                         <Text style={staffUi.label}>
                           Assigned role: {view.role?.name ?? "No role assigned"}
                         </Text>
+                        {/* Role switcher, same two roles the web's Role:
+                            dropdown offers. Switching reassigns the staff
+                            member's role; their individual overrides stay and
+                            keep overriding whatever the new role grants. */}
+                        <View style={{ flexDirection: "row", gap: 8 }}>
+                          {(["Staff", "Manager"] as const).map((roleName) => {
+                            const active = view.role?.name === roleName;
+                            // One Manager per salon: blocked when somebody else
+                            // already holds it.
+                            const takenByOther =
+                              roleName === "Manager" &&
+                              managerIds.some((id) => id !== m.id);
+                            return (
+                              <TouchableOpacity
+                                accessibilityRole="button"
+                                accessibilityState={{
+                                  disabled: takenByOther,
+                                  selected: active,
+                                }}
+                                disabled={saving || changingRole || active || takenByOther}
+                                key={roleName}
+                                onPress={() => void changeRole(roleName)}
+                                style={{
+                                  backgroundColor: active ? pearl.accent : "transparent",
+                                  borderColor: active ? pearl.accent : pearl.divider,
+                                  borderRadius: 999,
+                                  borderWidth: 1,
+                                  opacity: changingRole || takenByOther ? 0.5 : 1,
+                                  paddingHorizontal: 16,
+                                  paddingVertical: 7,
+                                }}
+                              >
+                                <Text
+                                  translate
+                                  style={{
+                                    color: active ? "#FFFFFF" : pearl.muted,
+                                    fontWeight: "600",
+                                  }}
+                                >
+                                  {roleName}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                        {managerIds.length > 0 && !managerIds.includes(m.id) ? (
+                          <Text translate style={staffUi.muted}>
+                            Only one Manager is allowed per salon. Change the
+                            current Manager first.
+                          </Text>
+                        ) : null}
+                        {/* Above the module list, not below it: at the bottom
+                            of ~390 rows the save status was off screen while
+                            the switch the user just tapped was in view. */}
+                        {saving || changingRole ? (
+                          <View
+                            accessibilityRole="progressbar"
+                            style={{
+                              alignItems: "center",
+                              flexDirection: "row",
+                              gap: 8,
+                            }}
+                          >
+                            <ActivityIndicator />
+                            <Text style={staffUi.muted}>
+                              {changingRole
+                                ? `Updating role for ${member?.name}…`
+                                : `Saving permissions for ${member?.name}…`}
+                            </Text>
+                          </View>
+                        ) : null}
+                        <View
+                          style={[staffUi.menuRow, { borderBottomWidth: 0 }]}
+                        >
+                          <View style={{ flex: 1 }}>
+                            <Text translate style={staffUi.rowTitle}>
+                              All permissions
+                            </Text>
+                            <Text translate style={staffUi.muted}>
+                              Turn every permission for this staff member on or
+                              off at once.
+                            </Text>
+                          </View>
+                          <Switch
+                            accessibilityLabel="Toggle all permissions"
+                            disabled={saving || catalog.length === 0}
+                            value={allOn}
+                            onValueChange={(value) =>
+                              void saveOverrides(bulkOverrides(catalog, value))
+                            }
+                            thumbColor="#FFFFFF"
+                            trackColor={{
+                              false: pearl.divider,
+                              true: pearl.accent,
+                            }}
+                          />
+                        </View>
                         {modules.map((module) => {
                           const permissions = catalog.filter(
                             (p) => p.module === module,
@@ -256,17 +419,30 @@ export function StaffPermissionsScreen() {
                           );
                           return (
                             <View key={module} style={staffUi.card}>
-                              <TouchableOpacity
-                                accessibilityRole="button"
-                                accessibilityState={{
-                                  expanded: !!expanded[module],
-                                }}
-                                onPress={() => toggle(module)}
+                              {/* The expander and the module switch are
+                                  siblings, not nested: with the Switch inside
+                                  the TouchableOpacity, a tap on or near the
+                                  switch bubbled up and expanded/collapsed the
+                                  module instead of toggling it. */}
+                              <View
                                 style={[
                                   staffUi.menuRow,
                                   { borderBottomWidth: 0 },
                                 ]}
                               >
+                                <TouchableOpacity
+                                  accessibilityRole="button"
+                                  accessibilityState={{
+                                    expanded: !!expanded[module],
+                                  }}
+                                  onPress={() => toggle(module)}
+                                  style={{
+                                    alignItems: "center",
+                                    flex: 1,
+                                    flexDirection: "row",
+                                    gap: 8,
+                                  }}
+                                >
                                 <Text style={[staffUi.rowTitle, { flex: 1 }]}>
                                   {module}
                                 </Text>
@@ -286,7 +462,30 @@ export function StaffPermissionsScreen() {
                                   size={16}
                                   color={pearl.muted}
                                 />
-                              </TouchableOpacity>
+                                </TouchableOpacity>
+                                <Switch
+                                  accessibilityLabel={
+                                    "Toggle all " + module + " permissions"
+                                  }
+                                  disabled={saving || !permissions.length}
+                                  value={
+                                    permissions.length > 0 &&
+                                    permissions.every(
+                                      (p) => effective[p.key] === true,
+                                    )
+                                  }
+                                  onValueChange={(value) =>
+                                    void saveOverrides(
+                                      bulkOverrides(permissions, value),
+                                    )
+                                  }
+                                  thumbColor="#FFFFFF"
+                                  trackColor={{
+                                    false: pearl.divider,
+                                    true: pearl.accent,
+                                  }}
+                                />
+                              </View>
                               {expanded[module]
                                 ? groups.length > 1
                                   ? groups.map((group) => {
@@ -333,11 +532,6 @@ export function StaffPermissionsScreen() {
                             </View>
                           );
                         })}
-                        {saving ? (
-                          <Text style={staffUi.muted}>
-                            Saving permissions for {member?.name}…
-                          </Text>
-                        ) : null}
                       </>
                     ) : null}
                   </View>

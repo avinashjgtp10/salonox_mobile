@@ -1,4 +1,5 @@
 import { api } from "@/services/api";
+import { USER } from "@/services/api/endpoints/user.endpoints";
 import type { ApiResponse } from "@/types/auth";
 export type StaffPermission = {
   key: string;
@@ -72,6 +73,13 @@ export const staffPermissionsService = {
     >("/roles/" + encodeURIComponent(role.id));
     return res.data.data.permissions ?? {};
   },
+  // Ids of the staff who already hold the Manager role. The backend allows only
+  // one Manager per salon and rejects a second one on save, so the Role switcher
+  // reads this to grey the Manager option out up front instead.
+  async managerIds(): Promise<string[]> {
+    const res = await api.get<ApiResponse<{ manager_ids?: string[] }>>("/staff/manager-status");
+    return res.data.data.manager_ids ?? [];
+  },
   async assignNamedRole(staffId: string, name: "Staff" | "Manager") {
     const role = await this.findOrCreateNamedRole(name);
     const result = await api.patch<ApiResponse<StaffPermissionView>>(
@@ -85,7 +93,13 @@ export const staffPermissionsService = {
     const res =
       await api.get<
         ApiResponse<{ effective_permissions?: Record<string, boolean>; roleName?: string | null }>
-      >("/users/me");
+      // GET /users/me does not exist on the backend — only PATCH /users/me and
+      // POST /users/me/{avatar,change-password} do. A GET fell through to
+      // GET /users/:id with id="me", which is restricted to admin/salon_owner,
+      // so every staff member got 403 here. refresh() swallows the error, so a
+      // staff member's permission map stayed empty forever and no permission
+      // the owner granted ever reached the app. The real route is /users/profile.
+      >(USER.PROFILE);
     return { permissions: res.data.data.effective_permissions ?? {}, roleName: res.data.data.roleName ?? null };
   },
 };
