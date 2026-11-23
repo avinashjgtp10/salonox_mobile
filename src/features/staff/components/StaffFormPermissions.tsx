@@ -9,13 +9,15 @@ import { sortModuleNames, sortGroupNames } from "../utils/permissionModuleOrder"
 import { StaffButton, staffUi } from "./StaffPearl";
 import { pearl } from "@/components/auth/pearl/tokens";
 
-export function StaffFormPermissions({ role, staffId, overrides, onChange, onReady, disabled = false }: {
+export function StaffFormPermissions({ role, staffId, overrides, onChange, onReady, disabled = false, notice }: {
   role: "Staff" | "Manager";
   staffId?: string | null;
   overrides: Record<string, boolean>;
   onChange: (value: Record<string, boolean>) => void;
   onReady: (value: boolean) => void;
   disabled?: boolean;
+  /** Why the toggles are locked, shown in place of the usual hint. */
+  notice?: string;
 }) {
   const [catalog, setCatalog] = useState<StaffPermission[]>([]);
   const [effective, setEffective] = useState<Record<string, boolean>>({});
@@ -73,7 +75,11 @@ export function StaffFormPermissions({ role, staffId, overrides, onChange, onRea
   const modules = sortModuleNames([...new Set(catalog.map(permission => permission.module))], name => name);
   return <View style={staffUi.formCard}>
     <Text translate style={staffUi.heading}>Permissions</Text>
-    <Text translate style={staffUi.muted}>Choose what this staff member can access. Permissions save with the staff form.</Text>
+    {notice ? (
+      <Text translate accessibilityRole="alert" style={staffUi.error}>{notice}</Text>
+    ) : (
+      <Text translate style={staffUi.muted}>Choose what this staff member can access. Permissions save with the staff form.</Text>
+    )}
     {error ? <><Text style={staffUi.error}>{error}</Text><StaffButton secondary label="Retry" onPress={() => setRetry(n => n + 1)} /></> : null}
     {catalog.length === 0 && !error ? <Text translate style={staffUi.muted}>Loading permissions…</Text> : null}
     {modules.map(module => {
