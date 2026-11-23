@@ -1,6 +1,7 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 
+import type { BulkPreviousCheckOutRow } from "@/features/attendance/components/BulkPreviousCheckOutSheet";
 import type { StaffMember } from "@/data/teamData";
 import { findAttendanceRecordForStaff } from "@/features/attendance/utils/attendanceMatching";
 import { getTodayAttendanceDateKey } from "@/features/attendance/utils/attendanceStatus";
@@ -122,6 +123,27 @@ export const useAttendanceScreen = () => {
     [attendanceRecords, filteredStaffMembers, selectedDate, leaveStatus.approvedLeaves, leaveStatus.schedules],
   );
 
+  // Every earlier day still missing a check-out, across all staff, oldest
+  // first. Built from the unfiltered records on purpose: the owner's "Check
+  // out all previous days" action is about the whole salon, so a search typed
+  // into the list above must not quietly shrink what it will close.
+  const previousIncompleteRows = useMemo<BulkPreviousCheckOutRow[]>(
+    () =>
+      attendanceRecords
+        .flatMap((record) =>
+          (record.previousIncomplete ?? []).map((session) => ({
+            attendanceId: session.attendanceId,
+            checkIn: session.checkIn,
+            date: session.date,
+            openBreak: session.openBreak,
+            staffId: record.staffId,
+            staffName: record.staffName,
+          })),
+        )
+        .sort((a, b) => a.date.localeCompare(b.date) || a.staffName.localeCompare(b.staffName)),
+    [attendanceRecords],
+  );
+
   const isStaffBusy = useCallback(
     (staffId: string) => checkingInStaffIds.includes(staffId) || checkingOutStaffIds.includes(staffId),
     [checkingInStaffIds, checkingOutStaffIds],
@@ -138,6 +160,7 @@ export const useAttendanceScreen = () => {
     onSearchChange: setSearch,
     onSelectDate: setSelectedDate,
     onToday: () => setSelectedDate(getTodayAttendanceDateKey()),
+    previousIncompleteRows,
     recordsError: recordsError || (leaveStatus.error ? "Could not refresh staff leave or schedule status. Pull down to retry." : null),
     refresh,
     rows,
