@@ -257,7 +257,33 @@ export const normalizeAttendanceRecord = (entry: UnknownRecord): AttendanceRecor
     Math.max(0, totalSlots - jobsToday);
   const avatarTone = getAvatarTone(staffId);
 
+  // Earlier days this person checked in on and never checked out of. The owner's
+  // "Check out all previous days" action closes them; the web reads the same
+  // `previous_incomplete` array off this endpoint.
+  const previousIncompleteRaw = firstValue(entry, ["previousIncomplete", "previous_incomplete"]);
+  const previousIncomplete = Array.isArray(previousIncompleteRaw)
+    ? previousIncompleteRaw
+        .map((item) => {
+          const session = asRecord(item);
+          const attendanceId = toSafeString(firstValue(session, ["attendanceId", "attendance_id"]));
+          const checkIn = toSafeString(firstValue(session, ["checkIn", "check_in"]));
+          const date = toSafeString(firstValue(session, ["date"]));
+          if (!attendanceId || !checkIn || !date) return null;
+          const breakRecord = asRecord(firstValue(session, ["openBreak", "open_break"]));
+          const breakId = toSafeString(firstValue(breakRecord, ["id"]));
+          const breakStart = toSafeString(firstValue(breakRecord, ["actualStart", "actual_start"]));
+          return {
+            attendanceId,
+            checkIn,
+            date,
+            openBreak: breakId && breakStart ? { actualStart: breakStart, id: breakId } : null,
+          };
+        })
+        .filter((session): session is NonNullable<typeof session> => session !== null)
+    : [];
+
   return {
+    previousIncomplete,
     activity,
     avatarBg: avatarTone.background,
     avatarColor: avatarTone.color,
@@ -380,6 +406,15 @@ export const attendanceService = {
   async getSettings(): Promise<AttendanceSettings> {
     const response = await api.get<AttendanceSettingsApiResponse>(ATTENDANCE.SETTINGS);
     return normalizeAttendanceSettings(getSettingsFromEnvelope(response.data.data));
+  },
+  /**
+   * Closes one earlier day that has a check-in and no check-out, at the given
+   * time on that day's own date. Same endpoint and same server-side checks the
+   * web's Attendance page uses, so an unfinished break or a time before the
+   * check-in is rejected here too rather than forced through.
+   */
+  async completeCheckout(attendanceId: string, checkOutIso: string): Promise<void> {
+    await api.post(ATTENDANCE.COMPLETE_CHECKOUT(attendanceId), { check_out: checkOutIso });
   },
   async exportCSV(year: number, month: number): Promise<string> {
     const response = await api.get<string>(ATTENDANCE.EXPORT, { params: { year, month }, responseType: "text" });

@@ -19,7 +19,21 @@ export type AttendanceActionKind = "checkIn" | "checkOut" | "edit";
 
 export type ManualAttendanceStatus = "absent" | "halfDay" | "late" | "onLeave" | "present";
 
+/**
+ * An earlier day this staff member checked in on and never checked out of.
+ * Sent per staff member on /attendance/today as `previous_incomplete`; the
+ * owner's "Check out all previous days" action closes these.
+ */
+export type PreviousIncompleteSession = {
+  attendanceId: string;
+  checkIn: string;
+  date: string;
+  /** A break started that day and never ended — blocks an automatic checkout. */
+  openBreak: { actualStart: string; id: string } | null;
+};
+
 export type AttendanceRecord = {
+  previousIncomplete?: PreviousIncompleteSession[];
   onApprovedLeave?: boolean;
   /**
    * The staff member's schedule says they are not working today — a weekly off
