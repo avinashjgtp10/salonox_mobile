@@ -84,10 +84,10 @@ export default function DashboardScreen() {
   const dispatch = useAppDispatch();
   const { isAuthenticated, user } = useAuth();
   const didRunStartupFetchRef = useRef<string | null>(null);
-  const canLoadAttendance = canAccessBusinessModule(user, "view_staff", "view_attendance");
+  const canLoadAttendance = canAccessBusinessModule(user, "view_team", "view_attendance_list");
   const canLoadAppointments = canAccessBusinessModule(user, "view_dashboard_card_appointments", "view_appointment", "view_calendar");
   const canLoadInventory = canAccessBusinessModule(user, "view_inventory", "view_products");
-  const canLoadStaff = canAccessBusinessModule(user, "view_staff");
+  const canLoadStaff = canAccessBusinessModule(user, "view_team");
   const canLoadClients = canAccessBusinessModule(user, "view_clients");
   const [sheet, setSheet] = useState<Sheet>(null);
   const dashboardStatus = useAppSelector(selectDashboardStatus);
@@ -221,7 +221,7 @@ export default function DashboardScreen() {
             <View style={styles.bleed}><SpotlightAnnouncementCard /></View>
             <StatsRow />
             <View style={styles.qa}>
-              {QUICK_ACTIONS.filter(action => canAccessBusinessModule(user, ...(action.label === "Book" ? ["create_appointment"] : action.label === "Sale" ? ["access_quick_sale"] : action.label === "Client" ? ["create_clients", "add_client"] : ["view_cash_management"])) && (action.label !== "Expense" || canAccessBusinessModule(user, "add_expense"))).map(action => (
+              {QUICK_ACTIONS.filter(action => canAccessBusinessModule(user, ...(action.label === "Book" ? ["create_appointment"] : action.label === "Sale" ? ["create_sales"] : action.label === "Client" ? ["create_clients", "add_client"] : ["view_cash_management"])) && (action.label !== "Expense" || canAccessBusinessModule(user, "add_expense"))).map(action => (
                 <Pressable key={action.label} onPress={() => router.push(action.href)} style={styles.qaItem} accessibilityRole="button" accessibilityLabel={action.a11y}>
                   {({ pressed }) => (
                     <>
@@ -233,7 +233,7 @@ export default function DashboardScreen() {
               ))}
             </View>
             {canAccessBusinessModule(user, "view_dashboard_card_appointments", "view_appointment") && <NextAppointments refreshKey={refreshKey} />}
-            {canAccessBusinessModule(user, "view_staff", "view_attendance") && <StaffOnFloor />}
+            {canAccessBusinessModule(user, "view_team", "view_attendance_list") && <StaffOnFloor />}
           </>
         )}
       </Page>

@@ -140,9 +140,9 @@ export function StaffScheduleSection({ staffId }: StaffScheduleSectionProps) {
   const dispatch = useAppDispatch();
   const toast = useAppToast();
   const { can } = usePermissions();
-  // Owners/admins already pass can("edit_scheduled_shift"); non-privileged
+  // Owners/admins already pass can("manage_shifts"); non-privileged
   // viewers (e.g. a staff member with view-only access) see a read-only card.
-  const canEdit = can("edit_scheduled_shift");
+  const canEdit = can("manage_shifts");
   const schedule = useAppSelector((state) => selectStaffSchedule(state, staffId));
   const loaded = useAppSelector((state) => selectStaffScheduleLoaded(state, staffId));
   const loading = useAppSelector((state) => selectStaffScheduleLoading(state, staffId));

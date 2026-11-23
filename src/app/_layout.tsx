@@ -1,15 +1,13 @@
 import { canAccessLunox, hasBusinessDashboard } from "@/utils/staffExperience";
 import { RegionalPreferencesSync } from "@/localization/RegionalPreferencesSync";
-import { Text } from "@/components/ui/AppTypography";
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider, type Theme } from '@react-navigation/native';
 import { Stack, useNavigationContainerRef, usePathname, useRootNavigationState, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Provider } from 'react-redux';
-import { AppState, LogBox, Pressable, View } from "react-native";
+import { AppState, LogBox } from "react-native";
 import { PaperProvider } from 'react-native-paper';
-import { Portal } from '@/components/ui/Portal';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import SimpleSplash from '../components/simple-splash';
 import { AppToast } from '@/components/ui/AppToast';
@@ -252,19 +250,10 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
     user,
   ]);
 
-  if (isAuthenticated && subscriptionCheck.status === "error") {
-    return (
-      <Portal>
-        <View style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: '#FFFFFF', justifyContent: 'center', padding: 28, gap: 16 }}>
-          <Text translate accessibilityRole="header" style={{ fontSize: 20, fontWeight: '700', color: '#222222' }}>Unable to verify subscription</Text>
-          <Text translate style={{ fontSize: 16, color: '#555555' }}>We could not check your subscription right now. Please check your connection and try again.</Text>
-          <Pressable accessibilityRole="button" onPress={() => setSubscriptionRetry((value) => value + 1)} style={{ backgroundColor: '#AD568F', padding: 16, borderRadius: 12, alignItems: 'center' }}>
-            <Text translate style={{ color: '#FFFFFF', fontWeight: '700' }}>Try Again</Text>
-          </Pressable>
-        </View>
-      </Portal>
-    );
-  }
+  // A failed subscription check no longer blocks the app. The routing effect
+  // above already calls onReady() on "error", so the user carries on into the
+  // app, and the 15s retry timer keeps re-checking in the background — so a
+  // genuinely expired subscription still gates once the API answers again.
   return null;
 }
 
