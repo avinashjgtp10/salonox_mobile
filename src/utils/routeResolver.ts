@@ -18,10 +18,10 @@ const STAFF_QUICK_SALE_ROUTE = "quick-sale";
 export const isStaffBusinessTabAllowed = (tab: string | undefined, user?: AuthUser | null) => {
   if (!hasBusinessDashboard(user)) return false;
   if (!tab || ["dashboard", "more"].includes(tab)) return true;
-  if (tab === "quick-sale-action") return canAccessBusinessModule(user, "view_calendar") && canAccessBusinessModule(user, "access_quick_sale");
+  if (tab === "quick-sale-action") return canAccessBusinessModule(user, "view_calendar") && canAccessBusinessModule(user, "create_sales");
   const permissions: Record<string, string[]> = {
     calendar: ["view_calendar"],
-    whatsapp: ["view_inbox"], team: ["view_staff"],
+    whatsapp: ["view_inbox"], team: ["view_team"],
   };
   return permissions[tab]?.some(key => canAccessBusinessModule(user, key)) ?? false;
 };
@@ -32,16 +32,23 @@ export const isStaffAllowedRoute = (segment?: string | null, user?: AuthUser | n
   (segment === "(tabs)" && hasBusinessDashboard(user)) ||
   (hasBusinessDashboard(user) && Boolean(BUSINESS_ROUTE_PERMISSIONS[segment ?? ""]?.some(key => canAccessBusinessModule(user, key)))) ||
   (segment === "product-audits" && canViewProductAudit(user)) ||
-  (segment === STAFF_QUICK_SALE_ROUTE && canAccessBusinessModule(user, "access_quick_sale") && canAccessBusinessModule(user, "view_calendar"));
+  (segment === STAFF_QUICK_SALE_ROUTE && canAccessBusinessModule(user, "create_sales") && canAccessBusinessModule(user, "view_calendar"));
 
 const BUSINESS_ROUTE_PERMISSIONS: Record<string, string[]> = {
   expenses: ["view_cash_management"],
   clients: ["view_clients"], bookings: ["view_calendar", "view_appointment"], appointments: ["view_appointment"],
-  sales: ["view_sales", "access_quick_sale"], reports: ["view_reports"], catalog: ["view_services", "view_products", "view_memberships", "view_packages"],
+  sales: ["view_sales", "create_sales"], reports: ["view_reports"], catalog: ["view_services", "view_products", "view_memberships", "view_packages"],
   services: ["view_services"], stock: ["view_products", "view_inventory"], memberships: ["view_memberships"],
-  team: ["view_staff", "view_attendance", "view_commissions", "view_tips"], marketing: ["view_marketing_dashboard", "view_marketing_analytics"],
+  team: ["view_team", "view_attendance_list", "view_commissions", "view_tips"], marketing: ["view_marketing_dashboard", "view_marketing_analytics"],
   inbox: ["view_inbox"], "today-revenue": ["view_dashboard_card_today_revenue"], "monthly-revenue": ["view_dashboard_card_total_revenue"],
   "month-overview": ["view_dashboard_card_revenue_overview"],
+  // Screens that exist in the app but had no entry here, so the staff guard in
+  // app/_layout.tsx bounced every staff member away from them no matter which
+  // permission the owner granted (permission audit, 2026-11-23).
+  consumables: ["view_consumable_inventory", "view_inventory"],
+  packages: ["view_packages"],
+  users: ["view_team"],
+  "salon-settings": ["view_settings_business", "access_settings"],
 };
 
 export const isStaffExperienceUser = (user?: AuthUser | null) =>

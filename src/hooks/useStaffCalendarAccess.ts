@@ -20,7 +20,7 @@ export const useStaffCalendarAccess = () => {
 
     try {
       const { permissions, roleName } = await staffPermissionsService.ownAccess();
-      const calendarAccess = permissions.view_calendar === true && permissions.access_quick_sale === true;
+      const calendarAccess = permissions.view_calendar === true && permissions.create_sales === true;
       // Ignore the answer if the session changed while it was in flight.
       if (userIdRef.current !== startedUserId) return;
       await updateUser({ roleName, effective_permissions: permissions, custom_permissions: permissions, mobileCalendarAccess: calendarAccess });
