@@ -21,7 +21,7 @@ export const canReceivePush = (user: AuthUser | null | undefined, data: unknown)
 
 // Calendar Quick Sale follows the backend-resolved web permission map.
 export const canUseStaffQuickSale = (user: AuthUser | null | undefined) =>
-  Boolean(user && isStaffExperienceUser(user) && hasCustomPermission(user, "view_calendar") && hasCustomPermission(user, "access_quick_sale"));
+  Boolean(user && isStaffExperienceUser(user) && hasCustomPermission(user, "view_calendar") && hasCustomPermission(user, "create_sales"));
 
 // These operations remain subject to their individual backend permission checks.
 const STAFF_QUICK_SALE_WRITES: [method: string, path: RegExp][] = [

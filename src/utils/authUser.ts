@@ -109,7 +109,7 @@ export const normalizeAuthUser = (value: unknown): AuthUser => {
     // Must survive a save/load round trip: the staff write guard in
     // services/api reads the stored user, and dropping this flag made every
     // Calendar Quick Sale payment fail as "read-only".
-    mobileCalendarAccess: effective.view_calendar === true && effective.access_quick_sale === true,
+    mobileCalendarAccess: effective.view_calendar === true && effective.create_sales === true,
     mobileProductAuditAccess: effective.view_product_audit === true && effective.create_product_audit === true,
     mobileClientNameAccess: effective.view_clients === true,
     isOnboardingComplete: toOptionalBoolean(

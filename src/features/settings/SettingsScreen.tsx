@@ -270,7 +270,7 @@ export default function SettingsScreen() {
                 {(can("manage_payment_methods") || can("view_settings_payment_methods")) && (
                   <SettingsRow title="Payment methods" subtitle="Default & custom payment options" icon="card-outline" onPress={() => go("/payment-methods")} />
                 )}
-                {can("view_staff") && (
+                {can("view_team") && (
                 <SettingsRow
                   title="Staff & permissions"
                   subtitle="Roles, access"
@@ -288,7 +288,7 @@ export default function SettingsScreen() {
                   onPress={() => go("/team/commission-rules")}
                 />
               )}
-              {can("view_attendance") && (
+              {can("view_attendance_list") && (
                 <SettingsRow
                   title="Attendance"
                   subtitle="Rules, devices, export"
