@@ -64,6 +64,8 @@ export function StaffAttendanceCard({ compact = false }: { compact?: boolean }) 
   const p = usePearlPalette(), ui = useSettingsStyles();
   const [sheet, setSheet] = useState<"checkout" | "activity" | "break" | "pending" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Success confirmation after a checkout, shown on the card the sheet closes back to.
+  const [notice, setNotice] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 15_000); return () => clearInterval(timer); }, []);
@@ -91,6 +93,7 @@ export function StaffAttendanceCard({ compact = false }: { compact?: boolean }) 
 
   const punch = async (kind: "checkIn" | "checkOut") => {
     setError(null);
+    setNotice(null);
     try {
       if (kind === "checkOut") await attendance.checkOut(pending?.attendance_id);
       else await attendance.checkIn();
@@ -98,12 +101,30 @@ export function StaffAttendanceCard({ compact = false }: { compact?: boolean }) 
     } catch (failure) { setError(staffAttendanceErrorMessage(failure)); }
   };
 
+  // A day with no assigned schedule has no end time to check out at, so the
+  // backend rejects it with SCHEDULE_REQUIRED. Its loop is not transactional
+  // and only swallows ALREADY_CHECKED_OUT, so one such day aborted the whole
+  // batch — and "Check out all" sent every day, blocked ones included, which
+  // is why it never worked while any day was missing a schedule.
+  const checkableList = pendingList.filter(item => !(!!item.blocked_reason && !item.scheduled_end));
+  const blockedCount = pendingList.length - checkableList.length;
   const doBulkCheckOut = async () => {
     setError(null);
+    setNotice(null);
+    const ids = selectedIds.size > 0 ? [...selectedIds] : checkableList.map(r => r.attendance_id);
+    if (!ids.length) {
+      setError("These days have no assigned schedule, so they can't be checked out. Ask your manager to correct the schedule.");
+      return;
+    }
     try {
-      const ids = selectedIds.size > 0 ? [...selectedIds] : pendingList.map(r => r.attendance_id);
       await attendance.bulkCheckOut(ids);
-      setSheet(null); setSelectedIds(new Set());
+      setSheet(null);
+      setSelectedIds(new Set());
+      setNotice(
+        blockedCount > 0 && selectedIds.size === 0
+          ? `Checked out ${ids.length} day${ids.length > 1 ? "s" : ""}. ${blockedCount} still need${blockedCount > 1 ? "" : "s"} a schedule from your manager.`
+          : `Checked out ${ids.length} day${ids.length > 1 ? "s" : ""}.`,
+      );
     } catch (failure) { setError(staffAttendanceErrorMessage(failure)); }
   };
 
@@ -158,6 +179,7 @@ export function StaffAttendanceCard({ compact = false }: { compact?: boolean }) 
       {overdue && !hasPending && <Text style={ui.muted}>Your shift from {state?.date} is still open. Check out before starting a new shift.</Text>}
       <SettingsButton label={buttonLabel} secondary={working && !hasPending} loading={attendance.busy} disabled={!onBreak && hasPending && !!pending?.blocked_reason && pendingList.length === 1 || (finished && !state?.can_check_in && !hasPending)} onPress={action} />
       {hasPending && !onBreak && <SettingsButton label="Refresh attendance" secondary disabled={attendance.busy || attendance.refreshing} onPress={() => void attendance.refresh()} />}
+      {!!notice && !error && <Text accessibilityRole="alert" style={ui.muted}>{notice}</Text>}
       {!!(error || attendance.error) && <Text accessibilityRole="alert" style={ui.error}>{error || attendance.error}</Text>}
     </View>
 
@@ -182,7 +204,25 @@ export function StaffAttendanceCard({ compact = false }: { compact?: boolean }) 
           );
         })}
         {!!error && <Text style={ui.error}>{error}</Text>}
-        <SettingsButton label={selectedIds.size > 0 ? `Check out ${selectedIds.size} day${selectedIds.size > 1 ? "s" : ""}` : "Check out all"} loading={attendance.busy} onPress={() => void doBulkCheckOut()} />
+        {blockedCount > 0 && checkableList.length > 0 && selectedIds.size === 0 ? (
+          <Text translate style={ui.muted}>
+            Days without an assigned schedule are skipped — ask your manager to correct them.
+          </Text>
+        ) : null}
+        <SettingsButton
+          disabled={attendance.busy || (selectedIds.size === 0 && checkableList.length === 0)}
+          label={
+            selectedIds.size > 0
+              ? `Check out ${selectedIds.size} day${selectedIds.size > 1 ? "s" : ""}`
+              : checkableList.length === 0
+                ? "Nothing to check out"
+                : blockedCount > 0
+                  ? `Check out ${checkableList.length} day${checkableList.length > 1 ? "s" : ""}`
+                  : "Check out all"
+          }
+          loading={attendance.busy}
+          onPress={() => void doBulkCheckOut()}
+        />
         <TouchableOpacity disabled={attendance.busy} onPress={() => { setSheet(null); setSelectedIds(new Set()); }} style={{ alignItems: "center", padding: 12 }}>
           <Text translate style={{ color: p.accentDeep, fontWeight: "700" }}>Cancel</Text>
         </TouchableOpacity>

@@ -202,9 +202,21 @@ const getPayloadMessage = (payload?: ApiErrorPayload) => {
     return null;
   }
 
+  // The backend's error envelope is { error: { code, message, details } }
+  // (middleware/error.middleware.ts). Handing that object straight to
+  // formatValue joined EVERY value with a newline, so the machine-readable
+  // code was shown above the sentence — users saw "SCHEDULE_REQUIRED" on its
+  // own line. Read the human message out of it and leave the code to the
+  // `code` field on ApiError, which is where callers already look for it.
+  const errorEnvelope =
+    payload.error && typeof payload.error === "object" && !Array.isArray(payload.error)
+      ? (payload.error as { message?: unknown })
+      : null;
+
   return (
     getValidationDetailsMessage(payload) ??
     formatValue(payload.message) ??
+    (errorEnvelope ? formatValue(errorEnvelope.message) : null) ??
     formatValue(payload.error) ??
     formatValue(payload.errors)
   );

@@ -38,6 +38,7 @@ import {
 } from "../utils/attendanceStatus";
 import { AttendanceCheckModal } from "../components/AttendanceCheckModal";
 import { EditAttendanceModal } from "../components/EditAttendanceModal";
+import { BulkPreviousCheckOutSheet } from "../components/BulkPreviousCheckOutSheet";
 import { AttendanceToast } from "../components/AttendanceToast";
 import { AttendanceActivityDetails } from "../components/AttendanceActivityDetails";
 import { StaffWeeklyShiftsView } from "../components/StaffWeeklyShiftsView";
@@ -59,6 +60,7 @@ export default function AttendanceScreen() {
     onSearchChange,
     onSelectDate,
     onToday,
+    previousIncompleteRows,
     recordsError,
     rows,
     search,
@@ -76,6 +78,7 @@ export default function AttendanceScreen() {
   const [editStaffId, setEditStaffId] = useState<string | null>(null);
   const [checkModal, setCheckModal] = useState<CheckModalState>(null);
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
+  const [showBulkCheckout, setShowBulkCheckout] = useState(false);
   const selectedDateLabel = formatAttendanceDate(selectedDate);
 
   const modalRow =
@@ -304,6 +307,15 @@ export default function AttendanceScreen() {
         </TouchableOpacity>
         <StaffButton secondary label="Today" onPress={onToday} />
       </View>
+      {/* Owner-side bulk close for earlier days nobody checked out of, same as
+          the web Attendance page. Hidden when there is nothing to close. */}
+      {canManageAttendance && previousIncompleteRows.length > 0 ? (
+        <StaffButton
+          secondary
+          label={`Check out all previous days (${previousIncompleteRows.length})`}
+          onPress={() => setShowBulkCheckout(true)}
+        />
+      ) : null}
       {tabBar}
       {activeTab === "attendance" ? (
         <>
@@ -525,6 +537,12 @@ export default function AttendanceScreen() {
             onPress={() => setIsDatePickerVisible(false)}
           />
         </BottomSheet>
+        <BulkPreviousCheckOutSheet
+          rows={previousIncompleteRows}
+          visible={showBulkCheckout}
+          onClose={() => setShowBulkCheckout(false)}
+          onDone={() => { setShowBulkCheckout(false); void handlePullToRefresh(); }}
+        />
         <AttendanceToast />
       </SafeAreaView>
     </PearlBackground>
