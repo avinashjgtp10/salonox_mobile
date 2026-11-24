@@ -220,6 +220,26 @@ export const createSharedStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginBottom: Spacing.md,
     marginTop: Spacing.sm,
   },
+  addJobCardItemButton: {
+    alignItems: "center",
+    borderColor: Colors.heading,
+    borderRadius: AppRadius.pill,
+    borderStyle: "dashed",
+    borderWidth: 1,
+    marginTop: Spacing.sm,
+    paddingVertical: 12,
+  },
+  addJobCardItemLabel: {
+    color: Colors.heading,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  jobCardErrorText: {
+    color: "#B23A4D",
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: Spacing.sm,
+  },
   sectionTitle: {
     color: Colors.heading,
     fontSize: 17,
