@@ -1,7 +1,6 @@
 import { pearl } from "@/components/auth/pearl/tokens";
 import { StaffAttendanceContext } from "./StaffSelfAttendanceContext";
 import { StaffCheckInScreen } from "./StaffAttendanceExperience";
-import { hasBusinessDashboard } from "@/utils/staffExperience";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import NetInfo from "@react-native-community/netinfo";
 import { useAuth } from "@/context/AuthContext";
@@ -104,7 +103,11 @@ export function StaffAttendanceGate({ children }: { children: ReactNode }) {
       throw failure;
     } finally { punchLock.current = false; setBusy(false); }
   }, [identity]);
-  const locked = enabled && !hasBusinessDashboard(user) && !canUnlockStaffApp(state, now);
+  // Every staff account is gated until it punches in. Dashboard access is a
+  // permission, not an attendance exemption: gating this on hasBusinessDashboard
+  // let any staff member granted view_dashboard walk straight past check-in.
+  // Owners and admins never reach here at all - see `enabled` above.
+  const locked = enabled && !canUnlockStaffApp(state, now);
   // An unknown attendance state is not evidence that a check-in is required.
   const checkingAttendance = locked && !state && !error;
   return (
