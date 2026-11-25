@@ -181,6 +181,10 @@ export const useRedemptions = (clientId: string, salonId?: string | null) => {
             renewedAt: null,
             startsAt: record.purchasedAt,
             status: "active",
+            totalSessions: record.totalSessions,
+            // 0 total sessions is the server's marker for an unlimited plan.
+            unlimitedBenefits: record.totalSessions === 0,
+            usedSessions: record.usedSessions,
             walletBalance: record.membershipWalletBalance || null,
           }));
 

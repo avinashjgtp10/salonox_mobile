@@ -201,7 +201,7 @@ export function ClientSummaryCard({
                         {detailRow("Status", item.status || "—")}
                         {detailRow("Purchase Date", formatAppDate(item.purchasedAt ?? null) || "—")}
                         {detailRow("Expiry Date", formatAppDate(item.expiresAt ?? null) || "—")}
-                        {detailRow("Sessions", item.totalSessions > 0 ? `${item.remainingSessions}/${item.totalSessions} left` : "Unlimited")}
+                        {detailRow("Sessions", item.totalSessions > 0 ? `${item.usedSessions} used / ${item.totalSessions} total` : "Unlimited")}
                         {detailRow("Price", formatCurrency(item.pricePaid))}
                         {item.membershipWalletBalance > 0 ? detailRow("Balance Amount", formatCurrency(item.membershipWalletBalance)) : null}
                         {item.discountBalanceRemaining > 0 ? detailRow("Discount Left", formatCurrency(item.discountBalanceRemaining)) : null}

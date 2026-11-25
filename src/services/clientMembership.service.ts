@@ -151,11 +151,24 @@ const normalizeAssignment = (raw: AnyRecord): ClientMembershipAssignment => {
   const expiresAt = toNullableString(firstValue(raw, ["expiresAt", "expires_at", "expiryDate", "expiry_date", "endDate", "end_date"]));
   const benefitsRaw = firstValue(raw, ["benefits", "remainingBenefitsDetails", "remaining_benefits_details", "includedServices", "included_services"]);
   const benefits = Array.isArray(benefitsRaw) ? benefitsRaw.map(normalizeBenefit) : [];
-  const remainingBenefits =
-    toNullableNumber(firstValue(raw, ["remainingBenefits", "remaining_benefits", "remainingSessions", "remaining_sessions"])) ??
-    (benefits.length > 0
-      ? benefits.reduce((total, benefit) => total + Math.max(benefit.remaining ?? 0, 0), 0)
-      : null);
+  // total_sessions === 0 is how the server marks an unlimited plan, and it then
+  // reports the remaining count as the sentinel 9999 (see the backend's
+  // client-memberships.repository.ts: `total === 0 ? 9999 : total - used`).
+  // Dropping the count here keeps "9999 left" off every screen, while
+  // unlimitedBenefits carries the meaning so the UI can say "Unlimited".
+  const totalBenefits = toNullableNumber(
+    firstValue(raw, ["totalSessions", "total_sessions", "totalBenefits", "total_benefits"]),
+  );
+  const usedBenefits = toNullableNumber(
+    firstValue(raw, ["usedSessions", "used_sessions", "usedBenefits", "used_benefits"]),
+  );
+  const unlimitedBenefits = totalBenefits === 0;
+  const remainingBenefits = unlimitedBenefits
+    ? null
+    : toNullableNumber(firstValue(raw, ["remainingBenefits", "remaining_benefits", "remainingSessions", "remaining_sessions"])) ??
+      (benefits.length > 0
+        ? benefits.reduce((total, benefit) => total + Math.max(benefit.remaining ?? 0, 0), 0)
+        : null);
 
   const membershipPricingType =
     firstValue(raw, ["pricingType", "pricing_type"]) ?? firstValue(membership, ["pricingType", "pricing_type"]);
@@ -196,6 +209,9 @@ const normalizeAssignment = (raw: AnyRecord): ClientMembershipAssignment => {
     renewedAt: toNullableString(firstValue(raw, ["renewedAt", "renewed_at"])),
     startsAt: toNullableString(firstValue(raw, ["startsAt", "starts_at", "startDate", "start_date"])),
     status: normalizeStatus(firstValue(raw, ["status", "state"]), expiresAt),
+    totalSessions: totalBenefits,
+    unlimitedBenefits,
+    usedSessions: usedBenefits,
     walletBalance: toNullableNumber(
       firstValue(raw, ["walletBalance", "wallet_balance", "membershipWalletBalance", "membership_wallet_balance"]),
     ),
