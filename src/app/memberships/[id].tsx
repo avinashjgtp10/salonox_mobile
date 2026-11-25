@@ -49,6 +49,24 @@ const formatDate = (value: string) => {
   return formatAppDate(value, "-");
 };
 const getStatus = (membership: Membership) => membership.enableOnlineSales || membership.enableOnlineRedemption ? "Active" : "Inactive";
+// Web parity - the membership card in ClientStatCard.tsx renders exactly these
+// two forms: tl("Unlimited") when totalSessions === 0, otherwise
+// msg.sessionsUsedTotal, which the en bundle defines as
+// "{{used}} used / {{total}} total".
+const membershipSessionsLabel = (assignment: {
+  remainingBenefits: number | null;
+  totalSessions: number | null;
+  unlimitedBenefits: boolean;
+  usedSessions: number | null;
+}) => {
+  if (assignment.unlimitedBenefits) return "Unlimited";
+  if (assignment.totalSessions !== null) {
+    return `${assignment.usedSessions ?? 0} used / ${assignment.totalSessions} total`;
+  }
+  // No session counts in the payload: keep the old remaining-count wording.
+  return `${assignment.remainingBenefits ?? "-"} left`;
+};
+
 const formatStatusLabel = (value: string) => value.replace(/[_-]+/g, " ").replace(/\b\w/g, (character) => character.toUpperCase());
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -443,7 +461,7 @@ export default function MembershipDetailsScreen() {
                   </Text>
                 </View>
                 <Text style={styles.clientAssignmentBenefits}>
-                  {assignment.remainingBenefits ?? "-"} left
+                  {membershipSessionsLabel(assignment)}
                 </Text>
               </View>
             ))
