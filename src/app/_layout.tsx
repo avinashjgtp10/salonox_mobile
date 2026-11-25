@@ -10,6 +10,7 @@ import { AppState, LogBox } from "react-native";
 import { PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import SimpleSplash from '../components/simple-splash';
+import { AndroidNavigationBarScrim } from '@/components/ui/AndroidNavigationBarScrim';
 import { AppToast } from '@/components/ui/AppToast';
 import { OfflineTouchNotice } from '@/components/ui/OfflineTouchNotice';
 import { AppAlertHost } from '@/components/ui/AppAlertHost';
@@ -520,6 +521,7 @@ function AppShell() {
                 <Stack.Screen name="index" />
               </Stack>
               </StaffAttendanceGate>
+              <AndroidNavigationBarScrim color={colors.bg} />
               </SafeAreaProvider>
               </OfflineTouchNotice>
               <SimpleSplash backgroundColor={colors.bg} isReady={isThemeHydrated && isNavigationReady} />
