@@ -39,7 +39,7 @@ const toDateValue = (isoDate: string) => {
   return new Date(year, month - 1, day);
 };
 
-// App-wide date display is DD-MM-YY regardless of device locale.
+// App-wide date display is DD-MM-YYYY regardless of device locale.
 const formatDisplayDate = (isoDate: string) => {
   if (!isoDate) {
     return "";
