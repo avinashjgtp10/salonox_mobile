@@ -29,7 +29,11 @@ import { formatInvoiceNumber } from "@/utils/receipt";
 import { useLocalSearchParams } from "expo-router";
 import { RescheduleAppointmentModal } from "@/features/appointments/components/shared/RescheduleAppointmentForm";
 import { useEffect, useMemo, useState } from "react";
-import { View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
+import { AddJobCardItemSheet } from "@/features/appointments/components/shared/AddJobCardItemSheet";
+import { buildAddJobCardItemPayload, type JobCardItemDraft } from "@/features/appointments/utils/addJobCardItem";
+import { appointmentService } from "@/services/appointment.service";
+import { getApiErrorMessage } from "@/services/api";
 
 export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | "staff" } = {}) {
   "use no memo";
@@ -46,6 +50,28 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
   const currentStaffError = useAppSelector(selectCurrentStaffError);
   const currentStaffLoading = useAppSelector(selectCurrentStaffLoading);
   const isStaffMode = mode === "staff";
+  const [showAddItem, setShowAddItem] = useState(false);
+  const [addingItem, setAddingItem] = useState(false);
+  const [addItemError, setAddItemError] = useState("");
+  const addJobCardItem = async (draft: JobCardItemDraft) => {
+    if (!appointment || !appointmentId || addingItem) return;
+    setAddingItem(true);
+    setAddItemError("");
+    try {
+      await appointmentService.updateAppointment(
+        appointmentId,
+        buildAddJobCardItemPayload(appointment, draft),
+      );
+      setShowAddItem(false);
+      // Re-read rather than patch locally: the server recalculates the bill
+      // total, and the job card has to show what it actually stored.
+      void dispatch(fetchAppointmentByIdThunk(appointmentId));
+    } catch (failure) {
+      setAddItemError(getApiErrorMessage(failure));
+    } finally {
+      setAddingItem(false);
+    }
+  };
   const { showFullName } = useClientPrivacy();
   const isStaffAppointment =
     !isStaffMode || !appointment || (currentStaff ? isAssignedToStaff(appointment, currentStaff) : false);
@@ -289,6 +315,25 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
                   staffRoster={staffRoster}
                 />
               ))}
+              {/* Mid-service add: the client asks for something extra while the
+                  staff member is working, so they add it here themselves. */}
+              {currentStaff?.id ? (
+                <>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    disabled={addingItem}
+                    onPress={() => setShowAddItem(true)}
+                    style={styles.addJobCardItemButton}
+                  >
+                    <Text translate style={styles.addJobCardItemLabel}>
+                      {addingItem ? "Adding…" : "+ Add service or product"}
+                    </Text>
+                  </TouchableOpacity>
+                  {addItemError ? (
+                    <Text accessibilityRole="alert" style={styles.jobCardErrorText}>{addItemError}</Text>
+                  ) : null}
+                </>
+              ) : null}
             </View>
           ) : null}
 
@@ -380,6 +425,18 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
           </View>
           {!isStaffMode ? (
             <RescheduleAppointmentModal appointment={appointment} onClose={() => setRescheduleOpen(false)} visible={rescheduleOpen} />
+          ) : null}
+          {isStaffMode && currentStaff?.id ? (
+            <AddJobCardItemSheet
+              onAdd={(draft) => void addJobCardItem(draft)}
+              onClose={() => setShowAddItem(false)}
+              saving={addingItem}
+              services={salesInitData?.services ?? []}
+              staffId={currentStaff.id}
+              staffOptions={staffRoster.map((member) => ({ id: member.id, name: member.name }))}
+              staffName={currentStaff.name}
+              visible={showAddItem}
+            />
           ) : null}
         </>
       ) : null}

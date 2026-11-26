@@ -14,7 +14,9 @@ import { EmptyState, ErrorState } from "@/features/quickSale/components/StateVie
 import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
 import { uniqueById } from "@/features/quickSale/utils/unique";
 import { StaffBottomSheet } from "@/features/staff/components/StaffBottomSheet";
-import { DateField } from "@/components/ui/DateField";
+import { ClientSheetActions, ClientSheetFields, type ClientSheetFormErrors, type ClientSheetFormValues } from "@/features/clients/components/ClientSheetForm";
+import { splitPhone } from "@/features/quickSale/components/EditClientSheet";
+import { getCountryCallingCode, isValidPhoneNumber, parsePhoneNumber } from "libphonenumber-js";
 import { toClientDatePayload, validateClientDates } from "@/utils/clientDates";
 import { createClientThunk } from "@/middleware/client/client.thunk";
 import { clientService } from "@/services/client.service";
@@ -27,11 +29,11 @@ import {
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import type { ClientListItem } from "@/types/client";
 import {
+  EMAIL_INVALID_MESSAGE,
+  isValidEmail,
   isValidPersonName,
-  isValidPhoneDigits,
   PERSON_NAME_INVALID_MESSAGE,
   PHONE_INPUT_MAX_LENGTH,
-  PHONE_INVALID_MESSAGE,
   sanitizePhoneDigits,
 } from "@/utils/validation";
 
@@ -51,21 +53,37 @@ const PICKER_COLORS = {
 } as const;
 
 const normalizePhoneForCompare = (value: string) => value.replace(/\D/g, "");
+const DEFAULT_COUNTRY = "IN" as const;
 // Quick Sale hands over whatever was typed in the client search. Digits (and the
 // punctuation people type into a number) mean a phone was searched; anything else
-// is a name, first word first.
+// is a name, first word first. A searched number becomes E.164, which is what
+// the shared form's PhoneInput reads.
 const splitPrefill = (value: string) => {
   const text = value.trim();
   if (!text) return { firstName: "", lastName: "", phone: "" };
   if (/^[+()\d\s-]+$/.test(text)) {
-    return { firstName: "", lastName: "", phone: sanitizePhoneDigits(text).slice(0, PHONE_INPUT_MAX_LENGTH) };
+    const digits = sanitizePhoneDigits(text).slice(0, PHONE_INPUT_MAX_LENGTH);
+    return {
+      firstName: "",
+      lastName: "",
+      phone: digits ? (text.trim().startsWith("+") ? `+${digits}` : `+${getCountryCallingCode(DEFAULT_COUNTRY)}${digits}`) : "",
+    };
   }
   const [first, ...rest] = text.split(/\s+/);
   return { firstName: first, lastName: rest.join(" "), phone: "" };
 };
-const GENDER_OPTIONS = ["Female", "Male", "Other"] as const;
-type GenderOption = (typeof GENDER_OPTIONS)[number];
-type ClientFormErrors = Partial<Record<"anniversary" | "dob" | "firstName" | "gender" | "lastName" | "phone" | "form", string>>;
+
+const EMPTY_NEW_CLIENT: ClientSheetFormValues = {
+  anniversary: "",
+  clientSource: "walk_in",
+  dob: "",
+  email: "",
+  firstName: "",
+  gender: "",
+  lastName: "",
+  phone: "",
+  phoneCountry: DEFAULT_COUNTRY,
+};
 
 type ClientPickerSheetProps = {
   onClose: () => void;
@@ -103,13 +121,8 @@ export function ClientPickerSheet({
   const [pagination, setPagination] = useState({ hasMore: true, limit: 10, nextOffset: 0, offset: 0 });
   const [reloadKey, setReloadKey] = useState(0);
   const [isCreating, setIsCreating] = useState(false);
-  const [newFirstName, setNewFirstName] = useState("");
-  const [newLastName, setNewLastName] = useState("");
-  const [newPhone, setNewPhone] = useState("");
-  const [newGender, setNewGender] = useState<GenderOption | "">("");
-  const [newDob, setNewDob] = useState("");
-  const [newAnniversary, setNewAnniversary] = useState("");
-  const [formErrors, setFormErrors] = useState<ClientFormErrors>({});
+  const [newClient, setNewClient] = useState<ClientSheetFormValues>(EMPTY_NEW_CLIENT);
+  const [formErrors, setFormErrors] = useState<ClientSheetFormErrors>({});
   // Clients screen toggles: DOB / anniversary mandatory for new clients.
   const { config: requiredDates } = useClientRequiredFields();
 
@@ -118,11 +131,27 @@ export function ClientPickerSheet({
 
   const applyPrefill = useCallback((value: string) => {
     const { firstName, lastName, phone } = splitPrefill(value);
-    setNewFirstName(firstName);
-    setNewLastName(lastName);
-    setNewPhone(phone);
+    setNewClient({ ...EMPTY_NEW_CLIENT, firstName, lastName, phone });
     setFormErrors({});
   }, []);
+
+  // A changed field clears its own error; the two dates validate against each
+  // other, so either one clears both.
+  const handleNewClientChange = (patch: Partial<ClientSheetFormValues>) => {
+    setNewClient((current) => ({ ...current, ...patch }));
+    setFormErrors((current) => {
+      const next = { ...current, form: undefined };
+      for (const key of Object.keys(patch)) {
+        if (key === "dob" || key === "anniversary") {
+          next.anniversary = undefined;
+          next.dob = undefined;
+        } else if (key in next) {
+          next[key as keyof ClientSheetFormErrors] = undefined;
+        }
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (visible) {
@@ -190,29 +219,41 @@ export function ClientPickerSheet({
   };
 
   const handleCreateClient = async () => {
-    const trimmedFirstName = newFirstName.trim();
-    const trimmedLastName = newLastName.trim();
-    const trimmedPhone = newPhone.trim();
-    const nextErrors: ClientFormErrors = {};
+    const trimmedFirstName = newClient.firstName.trim();
+    const trimmedLastName = newClient.lastName.trim();
+    const trimmedPhone = newClient.phone.trim();
+    const trimmedEmail = newClient.email.trim();
+    const nextErrors: ClientSheetFormErrors = {};
 
     if (!trimmedFirstName) nextErrors.firstName = "First name is required.";
     else if (!isValidPersonName(trimmedFirstName)) nextErrors.firstName = PERSON_NAME_INVALID_MESSAGE;
     if (trimmedLastName && !isValidPersonName(trimmedLastName)) nextErrors.lastName = PERSON_NAME_INVALID_MESSAGE;
-    if (!trimmedPhone) nextErrors.phone = "Phone number is required.";
-    else if (!isValidPhoneDigits(trimmedPhone)) nextErrors.phone = PHONE_INVALID_MESSAGE;
-    if (!newGender) nextErrors.gender = "Select a gender.";
-    Object.assign(nextErrors, validateClientDates(newDob, newAnniversary));
-    if (requiredDates.require_dob && !newDob) nextErrors.dob = "Date of birth is required.";
-    if (requiredDates.require_doa && !newAnniversary) nextErrors.anniversary = "Anniversary date is required.";
+    // Same rule as the edit sheet now that both share a country-aware field.
+    if (!trimmedPhone) {
+      nextErrors.phone = "Phone number is required.";
+    } else {
+      const parsed = isValidPhoneNumber(trimmedPhone) ? parsePhoneNumber(trimmedPhone) : null;
+      if (!parsed || parsed.countryCallingCode !== getCountryCallingCode(newClient.phoneCountry)) {
+        nextErrors.phone = "Enter a valid phone number for the selected country.";
+      }
+    }
+    if (trimmedEmail && !isValidEmail(trimmedEmail)) nextErrors.email = EMAIL_INVALID_MESSAGE;
+    if (!newClient.gender) nextErrors.gender = "Select a gender.";
+    Object.assign(nextErrors, validateClientDates(newClient.dob, newClient.anniversary));
+    if (requiredDates.require_dob && !newClient.dob) nextErrors.dob = "Date of birth is required.";
+    if (requiredDates.require_doa && !newClient.anniversary) nextErrors.anniversary = "Anniversary date is required.";
 
-    if (Object.keys(nextErrors).length > 0) {
+    if (Object.values(nextErrors).some(Boolean)) {
       setFormErrors(nextErrors);
       return;
     }
 
     setFormErrors({});
 
-    const normalizedNewPhone = normalizePhoneForCompare(trimmedPhone);
+    // The stored phone is the national number, so compare against that rather
+    // than the E.164 the field holds, or every number looks new.
+    const { phone_country_code, phone_number } = splitPhone(trimmedPhone);
+    const normalizedNewPhone = normalizePhoneForCompare(phone_number);
     const isDuplicatePhone = visibleClients.some(
       (client) => normalizePhoneForCompare(client.phone) === normalizedNewPhone,
     );
@@ -224,12 +265,14 @@ export function ClientPickerSheet({
 
     const result = await dispatch(
       createClientThunk({
+        client_source: newClient.clientSource || null,
+        email: trimmedEmail || null,
         first_name: trimmedFirstName,
-        gender: newGender,
+        gender: newClient.gender,
         last_name: trimmedLastName,
-        phone_country_code: "+91",
-        phone_number: trimmedPhone,
-        ...(newDob || newAnniversary ? toClientDatePayload(newDob, newAnniversary) : {}),
+        phone_country_code: phone_country_code ?? `+${getCountryCallingCode(newClient.phoneCountry)}`,
+        phone_number,
+        ...(newClient.dob || newClient.anniversary ? toClientDatePayload(newClient.dob, newClient.anniversary) : {}),
       }),
     );
 
@@ -239,12 +282,7 @@ export function ClientPickerSheet({
 
     onSelect(result.payload.client);
     setIsCreating(false);
-    setNewFirstName("");
-    setNewLastName("");
-    setNewPhone("");
-    setNewGender("");
-    setNewDob("");
-    setNewAnniversary("");
+    setNewClient(EMPTY_NEW_CLIENT);
     setFormErrors({});
     setQuery("");
     onClose();
@@ -256,145 +294,52 @@ export function ClientPickerSheet({
     onClose();
   };
 
+  // A failed create reports through the store, a failed validation locally.
+  const createFormErrors = formErrors.form || !createError
+    ? formErrors
+    : { ...formErrors, form: createError };
+
   return (
     <StaffBottomSheet
-      // Always bottom-attached, including inside the Calendar pop-up, so the sheet
-      // sits on the footer instead of floating in the middle of the form.
-      centered={false}
+      // Inside the Calendar booking pop-up the add-client form has to present
+      // itself exactly like the edit-client sheet next to it, which is centered
+      // when inline — otherwise one floats mid-form and the other sits on the
+      // footer with a drag handle. The client LIST keeps the footer position,
+      // where picking from a list belongs. (The booking form always passes
+      // startInCreateMode, so it only ever sees the centered form.)
+      centered={renderInline && isCreating}
+      // Cancel / Create stay pinned below the scrolling fields.
+      footer={isCreating ? (
+        <ClientSheetActions
+          formError={createFormErrors.form}
+          // Opened straight into the form (Quick Sale's "Add Client"), so
+          // Cancel goes back to the sale rather than to a client list.
+          onCancel={startInCreateMode ? handleClose : () => setIsCreating(false)}
+          onSubmit={() => void handleCreateClient()}
+          submitLabel="Create"
+          submitting={creating}
+        />
+      ) : undefined}
       onClose={handleClose}
       renderInline={renderInline}
       // The new-client form scrolls (and keeps the focused field above the
       // keyboard); the client list keeps its own FlatList scrolling.
       scrollable={isCreating}
-      subtitle="Select who this sale is for"
-      title="Choose Client"
+      // Adding a client is its own modal, matching the Edit client sheet.
+      subtitle={isCreating ? "New client details" : "Select who this sale is for"}
+      title={isCreating ? "Add client" : "Choose Client"}
       visible={visible}
     >
       {isCreating ? (
-        <View>
-          <View style={styles.nameRow}>
-            <View style={styles.nameField}>
-              <Text translate style={styles.inputLabel}>First Name*</Text>
-              <TextInput
-                autoCapitalize="words"
-                onChangeText={(value) => {
-                  setNewFirstName(value);
-                  setFormErrors((current) => ({ ...current, firstName: undefined, form: undefined }));
-                }}
-                placeholder="First name"
-                placeholderTextColor={Colors.placeholder}
-                style={[styles.textInput, formErrors.firstName && styles.inputError]}
-                value={newFirstName}
-              />
-              {formErrors.firstName ? <Text style={styles.fieldError}>{formErrors.firstName}</Text> : null}
-            </View>
-            <View style={styles.nameField}>
-              <Text translate style={styles.inputLabel}>Last Name</Text>
-              <TextInput
-                autoCapitalize="words"
-                onChangeText={(value) => {
-                  setNewLastName(value);
-                  setFormErrors((current) => ({ ...current, lastName: undefined, form: undefined }));
-                }}
-                placeholder="Last name"
-                placeholderTextColor={Colors.placeholder}
-                style={[styles.textInput, formErrors.lastName && styles.inputError]}
-                value={newLastName}
-              />
-              {formErrors.lastName ? <Text style={styles.fieldError}>{formErrors.lastName}</Text> : null}
-            </View>
-          </View>
-          <View style={styles.inputGroup}>
-            <Text translate style={styles.inputLabel}>Phone Number*</Text>
-            <TextInput
-              keyboardType="phone-pad"
-              maxLength={PHONE_INPUT_MAX_LENGTH}
-              onChangeText={(value) => {
-                setNewPhone(sanitizePhoneDigits(value));
-                setFormErrors((current) => ({ ...current, form: undefined, phone: undefined }));
-              }}
-              placeholder="Phone number"
-              placeholderTextColor={Colors.placeholder}
-              style={[styles.textInput, formErrors.phone && styles.inputError]}
-              value={newPhone}
-            />
-            {formErrors.phone ? <Text style={styles.fieldError}>{formErrors.phone}</Text> : null}
-          </View>
-          <View style={styles.inputGroup}>
-            <Text translate style={styles.inputLabel}>Gender*</Text>
-            <View style={[styles.genderOptions, formErrors.gender && styles.inputError]}>
-              {GENDER_OPTIONS.map((option) => {
-                const selected = newGender === option;
-                return (
-                  <TouchableOpacity
-                    activeOpacity={0.82}
-                    key={option}
-                    onPress={() => {
-                      setNewGender(option);
-                      setFormErrors((current) => ({ ...current, form: undefined, gender: undefined }));
-                    }}
-                    style={[styles.genderOption, selected && styles.genderOptionSelected]}
-                  >
-                    <Text style={[styles.genderOptionText, selected && styles.genderOptionTextSelected]}>{option}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            {formErrors.gender ? <Text style={styles.fieldError}>{formErrors.gender}</Text> : null}
-          </View>
-          <View style={styles.nameRow}>
-            <View style={styles.nameField}>
-              <DateField
-                error={formErrors.dob}
-                label={requiredDates.require_dob ? "Date of Birth*" : "Date of Birth"}
-                maximumDate={new Date()}
-                onChange={(value) => {
-                  setNewDob(value);
-                  setFormErrors((current) => ({ ...current, anniversary: undefined, dob: undefined, form: undefined }));
-                }}
-                placeholder="Select date"
-                value={newDob}
-              />
-            </View>
-            <View style={styles.nameField}>
-              <DateField
-                error={formErrors.anniversary}
-                label={requiredDates.require_doa ? "Anniversary Date*" : "Anniversary Date"}
-                onChange={(value) => {
-                  setNewAnniversary(value);
-                  setFormErrors((current) => ({ ...current, anniversary: undefined, form: undefined }));
-                }}
-                placeholder="Select date"
-                value={newAnniversary}
-              />
-            </View>
-          </View>
-          {formErrors.form || createError ? <Text style={styles.errorText}>{formErrors.form ?? createError}</Text> : null}
-          <View style={styles.formActions}>
-            <TouchableOpacity
-              activeOpacity={0.84}
-              disabled={creating}
-              // Opened straight into the form (Quick Sale's "Add Client"), so
-              // Cancel goes back to the sale rather than to a client list.
-              onPress={startInCreateMode ? handleClose : () => setIsCreating(false)}
-              style={styles.cancelButton}
-            >
-              <Text translate style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.84}
-              disabled={creating}
-              onPress={() => void handleCreateClient()}
-              style={[styles.saveButton, creating && styles.buttonDisabled]}
-            >
-              {creating ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <Text translate style={styles.saveButtonText}>Create</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
+        <ClientSheetFields
+          anniversaryLabel={requiredDates.require_doa ? "Anniversary Date *" : "Anniversary Date"}
+          dobLabel={requiredDates.require_dob ? "Date of Birth *" : "Date of Birth"}
+          errors={createFormErrors}
+          genderLabel="Gender *"
+          onChange={handleNewClientChange}
+          submitting={creating}
+          values={newClient}
+        />
       ) : (
         <View style={styles.listWrap}>
           <View style={styles.searchWrap}>
@@ -509,110 +454,5 @@ const createStyles = (Colors: typeof PICKER_COLORS) => StyleSheet.create({
   },
   loadingSpacer: {
     marginVertical: Spacing.lg,
-  },
-  inputGroup: {
-    marginBottom: Spacing.md,
-  },
-  nameRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  nameField: {
-    flex: 1,
-    marginBottom: Spacing.md,
-    minWidth: 0,
-  },
-  inputLabel: {
-    color: Colors.heading,
-    fontSize: 12,
-    fontWeight: "800",
-    marginBottom: 8,
-  },
-  textInput: {
-    backgroundColor: Colors.bg2,
-    borderColor: Colors.border,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    color: Colors.heading,
-    fontSize: 14,
-    minHeight: 48,
-    paddingHorizontal: 14,
-  },
-  inputError: {
-    borderColor: Colors.error,
-  },
-  fieldError: {
-    color: Colors.error,
-    fontSize: 10,
-    fontWeight: "700",
-    lineHeight: 14,
-    marginTop: 4,
-  },
-  genderOptions: {
-    borderColor: Colors.border,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 4,
-    padding: 4,
-  },
-  genderOption: {
-    alignItems: "center",
-    borderRadius: 7,
-    flex: 1,
-    justifyContent: "center",
-    minHeight: 40,
-    paddingHorizontal: 4,
-  },
-  genderOptionSelected: {
-    backgroundColor: Colors.primary,
-  },
-  genderOptionText: {
-    color: Colors.text2,
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  genderOptionTextSelected: {
-    color: Colors.onPrimary,
-  },
-  errorText: {
-    color: Colors.error,
-    fontSize: 12,
-    fontWeight: "700",
-    marginBottom: Spacing.sm,
-  },
-  formActions: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: Spacing.sm,
-  },
-  cancelButton: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.full,
-    flex: 1,
-    justifyContent: "center",
-    minHeight: 48,
-  },
-  cancelButtonText: {
-    color: Colors.primaryText,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  saveButton: {
-    alignItems: "center",
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.full,
-    flex: 1,
-    justifyContent: "center",
-    minHeight: 48,
-  },
-  saveButtonText: {
-    color: Colors.onPrimary,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  buttonDisabled: {
-    opacity: 0.55,
   },
 });

@@ -153,9 +153,6 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
     return selectedServices.map((service) => ({ ...service, startTime: times[service.id] ?? service.startTime ?? null }));
   }, [form.staffId, form.startTime, selectedServices]);
   const defaultTimeSlots = useMemo(() => getDefaultTimeSlots(form.date), [form.date]);
-  const allowedPastEditDate = mode === "edit" && existingAppointment
-    ? toInputDate(existingAppointment.scheduledAt)
-    : undefined;
   const originalEditSlot = useMemo<StaffAvailabilitySlot | null>(() => {
     if (!existingAppointment || mode !== "edit") return null;
 
@@ -295,6 +292,27 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
     staffAvailabilityStatus,
     workingHoursLabel,
   ]);
+  // The booking-level staff picker was replaced by per-row assignment, but
+  // validateForm, the availability fetch and the create payload all still read
+  // form.staffId. Without this it stays empty on a booking started from scratch:
+  // every row names a staff member while the card still reports "Select the
+  // staff." and no slots are ever loaded. Web parity - useAppointment.ts sends
+  // `staff_id: firstRow?.staffId ?? booking.staffId`, so the first assigned row
+  // is the booking's staff, and re-picking that row moves the anchor with it.
+  useEffect(() => {
+    const rowStaffIds = selectedServices
+      .map((service) => service.staffId)
+      .filter((staffId): staffId is string => Boolean(staffId));
+    if (!rowStaffIds.length) return;
+    // Aliases: a row can carry the staff id while the form holds the user id.
+    const stillAssigned = rowStaffIds.some((staffId) => (selectedStaff
+      ? staffIdMatches(selectedStaff, staffId)
+      : staffId === form.staffId));
+    if (stillAssigned) return;
+    setForm((current) => ({ ...current, staffId: rowStaffIds[0] }));
+    setErrors((current) => ({ ...current, staffId: undefined }));
+  }, [form.staffId, selectedServices, selectedStaff]);
+
   const refreshStaffAvailability = useCallback(() => {
     setAvailabilityRefreshKey((current) => current + 1);
   }, []);
@@ -786,10 +804,7 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
 
     const clientId = form.clientId;
     const isWalkInClient = mode === "create" && clientBookingMode === "walkIn";
-    const nextErrors = validateForm(form, {
-      allowedPastDate: allowedPastEditDate,
-      requireClient: !isWalkInClient,
-    });
+    const nextErrors = validateForm(form, { requireClient: !isWalkInClient });
     // Web parity: a product / membership / package-only booking is valid.
     const hasCatalogItems = selectedServices.some((service) => service.itemKind);
     if (hasCatalogItems) {

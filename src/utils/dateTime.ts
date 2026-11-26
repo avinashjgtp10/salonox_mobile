@@ -68,7 +68,9 @@ export const formatAppDate = (value: DateTimeInput, fallback = "-") => {
     return fallback;
   }
 
-  return `${padTwo(date.getDate())}-${padTwo(date.getMonth() + 1)}-${padTwo(date.getFullYear() % 100)}`;
+  // DD-MM-YYYY, with the full year: the web app's app-wide format, and the one
+  // a two-digit year was being mistaken for ("09-10-26" reads as 2026 or 1926).
+  return `${padTwo(date.getDate())}-${padTwo(date.getMonth() + 1)}-${date.getFullYear()}`;
 };
 
 export const formatAppTime = (value: DateTimeInput, fallback = "-") => {

@@ -43,6 +43,11 @@ export type ClientMembershipAssignment = {
   renewedAt: string | null;
   startsAt: string | null;
   status: ClientMembershipStatus;
+  /** Session counts as the web card reads them; null when absent from the payload. */
+  totalSessions: number | null;
+  /** An unlimited plan has no benefit count to show. See normalizeAssignment. */
+  unlimitedBenefits: boolean;
+  usedSessions: number | null;
   walletBalance: number | null;
 };
 

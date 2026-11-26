@@ -127,7 +127,11 @@ export function MembershipCatalogTab({ clientId, onSelect, salonId, search, sele
             <View key={`client-membership-${item.id}`} style={styles.activeRow}>
               <Text numberOfLines={1} style={styles.activeName}>{item.membershipName}</Text>
               <Text style={styles.activeMeta}>
-                {item.remainingBenefits === null ? "Active" : `${item.remainingBenefits} left`}
+                {item.unlimitedBenefits
+                  ? "Unlimited"
+                  : item.totalSessions !== null
+                    ? `${item.usedSessions ?? 0} used / ${item.totalSessions} total`
+                    : item.remainingBenefits === null ? "Active" : `${item.remainingBenefits} left`}
               </Text>
             </View>
           ))}

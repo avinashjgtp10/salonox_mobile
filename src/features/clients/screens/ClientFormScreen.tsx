@@ -135,6 +135,9 @@ export default function NewClientScreen() {
   });
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [whatsappMatchesPhone, setWhatsappMatchesPhone] = useState(true);
+  // Still state, not constants: edit mode prefills both from the saved client
+  // below and submits them back, so a client's existing consent survives an
+  // edit even though the Add form no longer shows the toggles.
   const [promotionChannels, setPromotionChannels] = useState<string[]>([]);
   const [transactionChannels, setTransactionChannels] = useState(["SMS", "Email", "Whatsapp"]);
   const [birthDate, setBirthDate] = useState("");
@@ -392,10 +395,13 @@ export default function NewClientScreen() {
             </View>
 
       <View><Text translate style={clientUi.label}>Email</Text><TextInput ref={(input) => { emailInput.current = input; setFieldRef("email", input); }} returnKeyType={isEditMode && moreDetails ? "next" : "done"} onSubmitEditing={() => { if (isEditMode && moreDetails) addressInput.current?.focus(); else Keyboard.dismiss(); }} editable={!isSubmitting} value={email} onChangeText={(value) => { setEmail(value); setFieldErrors((current) => ({ ...current, email: undefined })); }} keyboardType="email-address" autoCapitalize="none" placeholder="Optional" placeholderTextColor={pearl.placeholder} style={clientUi.input} />{fieldErrors.email ? <Text style={clientUi.error}>{fieldErrors.email}</Text> : null}</View></View>
-      <View style={formUi.card}><Text translate style={formUi.heading}>Messages</Text><Text translate style={clientUi.muted}>Ask the client before turning promotions on.</Text>{[
+      {/* Add Client no longer asks for message consent (ticket: App 2.0 - Add
+          Client). Editing a client keeps the toggles, because that is where the
+          saved consent is loaded and changed. */}
+      {isEditMode ? <View style={formUi.card}><Text translate style={formUi.heading}>Messages</Text><Text translate style={clientUi.muted}>Ask the client before turning promotions on.</Text>{[
         { title: "Bills & reminders", hint: "WhatsApp · SMS", enabled: transactionChannels.length > 0, toggle: () => setTransactionChannels(transactionChannels.length ? [] : ["SMS", "Whatsapp"]) },
         { title: "Offers & promotions", hint: "Off until the client agrees", enabled: promotionChannels.length > 0, toggle: () => setPromotionChannels(promotionChannels.length ? [] : ["SMS", "Whatsapp"]) },
-      ].map((row) => <View key={row.title} style={formUi.toggleRow}><View style={{ flex: 1 }}><Text translate style={clientUi.rowTitle}>{row.title}</Text><Text style={clientUi.muted}>{row.hint}</Text></View><Switch disabled={isSubmitting} value={row.enabled} onValueChange={row.toggle} thumbColor="#FFFFFF" trackColor={{ false: pearl.divider, true: pearl.accent }} /></View>)}</View>
+      ].map((row) => <View key={row.title} style={formUi.toggleRow}><View style={{ flex: 1 }}><Text translate style={clientUi.rowTitle}>{row.title}</Text><Text style={clientUi.muted}>{row.hint}</Text></View><Switch disabled={isSubmitting} value={row.enabled} onValueChange={row.toggle} thumbColor="#FFFFFF" trackColor={{ false: pearl.divider, true: pearl.accent }} /></View>)}</View> : null}
       {isEditMode ? <TouchableOpacity onPress={() => setMoreDetails((value) => !value)} style={[formUi.card, { flexDirection: "row", alignItems: "center", gap: 12 }]}><View style={clientUi.icon}><Ionicons name="person-outline" size={19} color={pearlTones.lilac.fg} /></View><View style={{ flex: 1 }}><Text translate style={clientUi.rowTitle}>More details (optional)</Text><Text translate style={clientUi.muted}>Gender, birthday, anniversary, address</Text></View><Ionicons name={moreDetails ? "chevron-up" : "chevron-down"} size={17} color={pearl.muted} /></TouchableOpacity> : null}
       {!isEditMode || moreDetails ? <View style={formUi.card}>{isEditMode ? <><Text translate style={formUi.heading}>More details</Text><View><Text translate style={clientUi.label}>Gender</Text><ClientChips options={GENDER_OPTIONS} selected={gender} onSelect={(value) => setGender(value as (typeof GENDER_OPTIONS)[number])} /></View></> : null}
         <DateField pearlStyle ref={(view) => setFieldRef("birthDate", view)} error={fieldErrors.birthDate} label="Birthday (optional)" maximumDate={new Date()} value={birthDate} onChange={(value) => { setBirthDate(value); setFieldErrors((current) => ({ ...current, birthDate: undefined })); }} placeholder="Select birthday" />
