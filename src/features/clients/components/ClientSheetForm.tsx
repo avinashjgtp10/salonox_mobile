@@ -30,7 +30,7 @@ export type ClientSheetFormErrors = Partial<
   Record<"anniversary" | "clientSource" | "dob" | "email" | "firstName" | "form" | "gender" | "lastName" | "phone", string>
 >;
 
-type ClientSheetFormProps = {
+type ClientSheetFieldsProps = {
   /** Label for the anniversary field, so a caller can mark it required. */
   anniversaryLabel?: string;
   /** Label for the date-of-birth field, so a caller can mark it required. */
@@ -38,38 +38,35 @@ type ClientSheetFormProps = {
   errors: ClientSheetFormErrors;
   /** Label for the gender chips, so a caller can mark them required. */
   genderLabel?: string;
-  onCancel: () => void;
   /**
    * Receives only the fields that changed. The caller clears the matching
    * errors — it knows which ones are cross-field (dob / anniversary).
    */
   onChange: (patch: Partial<ClientSheetFormValues>) => void;
-  onSubmit: () => void;
-  submitLabel: string;
   submitting: boolean;
   values: ClientSheetFormValues;
 };
 
 /**
- * The client form body shared by the Edit client and Add client sheets, so both
- * read as the same modal: identical fields, order, labels, spacing and buttons.
+ * The client form fields shared by the Edit client and Add client sheets, so
+ * both read as the same modal: identical fields, order, labels and spacing.
  *
- * It holds no state and performs no saving — each sheet keeps its own state,
+ * Holds no state and does no saving — each sheet keeps its own state,
  * validation and request, because adding a client and patching one differ
  * (required gender, required dates, duplicate-phone check, prefill).
+ *
+ * The buttons are NOT part of this: they go in the sheet's `footer` so they
+ * stay pinned while the fields scroll. See ClientSheetActions.
  */
-export function ClientSheetForm({
+export function ClientSheetFields({
   anniversaryLabel = "Anniversary Date",
   dobLabel = "Date of Birth",
   errors,
   genderLabel = "Gender",
-  onCancel,
   onChange,
-  onSubmit,
-  submitLabel,
   submitting,
   values,
-}: ClientSheetFormProps) {
+}: ClientSheetFieldsProps) {
   const Colors = usePearlColors(true);
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
@@ -170,7 +167,7 @@ export function ClientSheetForm({
         {errors.gender ? <Text style={styles.errorText}>{errors.gender}</Text> : null}
       </View>
 
-      <View style={styles.field}>
+      <View style={styles.lastField}>
         <Text translate style={styles.label}>Client Source</Text>
         <View style={styles.chips}>
           {CLIENT_SOURCES.map((source) => (
@@ -187,9 +184,28 @@ export function ClientSheetForm({
           ))}
         </View>
       </View>
+    </>
+  );
+}
 
-      {errors.form ? <Text style={styles.errorText}>{errors.form}</Text> : null}
+/**
+ * Cancel + save, for the sheet's `footer` slot so they stay put while the
+ * fields scroll. The whole-form error rides along, otherwise a failed save
+ * would report itself off-screen at the bottom of the scroll.
+ */
+export function ClientSheetActions({ formError, onCancel, onSubmit, submitLabel, submitting }: {
+  formError?: string;
+  onCancel: () => void;
+  onSubmit: () => void;
+  submitLabel: string;
+  submitting: boolean;
+}) {
+  const Colors = usePearlColors(true);
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
 
+  return (
+    <View style={styles.footerStack}>
+      {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
       <View style={styles.actions}>
         <TouchableOpacity activeOpacity={0.84} disabled={submitting} onPress={onCancel} style={styles.cancelButton}>
           <Text translate style={styles.cancelText}>Cancel</Text>
@@ -199,7 +215,7 @@ export function ClientSheetForm({
           {submitting ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text translate style={styles.saveText}>{submitLabel}</Text>}
         </TouchableOpacity>
       </View>
-    </>
+    </View>
   );
 }
 
@@ -207,6 +223,9 @@ const createStyles = (Colors: PearlColors) => StyleSheet.create({
   row: { flexDirection: "row", gap: Spacing.sm },
   half: { flex: 1 },
   field: { marginBottom: Spacing.md },
+  // The pinned footer brings its own top padding, so the last field does not
+  // also pad the bottom of the scroll.
+  lastField: { marginBottom: 0 },
   label: { color: pearl.ink2, fontSize: 12, fontWeight: "600", marginBottom: 8 },
   input: {
     backgroundColor: pearl.field, borderColor: pearl.fieldBorder, borderRadius: 16, borderWidth: 1,
@@ -221,7 +240,9 @@ const createStyles = (Colors: PearlColors) => StyleSheet.create({
   chipText: { color: pearl.ink2, fontSize: 12, fontWeight: "600" },
   chipTextSelected: { color: pearl.accentDeep },
   errorText: { color: Colors.error, fontSize: 12, fontWeight: "700", marginBottom: Spacing.sm, marginTop: 4 },
-  actions: { flexDirection: "row", gap: Spacing.sm, marginTop: Spacing.sm },
+  // The sheet's footer is a row; this fills it so the error can sit above.
+  footerStack: { flex: 1 },
+  actions: { flexDirection: "row", gap: Spacing.sm },
   cancelButton: {
     alignItems: "center", backgroundColor: Colors.bg2, borderColor: Colors.border, borderRadius: 16,
     borderWidth: 1, flex: 1, justifyContent: "center", minHeight: 46,

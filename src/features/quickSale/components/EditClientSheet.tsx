@@ -2,11 +2,12 @@ import { pearl } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { parsePhoneNumber, isValidPhoneNumber, getCountryCallingCode, type CountryCode } from "libphonenumber-js";
 import { useEffect, useRef, useState } from "react";
-import { ScrollView, StyleSheet } from "react-native";
+import { StyleSheet } from "react-native";
 
 import {
   CLIENT_GENDER_OPTIONS,
-  ClientSheetForm,
+  ClientSheetActions,
+  ClientSheetFields,
   type ClientSheetFormErrors,
   type ClientSheetFormValues,
 } from "@/features/clients/components/ClientSheetForm";
@@ -182,8 +183,20 @@ export function EditClientSheet({ clientId, clientName, onClose, onSaved, render
   return (
     <StaffBottomSheet
       centered={renderInline}
+      // Cancel / Save stay pinned below the scrolling fields.
+      footer={loading ? undefined : (
+        <ClientSheetActions
+          formError={errors.form}
+          onCancel={onClose}
+          onSubmit={() => void save()}
+          submitLabel="Save changes"
+          submitting={saving}
+        />
+      )}
       onClose={() => { if (!saving) onClose(); }}
       renderInline={renderInline}
+      // The sheet scrolls the fields itself; a ScrollView here would nest.
+      scrollable={!loading}
       subtitle={clientName}
       title="Edit client"
       visible={visible}
@@ -191,17 +204,12 @@ export function EditClientSheet({ clientId, clientName, onClose, onSaved, render
       {loading ? (
         <ActivityIndicator color={pearl.accentDeep} style={styles.loading} />
       ) : (
-        <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <ClientSheetForm
-            errors={errors}
-            onCancel={onClose}
-            onChange={handleChange}
-            onSubmit={() => void save()}
-            submitLabel="Save changes"
-            submitting={saving}
-            values={values}
-          />
-        </ScrollView>
+        <ClientSheetFields
+          errors={errors}
+          onChange={handleChange}
+          submitting={saving}
+          values={values}
+        />
       )}
     </StaffBottomSheet>
   );
