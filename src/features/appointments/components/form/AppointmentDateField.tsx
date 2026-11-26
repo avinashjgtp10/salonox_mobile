@@ -22,7 +22,8 @@ export function AppointmentDateField({
   const Colors = useThemeColors();
   const styles = useMemo(() => pearlBookingFields(createStyles(Colors)), [Colors]);
   const [visible, setVisible] = useState(false);
-  const minimumDate = useMemo(() => new Date(`${todayIsoDate()}T00:00:00`), []);
+  // No minimumDate: any past or future date can be booked, so the picker must
+  // not grey out earlier days (walk-ins and missed bookings get entered late).
   const dateValue = useMemo(() => {
     const parsed = new Date(`${value || todayIsoDate()}T00:00:00`);
     return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
@@ -63,7 +64,7 @@ export function AppointmentDateField({
       {error ? <Text translate style={styles.fieldError}>{error}</Text> : null}
 
       {visible && Platform.OS === "android" ? (
-        <DateTimePicker minimumDate={minimumDate} mode="date" onChange={handleDateChange} value={dateValue} />
+        <DateTimePicker mode="date" onChange={handleDateChange} value={dateValue} />
       ) : null}
 
       {Platform.OS === "ios" ? (
@@ -71,7 +72,7 @@ export function AppointmentDateField({
           <Pressable onPress={() => setVisible(false)} style={styles.modalBackdrop}>
             <Pressable style={styles.modalCard}>
               <Text translate style={styles.modalTitle}>Select Date</Text>
-              <DateTimePicker display="inline" minimumDate={minimumDate} mode="date" onChange={handleDateChange} value={dateValue} />
+              <DateTimePicker display="inline" mode="date" onChange={handleDateChange} value={dateValue} />
             </Pressable>
           </Pressable>
         </Modal>

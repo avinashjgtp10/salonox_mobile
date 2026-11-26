@@ -12,7 +12,6 @@ import type {
   FormErrors,
 } from "../types/appointmentForm";
 import {
-  isPastDate,
   toInputDate,
   toInputTime,
   validateDate,
@@ -236,7 +235,7 @@ export const formatDurationLabel = (durationMinutes: number | null) =>
 
 export const validateForm = (
   form: AppointmentFormState,
-  options?: { allowedPastDate?: string; requireClient?: boolean },
+  options?: { requireClient?: boolean },
 ): FormErrors => {
   const errors: FormErrors = {};
   const trimmedDiscount = form.discount.trim();
@@ -255,10 +254,10 @@ export const validateForm = (
     errors.staffId = "Select the staff.";
   }
 
+  // Only the shape is checked. Any past or future date can be booked — a
+  // walk-in or a missed booking is often entered after the fact.
   if (!validateDate(form.date)) {
     errors.date = "Use YYYY-MM-DD.";
-  } else if (isPastDate(form.date) && form.date !== options?.allowedPastDate) {
-    errors.date = "Past dates cannot be booked.";
   }
 
   if (!validateTime(form.startTime)) {

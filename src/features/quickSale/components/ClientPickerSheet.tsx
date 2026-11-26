@@ -14,7 +14,7 @@ import { EmptyState, ErrorState } from "@/features/quickSale/components/StateVie
 import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
 import { uniqueById } from "@/features/quickSale/utils/unique";
 import { StaffBottomSheet } from "@/features/staff/components/StaffBottomSheet";
-import { ClientSheetForm, type ClientSheetFormErrors, type ClientSheetFormValues } from "@/features/clients/components/ClientSheetForm";
+import { ClientSheetActions, ClientSheetFields, type ClientSheetFormErrors, type ClientSheetFormValues } from "@/features/clients/components/ClientSheetForm";
 import { splitPhone } from "@/features/quickSale/components/EditClientSheet";
 import { getCountryCallingCode, isValidPhoneNumber, parsePhoneNumber } from "libphonenumber-js";
 import { toClientDatePayload, validateClientDates } from "@/utils/clientDates";
@@ -308,6 +308,18 @@ export function ClientPickerSheet({
       // where picking from a list belongs. (The booking form always passes
       // startInCreateMode, so it only ever sees the centered form.)
       centered={renderInline && isCreating}
+      // Cancel / Create stay pinned below the scrolling fields.
+      footer={isCreating ? (
+        <ClientSheetActions
+          formError={createFormErrors.form}
+          // Opened straight into the form (Quick Sale's "Add Client"), so
+          // Cancel goes back to the sale rather than to a client list.
+          onCancel={startInCreateMode ? handleClose : () => setIsCreating(false)}
+          onSubmit={() => void handleCreateClient()}
+          submitLabel="Create"
+          submitting={creating}
+        />
+      ) : undefined}
       onClose={handleClose}
       renderInline={renderInline}
       // The new-client form scrolls (and keeps the focused field above the
@@ -319,22 +331,15 @@ export function ClientPickerSheet({
       visible={visible}
     >
       {isCreating ? (
-        <View>
-          <ClientSheetForm
-            anniversaryLabel={requiredDates.require_doa ? "Anniversary Date *" : "Anniversary Date"}
-            dobLabel={requiredDates.require_dob ? "Date of Birth *" : "Date of Birth"}
-            errors={createFormErrors}
-            genderLabel="Gender *"
-            // Opened straight into the form (Quick Sale's "Add Client"), so
-            // Cancel goes back to the sale rather than to a client list.
-            onCancel={startInCreateMode ? handleClose : () => setIsCreating(false)}
-            onChange={handleNewClientChange}
-            onSubmit={() => void handleCreateClient()}
-            submitLabel="Create"
-            submitting={creating}
-            values={newClient}
-          />
-        </View>
+        <ClientSheetFields
+          anniversaryLabel={requiredDates.require_doa ? "Anniversary Date *" : "Anniversary Date"}
+          dobLabel={requiredDates.require_dob ? "Date of Birth *" : "Date of Birth"}
+          errors={createFormErrors}
+          genderLabel="Gender *"
+          onChange={handleNewClientChange}
+          submitting={creating}
+          values={newClient}
+        />
       ) : (
         <View style={styles.listWrap}>
           <View style={styles.searchWrap}>

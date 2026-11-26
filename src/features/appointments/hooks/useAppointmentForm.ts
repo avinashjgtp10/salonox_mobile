@@ -153,9 +153,6 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
     return selectedServices.map((service) => ({ ...service, startTime: times[service.id] ?? service.startTime ?? null }));
   }, [form.staffId, form.startTime, selectedServices]);
   const defaultTimeSlots = useMemo(() => getDefaultTimeSlots(form.date), [form.date]);
-  const allowedPastEditDate = mode === "edit" && existingAppointment
-    ? toInputDate(existingAppointment.scheduledAt)
-    : undefined;
   const originalEditSlot = useMemo<StaffAvailabilitySlot | null>(() => {
     if (!existingAppointment || mode !== "edit") return null;
 
@@ -807,10 +804,7 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
 
     const clientId = form.clientId;
     const isWalkInClient = mode === "create" && clientBookingMode === "walkIn";
-    const nextErrors = validateForm(form, {
-      allowedPastDate: allowedPastEditDate,
-      requireClient: !isWalkInClient,
-    });
+    const nextErrors = validateForm(form, { requireClient: !isWalkInClient });
     // Web parity: a product / membership / package-only booking is valid.
     const hasCatalogItems = selectedServices.some((service) => service.itemKind);
     if (hasCatalogItems) {

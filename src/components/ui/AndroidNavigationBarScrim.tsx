@@ -20,12 +20,23 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
  * - it cannot cover a React Native `<Modal />`, which Android renders in its own
  *   window above this one. Full-screen sheets keep handling their own insets.
  */
+/**
+ * Android reserves about 48dp for the three-button navigation bar, and only
+ * about 16-24dp for the gesture pill. There is no API that reports which mode
+ * the phone is in, so the inset height is the signal.
+ *
+ * Below this, the band is a flat strip behind a translucent pill over content
+ * the user can still see — the pale strip this whole thing exists to avoid.
+ */
+const BUTTON_NAV_MIN_INSET = 32;
+
 export function AndroidNavigationBarScrim({ color }: { color: string }) {
   const insets = useSafeAreaInsets();
 
-  // A zero inset means there is no navigation bar to back (or insets have not
-  // resolved yet); a band of height 0 would be invisible anyway.
-  if (Platform.OS !== "android" || insets.bottom <= 0) return null;
+  // A zero inset means no navigation bar at all (or insets have not resolved
+  // yet). Anything short of a button bar is gesture navigation, which must
+  // stay transparent: the gesture area is meant to float over the page.
+  if (Platform.OS !== "android" || insets.bottom < BUTTON_NAV_MIN_INSET) return null;
 
   return (
     <View
