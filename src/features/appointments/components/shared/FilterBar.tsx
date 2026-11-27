@@ -8,10 +8,9 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import type { AppointmentListItem, AppointmentStatus } from "@/types/appointment";
 import { formatAppDate } from "@/utils/dateTime";
 import { Ionicons } from "@expo/vector-icons";
-import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import { AppDatePickerModal } from "@/components/ui/AppDatePickerModal";
 import { useMemo, useState } from "react";
-import { Modal, Platform, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
+import { ScrollView, TouchableOpacity, View } from "react-native";
 
 export function FilterBar({
   compact,
@@ -44,28 +43,6 @@ export function FilterBar({
   const [isStatusRowVisible, setIsStatusRowVisible] = useState(true);
   const showDropdown =
     isSearchFocused && search.trim().length > 0 && searchResults !== undefined;
-
-  const dateValue = useMemo(() => {
-    const parsed = new Date(`${date || todayIsoDate()}T00:00:00`);
-
-    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
-  }, [date]);
-
-  const handleDateChange = (event: DateTimePickerEvent, selected?: Date) => {
-    if (Platform.OS === "android") {
-      setIsDatePickerVisible(false);
-    }
-
-    if (event.type === "dismissed" || !selected) {
-      return;
-    }
-
-    const year = selected.getFullYear();
-    const month = String(selected.getMonth() + 1).padStart(2, "0");
-    const day = String(selected.getDate()).padStart(2, "0");
-
-    onDateChange(`${year}-${month}-${day}`);
-  };
 
   return (
     <View style={styles.filterPanel}>
@@ -159,39 +136,13 @@ export function FilterBar({
         <Text style={styles.dateInput}>{date ? formatAppDate(`${date}T00:00:00`) : "DD-MM-YY"}</Text>
       </TourButton>
 
-      {isDatePickerVisible && Platform.OS === "android" ? (
-        <DateTimePicker mode="date" onChange={handleDateChange} value={dateValue} />
-      ) : null}
-
-      {Platform.OS === "ios" ? (
-        <Modal
-          animationType="fade"
-          onRequestClose={() => setIsDatePickerVisible(false)}
-          transparent
-          visible={isDatePickerVisible}
-        >
-          <Pressable onPress={() => setIsDatePickerVisible(false)} style={styles.modalBackdrop}>
-            <Pressable style={styles.modalCard}>
-              <Text translate style={styles.modalTitle}>Select Date</Text>
-              <DateTimePicker
-                display="spinner"
-                mode="date"
-                onChange={handleDateChange}
-                value={dateValue}
-              />
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  activeOpacity={0.88}
-                  onPress={() => setIsDatePickerVisible(false)}
-                  style={styles.primaryButtonCompact}
-                >
-                  <Text translate style={styles.primaryButtonText}>Done</Text>
-                </TouchableOpacity>
-              </View>
-            </Pressable>
-          </Pressable>
-        </Modal>
-      ) : null}
+      <AppDatePickerModal
+        subtitle="Tap the day to show appointments for."
+        visible={isDatePickerVisible}
+        value={date || null}
+        onChange={onDateChange}
+        onClose={() => setIsDatePickerVisible(false)}
+      />
 
       {isStatusRowVisible || compact ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
