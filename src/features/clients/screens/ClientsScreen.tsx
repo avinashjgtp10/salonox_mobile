@@ -1,4 +1,5 @@
 import { clientBirthdayLabel } from "../utils/clientBirthday";
+import { AppSwitch } from "@/components/ui/AppSwitch";
 import { ClientBottomNav } from "../components/ClientBottomNav";
 import { clientActionsService } from "../client-actions.service";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
@@ -17,7 +18,7 @@ import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, Modal, RefreshControl, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
+import { FlatList, Modal, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
 import { GestureHandlerRootView, TouchableOpacity as GestureTouchableOpacity } from "react-native-gesture-handler";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -571,7 +572,7 @@ function ClientsScreenContent() {
           <View style={clientUi.card}><ClientMenuRow icon="cloud-upload-outline" title="Import contacts" onPress={() => { setToolsVisible(false); router.push("/clients/import-contacts"); }} /><ClientMenuRow tone="peach" showChevron={false} icon="download-outline" title={exporting ? "Exporting…" : "Export to Excel"} onPress={() => { if (exporting) return; setExporting(true); void clientActionsService.exportExcel({ limit: 2000, gender: genderQuery, source: sourceFilter === "Any" ? undefined : sourceFilter, blocked_status: statusFilter === "Blocked" ? "blocked" : undefined, package_membership: membershipFilter === "Has Membership" ? "has_membership" : undefined, search: debouncedQuery, inactive: statusFilter === "Inactive", sort_by: sortQuery.sort_by, sort_order: sortQuery.sort_order }).catch((e) => Alert.alert("Export unavailable", e instanceof Error ? e.message : "Please try again.")).finally(() => setExporting(false)); }} />{canConfigureClientForm ? <ClientMenuRow tone="rose" icon="options-outline" title="Client form rules" onPress={() => { setToolsVisible(false); setRulesVisible(true); }} /> : null}<ClientMenuRow icon="copy-outline" title="Merge duplicates" onPress={() => { setToolsVisible(false); setIsDuplicatesVisible(true); }} /></View>
         </BottomSheet>
         <BottomSheet pearlStyle centered={false} title="Client form rules" visible={rulesVisible} onClose={() => setRulesVisible(false)}>
-          <View style={{ gap: 14 }}><Text translate style={clientUi.muted}>Choose which fields are required when adding a client in Quick Sale, Calendar or Add client.</Text><View style={clientUi.card}>{([["require_dob", "Date of birth"], ["require_doa", "Anniversary"]] as const).map(([field, label], index, rows) => <View key={field} style={[clientUi.menuRow, index === rows.length - 1 && { borderBottomWidth: 0 }]}><View style={{ flex: 1 }}><Text translate style={clientUi.rowTitle}>{label}</Text><Text translate style={clientUi.muted}>{requiredDates[field] ? "Required" : "Optional"}</Text></View><Switch accessibilityLabel={label + " required"} value={requiredDates[field]} onValueChange={() => handleToggleRequiredDate(field)} thumbColor="#FFFFFF" trackColor={{ false: pearl.divider, true: pearl.accent }} /></View>)}</View><Text translate style={clientUi.muted}>Mobile number is always required so bills and reminders can be sent.</Text></View>
+          <View style={{ gap: 14 }}><Text translate style={clientUi.muted}>Choose which fields are required when adding a client in Quick Sale, Calendar or Add client.</Text><View style={clientUi.card}>{([["require_dob", "Date of birth"], ["require_doa", "Anniversary"]] as const).map(([field, label], index, rows) => <View key={field} style={[clientUi.menuRow, index === rows.length - 1 && { borderBottomWidth: 0 }]}><View style={{ flex: 1 }}><Text translate style={clientUi.rowTitle}>{label}</Text><Text translate style={clientUi.muted}>{requiredDates[field] ? "Required" : "Optional"}</Text></View><AppSwitch accessibilityLabel={label + " required"} value={requiredDates[field]} onValueChange={() => handleToggleRequiredDate(field)} /></View>)}</View><Text translate style={clientUi.muted}>Mobile number is always required so bills and reminders can be sent.</Text></View>
         </BottomSheet>
         <Modal
           animationType="slide"

@@ -1,8 +1,9 @@
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
+import { AppSwitch } from "@/components/ui/AppSwitch";
 import { Text } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { useEffect, useMemo, useState } from "react";
-import { StyleSheet, TouchableOpacity, Switch, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import {
   DashboardRadius as Radius,
@@ -125,7 +126,7 @@ export function StaffWageSection({ staffId }: StaffWageSectionProps) {
     <StaffSectionCard title="Wages">
       <View style={styles.typeGrid}>
         <Text translate>Wages enabled</Text>
-        <Switch value={enabled} onValueChange={setEnabled} />
+        <AppSwitch value={enabled} onValueChange={setEnabled} />
       </View>
       <View style={styles.typeGrid}>
         {WAGE_TYPES.map((wageType) => {

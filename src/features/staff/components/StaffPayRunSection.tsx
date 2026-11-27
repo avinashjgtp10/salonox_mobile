@@ -1,7 +1,8 @@
 import { pearl } from "@/components/auth/pearl/tokens";
+import { AppSwitch } from "@/components/ui/AppSwitch";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { useEffect, useMemo, useState } from "react";
-import { StyleSheet, Switch, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { Text } from "@/components/ui/AppTypography";
 import { StaffSectionCard } from "@/features/staff/components/StaffSectionCard";
 import { StaffStateView } from "@/features/staff/components/StaffStateView";
@@ -74,7 +75,7 @@ export function StaffPayRunSection({ staffId }: { staffId?: string | null }) {
           {TOGGLES.map(([key, label]) => (
             <View key={key} style={styles.row}>
               <Text translate style={styles.label}>{label}</Text>
-              <Switch
+              <AppSwitch
                 disabled={saving}
                 value={form[key]}
                 onValueChange={(value) => setForm((current) => ({ ...current, [key]: value }))}

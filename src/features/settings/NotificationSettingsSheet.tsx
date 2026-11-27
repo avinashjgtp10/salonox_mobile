@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, Switch, View } from "react-native";
+import { AppSwitch } from "@/components/ui/AppSwitch";
+import { Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect } from "expo-router";
 import { Text } from "@/components/ui/AppTypography";
@@ -263,12 +264,10 @@ export function NotificationSettingsSheet({
                   Turn all push notifications on or off
                 </Text>
               </View>
-              <Switch
+              <AppSwitch
                 accessibilityLabel="All notifications"
                 onValueChange={handleToggleAll}
                 value={preferences.allNotifications}
-                trackColor={{ false: pearl.divider, true: pearl.accent }}
-                thumbColor="#FFFFFF"
               />
             </View>
           </View>
@@ -295,15 +294,13 @@ export function NotificationSettingsSheet({
                           : item.description}
                   </Text>
                 </View>
-                <Switch
+                <AppSwitch
                   accessibilityLabel={item.title}
                   disabled={!preferences.allNotifications}
                   value={preferences[item.key]}
                   onValueChange={(value) => {
                     void updatePreferences({ [item.key]: value });
                   }}
-                  trackColor={{ false: pearl.divider, true: pearl.accent }}
-                  thumbColor="#FFFFFF"
                 />
               </View>
             ))}
