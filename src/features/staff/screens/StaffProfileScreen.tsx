@@ -13,6 +13,8 @@ import { PearlBottomNav } from "@/components/ui/PearlBottomNav";
 import { useStaffDetails } from "../hooks/useStaffDetails";
 import { useStaffDailyMetrics } from "../hooks/useStaffDailyMetrics";
 import { useStaffPerformance } from "../hooks/useStaffPerformance";
+import { useStaffSchedule } from "../hooks/useStaffSchedule";
+import { summarizeStaffShifts } from "../utils/staffShiftSummary";
 import { StaffActionsSheet } from "../components/StaffActionsSheet";
 import {
   StaffAvatar,
@@ -37,13 +39,18 @@ export default function StaffProfileScreen() {
   const daily = useStaffDailyMetrics(list, true);
   const member = daily.members[0] ?? details.staffMember;
   const performance = useStaffPerformance(details.staffMember, "month");
+  const schedule = useStaffSchedule(id);
+  const workingShifts = useMemo(
+    () => summarizeStaffShifts(schedule.schedule).filter(line => line.hours),
+    [schedule.schedule],
+  );
   const [tab, setTab] = useState("Overview"),
     [actions, setActions] = useState(false);
   const toast = useAppToast();
   const route = (path: string) => router.push(path as Href);
-  const row = (label: string, value: string) => (
+  const row = (label: string, value: string, key = label) => (
     <View
-      key={label}
+      key={key}
       style={{
         flexDirection: "row",
         gap: 12,
@@ -51,8 +58,15 @@ export default function StaffProfileScreen() {
         alignItems: "center",
       }}
     >
-      <Text translate style={[staffUi.muted, { width: "32%" }]}>{label}</Text>
-      <Text style={[staffUi.rowTitle, { flex: 1, textAlign: "right" }]}>
+      <Text translate style={[staffUi.muted, { width: "28%" }]}>{label}</Text>
+      {/* One line always: a long value (email, a shift range) shrinks to fit
+          instead of wrapping onto the next row or running past the card. */}
+      <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.75}
+        style={[staffUi.rowTitle, { flex: 1, minWidth: 0, textAlign: "right" }]}
+      >
         {value || "—"}
       </Text>
     </View>
@@ -250,7 +264,17 @@ export default function StaffProfileScreen() {
                     {row("Phone", maskPhone(member.phone))}
                     {row("Email", member.email)}
                     {row("Joined", member.joiningDate)}
-                    {row("Shift", member.workingHours)}
+                    {/* Shift comes from the schedule configured on the web app,
+                        not the staff list payload, so it can differ per day. */}
+                    {schedule.loading && !workingShifts.length
+                      ? row("Shift", "Loading…")
+                      : workingShifts.length
+                        ? workingShifts.map((line, index) =>
+                            row(index === 0 ? "Shift" : "", `${line.days} · ${line.hours}`, `shift-${line.days}`),
+                          )
+                        : row("Shift", member.workingHours?.trim() && member.workingHours !== "-"
+                            ? member.workingHours
+                            : "Not scheduled")}
                     {row(
                       "Address",
                       member.address ??
