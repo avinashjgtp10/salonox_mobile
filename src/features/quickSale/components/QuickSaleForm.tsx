@@ -5,7 +5,7 @@ import { NoteBox } from "@/components/pearl/Page";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { FlatList, Keyboard, Pressable, ScrollView, StyleSheet, View } from "react-native";
-import { DateRangePickerSheet } from "@/components/ui/DateRangePickerSheet";
+import { AppDatePickerModal } from "@/components/ui/AppDatePickerModal";
 import { formatAppDate } from "@/utils/dateTime";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { itemTimeLabel, localItemTime } from "../utils/itemTime";
@@ -162,8 +162,8 @@ export function QuickSaleForm(p: Props) {
         <NoteBox><Text translate style={{ fontWeight: "700" }}>Save as pending</Text> keeps the bill open to collect later. <Text translate style={{ fontWeight: "700" }}>Checkout</Text> collects payment now.</NoteBox>
       </View>
     </KeyboardAwareForm>
-    <DateRangePickerSheet pearlStyle centered={false} renderInline={p.renderInline} title="Quick Sale date" subtitle="Choose the date for this Quick Sale." mode="single" visible={datePickerOpen} startDate={p.saleDate ?? null} endDate={null}
-      onClose={() => setDatePickerOpen(false)} onApply={(date) => { if (date) { p.onChangeSaleDate?.(date); setDatePickerOpen(false); } }} />
+    <AppDatePickerModal renderInline={p.renderInline} title="Quick Sale date" subtitle="Choose the date for this Quick Sale." visible={datePickerOpen} value={p.saleDate ?? null}
+      onChange={(date) => p.onChangeSaleDate?.(date)} onClose={() => setDatePickerOpen(false)} />
     <StaffPickerSheet visible={Boolean(staffLine)} title="Select staff for this item" subtitle={p.cart.items.find(item => item.lineId === staffLine)?.name} renderInline={p.renderInline} staff={p.staffOptions} selectedStaffId={p.cart.items.find(item => item.lineId === staffLine)?.staffId ?? null} onClose={() => setStaffLine(null)} onSelect={id => { const staff = p.staffOptions.find(item => item.id === id); if(staffLine) p.cart.setStaff(staffLine, staff?.id ?? null, staff?.name ?? null); setStaffLine(null); }}/>
     <BottomSheet visible={Boolean(timeLine)} title="Select time" subtitle={p.cart.items.find(item => item.lineId === timeLine)?.name} onClose={() => setTimeLine(null)} renderInline={p.renderInline} scrollable={false}>
       <FlatList style={{ height: 320 }} data={times} keyExtractor={time => time} initialScrollIndex={Math.max(0, times.indexOf(selectedTime) - 2)} getItemLayout={(_, index) => ({ length: 48, offset: 48 * index, index })} renderItem={({ item: time }) => <Pressable accessibilityRole="button" accessibilityState={{ selected: time === selectedTime }} onPress={() => { if (timeLine) p.cart.setTime(timeLine, time); setTimeLine(null); }} style={[s.timeOption, time === selectedTime && { backgroundColor: c.soft }]}><Text style={s.name}>{itemTimeLabel(time)}</Text>{time === selectedTime && <Ionicons name="checkmark" size={20} color={c.plum} />}</Pressable>} />

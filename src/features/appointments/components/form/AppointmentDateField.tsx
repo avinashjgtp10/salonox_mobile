@@ -5,10 +5,9 @@ import { todayIsoDate, validateDate } from "@/features/appointments/utils/appoin
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { formatAppDate } from "@/utils/dateTime";
 import { Ionicons } from "@expo/vector-icons";
-import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import { AppDatePickerModal } from "@/components/ui/AppDatePickerModal";
 import { useMemo, useState } from "react";
-import { Modal, Platform, Pressable, TouchableOpacity, View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
 
 export function AppointmentDateField({
   error,
@@ -24,10 +23,6 @@ export function AppointmentDateField({
   const [visible, setVisible] = useState(false);
   // No minimumDate: any past or future date can be booked, so the picker must
   // not grey out earlier days (walk-ins and missed bookings get entered late).
-  const dateValue = useMemo(() => {
-    const parsed = new Date(`${value || todayIsoDate()}T00:00:00`);
-    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
-  }, [value]);
   const displayDate = useMemo(() => {
     if (!validateDate(value)) {
       return value || "Select date";
@@ -35,20 +30,6 @@ export function AppointmentDateField({
 
     return formatAppDate(`${value}T00:00:00`);
   }, [value]);
-
-  const handleDateChange = (event: DateTimePickerEvent, selected?: Date) => {
-    if (event.type === "dismissed" || !selected) {
-      setVisible(false);
-      return;
-    }
-
-    const year = selected.getFullYear();
-    const month = String(selected.getMonth() + 1).padStart(2, "0");
-    const day = String(selected.getDate()).padStart(2, "0");
-
-    onChange(`${year}-${month}-${day}`);
-    setVisible(false);
-  };
 
   return (
     <View style={styles.inputGroup}>
@@ -63,20 +44,13 @@ export function AppointmentDateField({
       </TouchableOpacity>
       {error ? <Text translate style={styles.fieldError}>{error}</Text> : null}
 
-      {visible && Platform.OS === "android" ? (
-        <DateTimePicker mode="date" onChange={handleDateChange} value={dateValue} />
-      ) : null}
-
-      {Platform.OS === "ios" ? (
-        <Modal animationType="fade" onRequestClose={() => setVisible(false)} transparent visible={visible}>
-          <Pressable onPress={() => setVisible(false)} style={styles.modalBackdrop}>
-            <Pressable style={styles.modalCard}>
-              <Text translate style={styles.modalTitle}>Select Date</Text>
-              <DateTimePicker display="inline" mode="date" onChange={handleDateChange} value={dateValue} />
-            </Pressable>
-          </Pressable>
-        </Modal>
-      ) : null}
+      <AppDatePickerModal
+        subtitle="Tap the day for this appointment."
+        visible={visible}
+        value={validateDate(value) ? value : todayIsoDate()}
+        onChange={onChange}
+        onClose={() => setVisible(false)}
+      />
     </View>
   );
 }

@@ -25,7 +25,7 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import type { AppointmentListItem, AppointmentStatus } from "@/types/appointment";
 import { formatAppDate } from "@/utils/dateTime";
 import { Ionicons } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import { AppDatePickerModal } from "@/components/ui/AppDatePickerModal";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
@@ -223,7 +223,13 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
             <TouchableOpacity accessibilityLabel="Select date" onPress={() => setDatePickerVisible(true)} style={styles.dinggToolbarIcon}><Ionicons name="calendar-outline" size={21} color={Colors.appointmentText} /></TouchableOpacity>
           </View>
         </View>
-        {datePickerVisible ? <DateTimePicker mode="date" onChange={(event, selected) => { setDatePickerVisible(false); if (event.type !== "dismissed" && selected) setDate(`${selected.getFullYear()}-${String(selected.getMonth() + 1).padStart(2, "0")}-${String(selected.getDate()).padStart(2, "0")}`); }} value={new Date(`${date}T00:00:00`)} /> : null}
+        <AppDatePickerModal
+          subtitle="Tap the day to show on the calendar."
+          visible={datePickerVisible}
+          value={date}
+          onChange={setDate}
+          onClose={() => setDatePickerVisible(false)}
+        />
         <TourView tourId="filters" style={styles.calendarFilterRow}>
           <TouchableOpacity disabled={ownOnly} onPress={() => setStaffFilterVisible(true)} style={[styles.dinggStylistSummary, styles.calendarStaffFilter]}><Text translate style={styles.dinggStylistLabel}>Staff:</Text><Text numberOfLines={1} style={styles.dinggStylistValue}>{ownOnly ? currentStaff?.name ?? "My calendar" : selectedStaffLabel}</Text>{!ownOnly ? <Ionicons name="chevron-down" size={15} color={Colors.appointmentTextSecondary} /> : null}</TouchableOpacity>
           <CalendarStatusFilter statuses={selectedStatuses} onChange={setSelectedStatuses} />

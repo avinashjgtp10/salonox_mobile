@@ -1,4 +1,5 @@
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
+import { PortalProvider } from "@/components/ui/PortalProvider";
 import { Text } from "@/components/ui/AppTypography";
 import { AppointmentDateField } from "@/features/appointments/components/form/AppointmentDateField";
 import { TextField } from "@/features/appointments/components/form/TextField";
@@ -164,6 +165,8 @@ export function RescheduleAppointmentModal({
 
   return (
     <Modal animationType="fade" onRequestClose={onClose} transparent visible={visible}>
+      {/* Own portal host, so the date picker lands on top of this modal. */}
+      <PortalProvider>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.stylistModalBackdrop}>
         <Pressable accessibilityLabel="Close reschedule" onPress={onClose} style={styles.rescheduleBackdropTap} />
         <View style={[styles.stylistModalCard, styles.rescheduleModalCard]}>
@@ -179,6 +182,7 @@ export function RescheduleAppointmentModal({
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
+      </PortalProvider>
     </Modal>
   );
 }
