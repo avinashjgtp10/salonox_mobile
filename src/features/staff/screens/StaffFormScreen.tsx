@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, createRef } from "react";
-import { Keyboard, Switch, TouchableOpacity, View } from "react-native";
+import { AppSwitch } from "@/components/ui/AppSwitch";
+import { Keyboard, TouchableOpacity, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -635,7 +636,7 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
                           : "Optional. Leave it off to save their details without login access."}
                       </Text>
                     </View>
-                    <Switch
+                    <AppSwitch
                       value={form.values.isLoginEnabled}
                       onValueChange={value => {
                         form.updateField("isLoginEnabled", value);

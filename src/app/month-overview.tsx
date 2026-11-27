@@ -27,6 +27,10 @@ const MONTHS = ["January", "February", "March", "April", "May", "June", "July", 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const CMP_MAX = 110;
 const CHART_H = 130;
+/** Bar column width, the wider badge above it, and the band reserved for it. */
+const TIP_COL_W = 18;
+const TIP_W = 68;
+const TIP_BAND = 30;
 
 const GENDERS: { key: ProjectionGender; label: string }[] = [
   { key: "all", label: "All clients" },
@@ -210,7 +214,12 @@ function Overview({ data, monthName, prevMonthName, canEdit, onEditTarget, selec
             return (
               <Pressable key={row.day} onPress={() => onSelectDay(row.day)} accessibilityRole="button" accessibilityState={{ selected: on }}
                 accessibilityLabel={`${dayLabel(row.day)}: ${money(row.amount)}${row.actual ? "" : ", estimate"}`} style={styles.dayCol}>
-                {on ? <Text style={styles.tip}>{inrShort(row.amount)}</Text> : null}
+                {on ? (
+                  // Pinned to the band above every bar, centred on this column:
+                  // wide enough to read on one line, and clear of the bars so a
+                  // taller neighbour is never covered.
+                  <Text pointerEvents="none" numberOfLines={1} style={styles.tip}>{inrShort(row.amount)}</Text>
+                ) : null}
                 {row.actual
                   ? <LinearGradient colors={on ? [pearl.accent, pearl.accentDeep] : [pearl.accentTint, pearl.accentLight]} style={[styles.bar, { height }]} />
                   : <View style={[styles.bar, styles.estimate, { height }, on && styles.barOn]} />}
@@ -249,10 +258,30 @@ const styles = StyleSheet.create({
   rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
   big: { fontWeight: "800", fontSize: 19, color: pearl.ink },
   statRow: { flexDirection: "row", gap: 10 },
-  chart: { gap: 8, alignItems: "flex-end", height: CHART_H + 44, paddingBottom: 6 },
-  dayCol: { alignItems: "center", gap: 6, width: 18 },
-  bar: { width: 18, borderTopLeftRadius: 7, borderTopRightRadius: 7, borderBottomLeftRadius: 3, borderBottomRightRadius: 3 },
+  // Columns stretch to full height so the badge can pin to the top band; the
+  // side padding gives it room to overhang on the first and last bars, which
+  // would otherwise be cut off at the scroll edges.
+  chart: { gap: 8, alignItems: "stretch", height: CHART_H + TIP_BAND + 26, paddingBottom: 6, paddingHorizontal: (TIP_W - TIP_COL_W) / 2 },
+  dayCol: { alignItems: "center", justifyContent: "flex-end", gap: 6, width: TIP_COL_W },
+  bar: { width: TIP_COL_W, borderTopLeftRadius: 7, borderTopRightRadius: 7, borderBottomLeftRadius: 3, borderBottomRightRadius: 3 },
   estimate: { backgroundColor: "rgba(201,181,236,0.45)", borderWidth: 1, borderColor: "rgba(132,102,184,0.35)", borderStyle: "dashed" },
   barOn: { borderColor: pearl.accentDeep, borderWidth: 1.5 },
-  tip: { fontWeight: "800", fontSize: 10, color: "#fff", backgroundColor: pearl.ink, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 6, overflow: "hidden" },
+  // Sits in the reserved band above the bars, centred on its column.
+  tip: {
+    position: "absolute",
+    top: 0,
+    left: -(TIP_W - TIP_COL_W) / 2,
+    width: TIP_W,
+    zIndex: 5,
+    elevation: 5,
+    textAlign: "center",
+    fontWeight: "800",
+    fontSize: 11,
+    lineHeight: 16,
+    paddingVertical: 3,
+    color: "#fff",
+    backgroundColor: pearl.ink,
+    borderRadius: 8,
+    overflow: "hidden",
+  },
 });

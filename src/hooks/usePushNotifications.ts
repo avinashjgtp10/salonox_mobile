@@ -1,4 +1,3 @@
-import { appAlert as Alert } from "@/services/appAlert";
 import { router } from "expo-router";
 import { useCallback, useEffect, useRef } from "react";
 import { Platform } from "react-native";
@@ -19,9 +18,9 @@ import {
 } from "@/services/notificationPreferencesStorage";
 import {
   ensureAndroidNotificationChannel,
+  ensureNotificationPermission,
   getExpoPushToken,
   PushPermissionDeniedError,
-  requestNotificationPermission,
 } from "@/services/pushNotifications";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
@@ -53,7 +52,6 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
   const currentStaffLoadingRef = useRef(currentStaffLoading);
   const isAuthenticatedRef = useRef(isAuthenticated);
   const hydratedStoredTokenRef = useRef(false);
-  const hasWarnedPermissionRef = useRef(false);
   const handledResponseIdsRef = useRef(new Set<string>());
   const pendingNotificationResponseRef = useRef<Notifications.NotificationResponse | null>(null);
   const confirmedRegistrationSignatureRef = useRef<string | null>(null);
@@ -100,7 +98,7 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
       }
 
       await ensureAndroidNotificationChannel();
-      await requestNotificationPermission();
+      await ensureNotificationPermission();
 
       const token = await getExpoPushToken();
       const expoPushToken = token.trim();
@@ -141,14 +139,9 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
         })
         .catch(() => {});
     } catch (error) {
+      // ensureNotificationPermission has already shown the prompt, or the way to
+      // settings, or deliberately stayed quiet because the user said no before.
       if (error instanceof PushPermissionDeniedError) {
-        if (!hasWarnedPermissionRef.current) {
-          hasWarnedPermissionRef.current = true;
-          Alert.alert(
-            "Notifications are off",
-            "Turn on notifications in your device settings so SalonOX can alert you about new appointments, sales, and client activity in real time.",
-          );
-        }
         return;
       }
 

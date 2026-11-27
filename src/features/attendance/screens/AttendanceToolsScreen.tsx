@@ -1,6 +1,7 @@
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
+import { AppSwitch } from "@/components/ui/AppSwitch";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
+import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Redirect } from "expo-router";
 import { File, Paths } from "expo-file-system";
@@ -227,8 +228,7 @@ export default function AttendanceToolsScreen() {
         >
           <Text translate style={{ color: colors.heading, flex: 1 }}>Apply half-day rule for late arrivals</Text>
           <View pointerEvents="none">
-            <Switch accessible={false} disabled={busy || loading} value={settings.active}
-              trackColor={{ false: colors.border, true: colors.primary }} thumbColor="#FFFFFF" />
+            <AppSwitch accessible={false} disabled={busy || loading} value={settings.active} />
           </View>
         </TouchableOpacity>
         {numberFields.map(([key, label]) => <StaffTextField key={key} label={label} keyboardType="decimal-pad" value={form[key]} editable={!busy && !loading} onChangeText={value => setForm({ ...form, [key]: value })} />)}
@@ -242,8 +242,7 @@ export default function AttendanceToolsScreen() {
           <Text translate style={[styles.sectionTitle, { color: colors.heading }]}>Staff visibility</Text>
           <View style={styles.row}>
             <Text translate style={{ flex: 1, color: colors.heading }}>Show only checked-in staff</Text>
-            <Switch accessibilityLabel="Show only checked-in staff" value={settings.requireCheckinForVisibility ?? false} disabled={busy || loading}
-              trackColor={{ false: colors.border, true: colors.primary }} thumbColor={colors.onPrimary}
+            <AppSwitch accessibilityLabel="Show only checked-in staff" value={settings.requireCheckinForVisibility ?? false} disabled={busy || loading}
               onValueChange={value => void run(async () => {
                 const result = await attendanceService.updateSettings({ requireCheckinForVisibility: value });
                 setSettings(current => current ? { ...current, requireCheckinForVisibility: result.settings.requireCheckinForVisibility } : current);

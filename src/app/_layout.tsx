@@ -330,8 +330,7 @@ function UpdateAnnouncements({ announcement, onHome, ota, ready, showsOtaUpdate 
         onReopen={ota.reopen}
         onUpdate={ota.apply}
         releaseNotes={ota.releaseNotes.notes}
-        reminderMessage="Tap Show Update whenever you're ready to update."
-        title={ota.releaseNotes.title ?? "SalonOX Update"}
+        title={ota.releaseNotes.title ?? "New Update Available"}
         visible={ota.visible}
       /> : null}
       </>
@@ -347,7 +346,6 @@ function UpdateAnnouncements({ announcement, onHome, ota, ready, showsOtaUpdate 
     <FirstLoginGuide enabled={ready && !isVisible} />
     {onHome ? <UpdateAnnouncementModal
       androidStoreUrl={updateInfo.androidStoreUrl}
-      currentVersion={updateInfo.currentVersion}
       description={updateInfo.message}
       iosStoreUrl={updateInfo.iosStoreUrl}
       isMandatory={updateInfo.isMandatory}

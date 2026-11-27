@@ -1,4 +1,5 @@
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
+import { AppSwitch } from "@/components/ui/AppSwitch";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -9,7 +10,6 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Switch,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -373,14 +373,12 @@ export function CommissionRulesScreen() {
             busy ? (
               <ActivityIndicator color={pearl.accentDeep} />
             ) : (
-              <Switch
+              <AppSwitch
                 accessibilityLabel={
                   rule.status === "active" ? "Deactivate rule" : "Activate rule"
                 }
                 value={rule.status === "active"}
                 onValueChange={() => void toggleStatus(group)}
-                thumbColor="#FFFFFF"
-                trackColor={{ false: pearl.accentTint, true: pearl.accent }}
               />
             )
           ) : (

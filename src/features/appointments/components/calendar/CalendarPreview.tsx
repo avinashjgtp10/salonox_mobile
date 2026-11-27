@@ -1,5 +1,6 @@
 import { pearl } from "@/components/auth/pearl/tokens";
 import { useFooterClearance } from "@/hooks/useFooterClearance";
+import { PortalProvider } from "@/components/ui/PortalProvider";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
@@ -488,13 +489,17 @@ export function CalendarPreview({
         transparent
         visible={Boolean(appointmentSlot)}
       >
-        <View style={styles.bookingModalBackdrop}>
-          <View style={styles.bookingModalSurface}>
-            {appointmentSlot ? (
-              <AppointmentFormScreen initialSlot={appointmentSlot} mode="create" onRequestClose={closeAppointmentForm} />
-            ) : null}
+        {/* Own portal host: a sheet opened from inside this form must land on top
+            of the modal, not behind it in the app-root host. */}
+        <PortalProvider>
+          <View style={styles.bookingModalBackdrop}>
+            <View style={styles.bookingModalSurface}>
+              {appointmentSlot ? (
+                <AppointmentFormScreen initialSlot={appointmentSlot} mode="create" onRequestClose={closeAppointmentForm} />
+              ) : null}
+            </View>
           </View>
-        </View>
+        </PortalProvider>
       </Modal>
     </View>
   );

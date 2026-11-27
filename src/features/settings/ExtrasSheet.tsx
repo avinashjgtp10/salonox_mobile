@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Switch, View } from "react-native";
+import { AppSwitch } from "@/components/ui/AppSwitch";
+import { View } from "react-native";
 import { Text } from "@/components/ui/AppTypography";
 import { BottomSheet } from "@/components/ui/BottomSheet";
-import { usePearlPalette } from "@/components/auth/pearl/usePearlPalette";
 import {
   useClientRequiredFields,
   type ClientRequiredFields,
@@ -18,7 +18,6 @@ import { useSettingsStyles } from "./SettingsUI";
 // the web's Settings > Extras. Each toggle is its own salon_settings row.
 export function ExtrasSheet({ onClose }: { onClose: () => void }) {
   const ui = useSettingsStyles();
-  const pearl = usePearlPalette();
   const { config: requiredFields, toggle: toggleRequired } = useClientRequiredFields();
   const { config: otpConfig, toggle: toggleOtp } = useRedemptionOtpConfig();
   const [saving, setSaving] = useState(false);
@@ -48,13 +47,11 @@ export function ExtrasSheet({ onClose }: { onClose: () => void }) {
         <Text translate style={ui.title}>{label}</Text>
         <Text translate style={ui.muted}>{hint}</Text>
       </View>
-      <Switch
+      <AppSwitch
         accessibilityLabel={label}
         value={value}
         disabled={saving}
         onValueChange={onToggle}
-        thumbColor="#FFFFFF"
-        trackColor={{ false: pearl.divider, true: pearl.accent }}
       />
     </View>
   );

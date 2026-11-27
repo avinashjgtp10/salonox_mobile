@@ -1,4 +1,5 @@
 import { PearlActionFooter } from "@/components/ui/PearlActionFooter";
+import { AppSwitch } from "@/components/ui/AppSwitch";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { pearl, pearlTones } from "@/components/auth/pearl/tokens";
 import { ClientButton, ClientChips, clientUi } from "../components/ClientPearl";
@@ -9,7 +10,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { getCountryCallingCode, isValidPhoneNumber, parsePhoneNumber, type CountryCode } from "libphonenumber-js";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Keyboard, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
+import { Keyboard, StyleSheet, TouchableOpacity, View } from "react-native";
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -390,7 +391,7 @@ export default function NewClientScreen() {
               />}
               <View style={styles.whatsappRow}>
                 <Text translate style={styles.whatsappText}>Same number on WhatsApp</Text>
-                <Switch onValueChange={setWhatsappMatchesPhone} thumbColor="#FFFFFF" trackColor={{ false: Colors.border, true: Colors.primary }} value={whatsappMatchesPhone} />
+                <AppSwitch onValueChange={setWhatsappMatchesPhone} value={whatsappMatchesPhone} />
               </View>
             </View>
 
@@ -401,7 +402,7 @@ export default function NewClientScreen() {
       {isEditMode ? <View style={formUi.card}><Text translate style={formUi.heading}>Messages</Text><Text translate style={clientUi.muted}>Ask the client before turning promotions on.</Text>{[
         { title: "Bills & reminders", hint: "WhatsApp · SMS", enabled: transactionChannels.length > 0, toggle: () => setTransactionChannels(transactionChannels.length ? [] : ["SMS", "Whatsapp"]) },
         { title: "Offers & promotions", hint: "Off until the client agrees", enabled: promotionChannels.length > 0, toggle: () => setPromotionChannels(promotionChannels.length ? [] : ["SMS", "Whatsapp"]) },
-      ].map((row) => <View key={row.title} style={formUi.toggleRow}><View style={{ flex: 1 }}><Text translate style={clientUi.rowTitle}>{row.title}</Text><Text style={clientUi.muted}>{row.hint}</Text></View><Switch disabled={isSubmitting} value={row.enabled} onValueChange={row.toggle} thumbColor="#FFFFFF" trackColor={{ false: pearl.divider, true: pearl.accent }} /></View>)}</View> : null}
+      ].map((row) => <View key={row.title} style={formUi.toggleRow}><View style={{ flex: 1 }}><Text translate style={clientUi.rowTitle}>{row.title}</Text><Text style={clientUi.muted}>{row.hint}</Text></View><AppSwitch disabled={isSubmitting} value={row.enabled} onValueChange={row.toggle} /></View>)}</View> : null}
       {isEditMode ? <TouchableOpacity onPress={() => setMoreDetails((value) => !value)} style={[formUi.card, { flexDirection: "row", alignItems: "center", gap: 12 }]}><View style={clientUi.icon}><Ionicons name="person-outline" size={19} color={pearlTones.lilac.fg} /></View><View style={{ flex: 1 }}><Text translate style={clientUi.rowTitle}>More details (optional)</Text><Text translate style={clientUi.muted}>Gender, birthday, anniversary, address</Text></View><Ionicons name={moreDetails ? "chevron-up" : "chevron-down"} size={17} color={pearl.muted} /></TouchableOpacity> : null}
       {!isEditMode || moreDetails ? <View style={formUi.card}>{isEditMode ? <><Text translate style={formUi.heading}>More details</Text><View><Text translate style={clientUi.label}>Gender</Text><ClientChips options={GENDER_OPTIONS} selected={gender} onSelect={(value) => setGender(value as (typeof GENDER_OPTIONS)[number])} /></View></> : null}
         <DateField pearlStyle ref={(view) => setFieldRef("birthDate", view)} error={fieldErrors.birthDate} label="Birthday (optional)" maximumDate={new Date()} value={birthDate} onChange={(value) => { setBirthDate(value); setFieldErrors((current) => ({ ...current, birthDate: undefined })); }} placeholder="Select birthday" />

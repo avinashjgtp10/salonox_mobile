@@ -93,7 +93,7 @@ export function useOtaUpdate(startupReady = true) {
     (isUpdateAvailable ? availableUpdate?.manifest : undefined);
   const releaseNotes = useMemo(() => getOtaReleaseNotes(newManifest), [newManifest]);
 
-  // Show once per update; "Maybe Later" hides it until a newer update is published.
+  // Show once per update; "Remind me later" hides it until a newer update is published.
   useEffect(() => {
     if (hasUpdate && newUpdateId !== dismissedUpdateId) setVisible(true);
   }, [dismissedUpdateId, hasUpdate, newUpdateId]);

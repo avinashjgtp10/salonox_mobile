@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Switch, View } from "react-native";
+import { AppSwitch } from "@/components/ui/AppSwitch";
+import { Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect } from "expo-router";
 import { Text } from "@/components/ui/AppTypography";
@@ -17,6 +18,7 @@ import {
   type NotificationKey,
   type NotificationPreferences,
 } from "@/services/notificationPreferencesStorage";
+import { useNotificationPermission } from "@/hooks/useNotificationPermission";
 import { useSettingsStyles } from "./SettingsUI";
 const NOTIF_ROWS: {
   description: string;
@@ -114,6 +116,9 @@ export function NotificationSettingsSheet({
   );
   const [isHydrated, setIsHydrated] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Salon preferences only decide what the server sends. Nothing arrives at all
+  // unless the device itself allows notifications, so show that state too.
+  const { permission, request: requestPermission } = useNotificationPermission();
   const preferencesRef = useRef(preferences);
   const confirmedRef = useRef(preferences);
   const pendingRef = useRef<NotificationPreferences | null>(null);
@@ -213,6 +218,44 @@ export function NotificationSettingsSheet({
             Choose push notifications for the whole salon. Changes save
             automatically.
           </Text>
+          {permission && !permission.granted ? (
+            <View
+              style={[
+                ui.card,
+                { backgroundColor: "rgba(201,138,27,0.10)", borderColor: "rgba(201,138,27,0.30)", borderWidth: 1 },
+              ]}
+            >
+              <View style={[ui.row, { alignItems: "flex-start", gap: 12 }]}>
+                <Ionicons name="notifications-off-outline" size={20} color="#94640F" />
+                <View style={{ flex: 1, gap: 3 }}>
+                  <Text translate style={ui.title}>Notifications are off on this device</Text>
+                  <Text translate style={ui.muted}>
+                    {permission.blocked
+                      ? "Turn them on for SalonOX in your device settings. Until then these choices have no effect."
+                      : "Allow notifications so these choices can reach you."}
+                  </Text>
+                </View>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => { void requestPermission(); }}
+                style={({ pressed }) => [
+                  {
+                    alignItems: "center",
+                    backgroundColor: pearl.accent,
+                    borderRadius: 14,
+                    marginTop: 12,
+                    paddingVertical: 12,
+                  },
+                  pressed && { opacity: 0.85 },
+                ]}
+              >
+                <Text translate style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "700" }}>
+                  {permission.blocked ? "Open Settings" : "Turn on notifications"}
+                </Text>
+              </Pressable>
+            </View>
+          ) : null}
           <View style={ui.card}>
             <View style={ui.row}>
               <View style={{ flex: 1 }}>
@@ -221,12 +264,10 @@ export function NotificationSettingsSheet({
                   Turn all push notifications on or off
                 </Text>
               </View>
-              <Switch
+              <AppSwitch
                 accessibilityLabel="All notifications"
                 onValueChange={handleToggleAll}
                 value={preferences.allNotifications}
-                trackColor={{ false: pearl.divider, true: pearl.accent }}
-                thumbColor="#FFFFFF"
               />
             </View>
           </View>
@@ -253,15 +294,13 @@ export function NotificationSettingsSheet({
                           : item.description}
                   </Text>
                 </View>
-                <Switch
+                <AppSwitch
                   accessibilityLabel={item.title}
                   disabled={!preferences.allNotifications}
                   value={preferences[item.key]}
                   onValueChange={(value) => {
                     void updatePreferences({ [item.key]: value });
                   }}
-                  trackColor={{ false: pearl.divider, true: pearl.accent }}
-                  thumbColor="#FFFFFF"
                 />
               </View>
             ))}
