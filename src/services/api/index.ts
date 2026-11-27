@@ -22,7 +22,7 @@ import {
   shouldRefreshToken,
 } from "@/services/authSession";
 import NetInfo from "@react-native-community/netinfo";
-import { isNetworkOnline, setNetworkSnapshot, waitForNetworkOnline } from "@/services/networkStatus";
+import { isNetworkOnline, markNetworkOnline, setNetworkSnapshot, waitForNetworkOnline } from "@/services/networkStatus";
 import { notificationDeviceStorage } from "@/services/notificationDeviceStorage";
 import { notifySessionInvalidated } from "@/services/sessionInvalidation";
 import { tokenStorage } from "@/services/tokenStorage";
@@ -230,7 +230,7 @@ const formatErrorMessage = (message: string): string => {
   }
 
   if (lowercaseMessage.includes("network error")) {
-    return OFFLINE_MESSAGE;
+    return isNetworkOnline() ? UNREACHABLE_MESSAGE : OFFLINE_MESSAGE;
   }
 
   if (lowercaseMessage.includes("request failed with status code 5")) {
@@ -247,6 +247,7 @@ const formatErrorMessage = (message: string): string => {
 };
 
 const OFFLINE_MESSAGE = "No internet connection. Please try again when you're back online.";
+const UNREACHABLE_MESSAGE = "Couldn't reach SalonOX just now. Please try again in a moment.";
 const TIMEOUT_MESSAGE =
   "The server took too long to respond. The request may still have gone through — check before trying again.";
 
@@ -259,15 +260,17 @@ const OFFLINE_MUTATION_MESSAGE = "No internet connection. Your changes are still
 // A request can fail before NetInfo has reported the drop. Ask NetInfo directly so
 // reads wait for the connection instead of surfacing an error on screen.
 const confirmOffline = async () => {
-  if (!isNetworkOnline()) return true;
   try {
     const state = await NetInfo.refresh();
     const offline = state.isConnected === false || state.isInternetReachable === false;
-    if (offline) {
-      setNetworkSnapshot({ isConnected: state.isConnected, isInternetReachable: state.isInternetReachable, isOnline: false });
-    }
+    setNetworkSnapshot({
+      isConnected: state.isConnected,
+      isInternetReachable: state.isInternetReachable,
+      isOnline: !offline,
+    });
     return offline;
   } catch {
+    // A failed check proves nothing either way; let the request decide.
     return false;
   }
 };
@@ -292,6 +295,13 @@ const waitForOnlineIfNeeded = async (config: InternalAxiosRequestConfig) => {
     return;
   }
 
+  // A write is refused before it is ever attempted, so the snapshot had
+  // better be right. Re-check with the OS first; only a confirmed drop stops
+  // the request.
+  if (!(await confirmOffline())) {
+    return;
+  }
+
   throw new ApiError(OFFLINE_MUTATION_MESSAGE);
 };
 
@@ -299,7 +309,13 @@ const toApiError = (error: unknown) => {
   if (error instanceof ApiError) return error;
   if (isAxiosError<ApiErrorPayload>(error)) {
     if (!error.response) {
-      const message = isTimeoutError(error) && isNetworkOnline() ? TIMEOUT_MESSAGE : OFFLINE_MESSAGE;
+      // Three different failures used to read as "No internet connection":
+      // a genuine drop, a server that never answered, and a slow response.
+      const message = !isNetworkOnline()
+        ? OFFLINE_MESSAGE
+        : isTimeoutError(error)
+          ? TIMEOUT_MESSAGE
+          : UNREACHABLE_MESSAGE;
 
       return new ApiError(message, undefined, undefined, undefined, error.code);
     }
@@ -559,6 +575,7 @@ api.interceptors.request.use(async (config) => {
 api.interceptors.response.use(
   (response) => {
     releaseProtectedRequest(response.config as RetryableRequestConfig);
+    markNetworkOnline();
 
     return response;
   },
