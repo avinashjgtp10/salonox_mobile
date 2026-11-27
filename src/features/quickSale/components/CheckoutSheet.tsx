@@ -37,8 +37,6 @@ import type {
 
 export type { DiscountApplyTarget } from "@/features/quickSale/components/checkout/types";
 
-type PaymentType = "full" | "partial";
-
 const CHECKOUT_ANIMATION_MS = 250;
 
 type DiscountMode = "amount" | "percent";
@@ -133,8 +131,11 @@ function CheckoutSheetComponent({
     setLastSingleMethod(current => current && !allowed.has(current) ? null : current);
     setSplitAmounts(current => Object.keys(current).some(key => !allowed.has(key)) ? Object.fromEntries(Object.entries(current).filter(([key]) => allowed.has(key))) : current);
   }, [paymentConfig.ready, paymentConfig.options]);
-  const [paymentType, setPaymentType] = useState<PaymentType>("full");
-  const [partialAmountInput, setPartialAmountInput] = useState("");
+  // The amount field is prefilled with the full payable amount. This only
+  // records whether the cashier has typed something else, so the prefill can
+  // keep following the total until they do.
+  const [amountEdited, setAmountEdited] = useState(false);
+  const [amountInput, setAmountInput] = useState("");
   const [discountMode, setDiscountMode] = useState<DiscountMode>(
     overallDiscountType === "percentage" ? "percent" : "amount",
   );
@@ -249,8 +250,8 @@ function CheckoutSheetComponent({
     setPaymentMethod(null);
     setLastSingleMethod(null);
     setSplitAmounts({});
-    setPaymentType("full");
-    setPartialAmountInput("");
+    setAmountEdited(false);
+    setAmountInput("");
     setDiscountMode(overallDiscountType === "percentage" ? "percent" : "amount");
     setDiscountDraft(
       overallDiscountType === "percentage"
@@ -415,31 +416,32 @@ function CheckoutSheetComponent({
     [splitAmountInput, paymentOptions],
   );
 
-  const amountToCollect =
-    paymentType === "partial"
-      ? Math.max(0, Math.min(parseAmount(partialAmountInput), totals.grandTotal))
-      : totals.grandTotal;
+  const amountToCollect = amountEdited
+    ? Math.max(0, Math.min(parseAmount(amountInput), totals.grandTotal))
+    : totals.grandTotal;
   const dueAmount = Math.max(0, totals.grandTotal - amountToCollect);
-  // Paying in full shows the grand total in the field, and keeps it in step as
-  // discounts or charges move the total. Typing anything that isn't that exact
-  // string switches to partial, so this never fights the keyboard.
+  // Until the cashier types an amount of their own, the field shows the full
+  // payable amount and keeps following it as discounts or charges move the
+  // total — so collecting in full is one tap, with nothing to enter.
   useEffect(() => {
-    if (paymentType === "full") setPartialAmountInput(totals.grandTotal.toFixed(2));
-  }, [paymentType, totals.grandTotal]);
+    if (!amountEdited) setAmountInput(totals.grandTotal.toFixed(2));
+  }, [amountEdited, totals.grandTotal]);
   // Web parity (PaymentMethodPicker's pay-due-row): anything above the grand
-  // total is clamped to it rather than rejected, and typing the grand total
-  // back is the same as choosing Pay in Full.
+  // total is clamped to it rather than rejected, and typing the full amount
+  // back hands the field to the prefill again.
   // The typed text is the single source of truth, so every keystroke —
   // backspace included — is kept exactly as entered. Matching on the raw text
   // rather than its parsed value matters: deleting a digit from "100.00"
   // leaves "100.0", which still PARSES to the grand total, so comparing
   // numbers would snap the field back to "100.00" and make it impossible to
-  // clear. Only the exact full-amount string counts as Pay in Full.
+  // clear.
   const handleChangeAmountToCollect = (raw: string) => {
-    setPartialAmountInput(parseAmount(raw) > totals.grandTotal ? totals.grandTotal.toFixed(2) : raw);
-    setPaymentType(raw === totals.grandTotal.toFixed(2) ? "full" : "partial");
+    setAmountInput(parseAmount(raw) > totals.grandTotal ? totals.grandTotal.toFixed(2) : raw);
+    setAmountEdited(raw !== totals.grandTotal.toFixed(2));
   };
-  const partialAmountExceedsTotal = paymentType === "partial" && parseAmount(partialAmountInput) > totals.grandTotal;
+  // Only reachable when the total DROPS below an amount already typed (a
+  // discount applied after the fact); fresh input is clamped above.
+  const amountExceedsTotal = amountEdited && parseAmount(amountInput) > totals.grandTotal;
   const splitTotal = splitEntries.reduce((total, entry) => total + entry.amount, 0);
   const splitRemaining = Math.max(
     0,
@@ -493,7 +495,7 @@ function CheckoutSheetComponent({
   const canAttemptComplete =
     hasItems &&
     !chargesInvalid &&
-    (noPaymentRequired || !partialAmountExceedsTotal) &&
+    (noPaymentRequired || !amountExceedsTotal) &&
     // A recalculation in flight no longer disables the button: a tap made
     // during one is held by handleComplete until the new totals land.
     !pricingError &&
@@ -898,6 +900,31 @@ function CheckoutSheetComponent({
                   ) : null}
                 </View>
               ) : null}
+              {checkoutStep === "payment" && totals.grandTotal > 0 ? (
+                <View style={styles.formCard}>
+                  <Text translate style={styles.sectionTitle}>Amount</Text>
+                  {/* Prefilled with the full payable amount, so a full payment
+                      is one tap. Typing a smaller figure (0 included, for a
+                      booking saved unpaid) moves the rest to the due line
+                      below; typing the full amount back restores the prefill. */}
+                  <TextInput
+                    keyboardType="decimal-pad"
+                    onChangeText={handleChangeAmountToCollect}
+                    placeholder={totals.grandTotal.toFixed(2)}
+                    placeholderTextColor={Colors.placeholder}
+                    style={[styles.input, amountExceedsTotal && styles.inputError]}
+                    value={amountInput}
+                  />
+                  {amountExceedsTotal ? (
+                    <Text style={styles.errorText}>
+                      Amount cannot exceed the grand total ({formatCurrency(totals.grandTotal)}).
+                    </Text>
+                  ) : (
+                    <Text style={styles.gstPreviewText}>Due after this payment: {formatCurrency(dueAmount)}</Text>
+                  )}
+                </View>
+              ) : null}
+
               {checkoutStep === "review" ? (
                 <>
                   <View style={styles.customerCard}>
@@ -1191,41 +1218,6 @@ function CheckoutSheetComponent({
                 </>
               )}
 
-              {checkoutStep === "payment" && totals.grandTotal > 0 ? (
-                <View style={styles.formCard}>
-                  <Text translate style={styles.sectionTitle}>Payment Type</Text>
-                  <View style={styles.discountModeRow}>
-                    <ModeButton active={paymentType === "full"} label="Pay in Full" onPress={() => setPaymentType("full")} />
-                    <ModeButton
-                      active={paymentType === "partial"}
-                      label="Partial Payment"
-                      onPress={() => { setPaymentType("partial"); setPartialAmountInput(""); }}
-                    />
-                  </View>
-                  {/* Always editable, like the web's "Pay [amount] [x] Full" row:
-                      it shows the grand total while paying in full, and typing
-                      any other figure (0 included, for a booking that is saved
-                      unpaid) switches to partial on its own. Typing the full
-                      amount back switches to Pay in Full again. */}
-                  <Text translate style={styles.inputLabel}>Amount to Collect Now</Text>
-                  <TextInput
-                    keyboardType="decimal-pad"
-                    onChangeText={handleChangeAmountToCollect}
-                    placeholder={totals.grandTotal.toFixed(2)}
-                    placeholderTextColor={Colors.placeholder}
-                    style={[styles.input, partialAmountExceedsTotal && styles.inputError]}
-                    value={partialAmountInput}
-                  />
-                  {partialAmountExceedsTotal ? (
-                    <Text style={styles.errorText}>
-                      Amount cannot exceed the grand total ({formatCurrency(totals.grandTotal)}).
-                    </Text>
-                  ) : (
-                    <Text style={styles.gstPreviewText}>Due after this payment: {formatCurrency(dueAmount)}</Text>
-                  )}
-                </View>
-              ) : null}
-
               {checkoutStep === "payment" && noPaymentRequired && !isPricingLoading && !pricingError ? <View style={styles.formCard}><Text translate style={styles.sectionTitle}>No payment to collect</Text><Text translate style={styles.gstPreviewText}>The bill is fully covered. Applied client benefits are deducted when you complete the sale.</Text></View> : null}
 
 
@@ -1233,9 +1225,7 @@ function CheckoutSheetComponent({
                 <View style={styles.formCard}>
                   <Text translate style={styles.sectionTitle}>Cash Details</Text>
                   <View style={styles.paymentAmountCard}>
-                    <Text translate style={styles.paymentAmountLabel}>
-                      {paymentType === "partial" ? "Amount to Collect" : "Grand Total"}
-                    </Text>
+                    <Text translate style={styles.paymentAmountLabel}>Amount to Collect</Text>
                     <Text style={styles.paymentAmountValue}>{formatCurrency(amountToCollect)}</Text>
                   </View>
                 </View>
