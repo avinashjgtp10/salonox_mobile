@@ -3,6 +3,14 @@ import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { tokenStorage } from "@/services/tokenStorage";
+import {
+  getNotificationPermission,
+  hasDeclinedNotificationPrompt,
+} from "@/services/notificationPermission";
+import {
+  promptForNotificationPermission,
+  showNotificationSettingsPrompt,
+} from "@/services/notificationPermissionPrompt";
 import { isNotificationRegistrationPaused } from "@/services/notificationRegistrationLifecycle";
 import { canReceivePush } from "@/utils/staffAccess";
 
@@ -12,6 +20,9 @@ import {
 } from "@/services/notificationPreferencesStorage";
 
 export const ANDROID_CHANNEL_ID = "salonox";
+
+/** Reset on each app run, so the "notifications are off" prompt shows once per launch. */
+let blockedPromptShownThisSession = false;
 
 export class PushPermissionDeniedError extends Error {
   constructor() {
@@ -72,18 +83,38 @@ Notifications.addPushTokenListener((tokenData) => {
   void tokenData;
 });
 
-export const requestNotificationPermission = async (): Promise<void> => {
-  const current = await Notifications.getPermissionsAsync();
+/**
+ * Makes sure the device allows notifications before a push token is requested,
+ * asking through the in-app prompt (OK → the native OS request) when it may.
+ * Throws PushPermissionDeniedError when the device still says no.
+ */
+export const ensureNotificationPermission = async (): Promise<void> => {
+  const current = await getNotificationPermission();
 
   if (current.granted) {
+    blockedPromptShownThisSession = false;
     return;
   }
 
-  if (!current.canAskAgain) {
+  // Turned off in the device settings: the OS will not show its dialog again,
+  // so offer the settings screen. Once per app run — this is reached on every
+  // foreground, and a dialog each time would be nagging.
+  if (current.blocked) {
+    if (!blockedPromptShownThisSession) {
+      blockedPromptShownThisSession = true;
+      await showNotificationSettingsPrompt();
+    }
+
     throw new PushPermissionDeniedError();
   }
 
-  const requested = await Notifications.requestPermissionsAsync();
+  // Said "Not now" to our own prompt before: don't ask again on every launch.
+  // The banner in Settings → Notify me about stays the way back in.
+  if (await hasDeclinedNotificationPrompt()) {
+    throw new PushPermissionDeniedError();
+  }
+
+  const requested = await promptForNotificationPermission();
 
   if (!requested.granted) {
     throw new PushPermissionDeniedError();
