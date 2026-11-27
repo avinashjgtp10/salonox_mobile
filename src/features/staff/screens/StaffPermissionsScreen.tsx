@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ScrollView, Switch, TouchableOpacity, View } from "react-native";
+import { AppSwitch } from "@/components/ui/AppSwitch";
+import { ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -224,13 +225,11 @@ export function StaffPermissionsScreen() {
               </Text>
             ) : null}
           </View>
-          <Switch
+          <AppSwitch
             accessibilityLabel={p.name}
             disabled={saving || !!locked}
             value={effective[p.key] === true}
             onValueChange={(value) => void save(p.key, value)}
-            thumbColor="#FFFFFF"
-            trackColor={{ false: pearl.divider, true: pearl.accent }}
           />
         </View>
       );
@@ -394,18 +393,13 @@ export function StaffPermissionsScreen() {
                               off at once.
                             </Text>
                           </View>
-                          <Switch
+                          <AppSwitch
                             accessibilityLabel="Toggle all permissions"
                             disabled={saving || catalog.length === 0}
                             value={allOn}
                             onValueChange={(value) =>
                               void saveOverrides(bulkOverrides(catalog, value))
                             }
-                            thumbColor="#FFFFFF"
-                            trackColor={{
-                              false: pearl.divider,
-                              true: pearl.accent,
-                            }}
                           />
                         </View>
                         {modules.map((module) => {
@@ -463,7 +457,7 @@ export function StaffPermissionsScreen() {
                                   color={pearl.muted}
                                 />
                                 </TouchableOpacity>
-                                <Switch
+                                <AppSwitch
                                   accessibilityLabel={
                                     "Toggle all " + module + " permissions"
                                   }
@@ -479,11 +473,6 @@ export function StaffPermissionsScreen() {
                                       bulkOverrides(permissions, value),
                                     )
                                   }
-                                  thumbColor="#FFFFFF"
-                                  trackColor={{
-                                    false: pearl.divider,
-                                    true: pearl.accent,
-                                  }}
                                 />
                               </View>
                               {expanded[module]

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Switch, View } from "react-native";
+import { AppSwitch } from "@/components/ui/AppSwitch";
+import { View } from "react-native";
 import { Page } from "@/components/pearl/Page";
 import { EmptyState, SmallButton, Skeleton } from "@/components/pearl/ui";
 import { Text, TextInput } from "@/components/ui/AppTypography";
@@ -85,8 +86,7 @@ export function PaymentMethodsScreen() {
           <Text translate style={ui.section}>Default methods</Text>
           <View style={ui.card}>{builtIns.map(method => <View key={method.key} style={{ padding: 16, flexDirection: "row", alignItems: "center", gap: 12 }}>
             <View style={{ flex: 1, gap: 4 }}><Text style={ui.title}>{method.name}</Text><Text style={ui.muted}>Default · {method.is_active ? "Active" : "Inactive"}</Text></View>
-            <Switch accessibilityLabel={`Enable ${method.name}`} value={method.is_active} disabled={disabled || !canManage || (method.is_active && activeCount <= 1)}
-              trackColor={{ true: p.accent }} onValueChange={active => { void mutate(async () => {
+            <AppSwitch accessibilityLabel={`Enable ${method.name}`} value={method.is_active} disabled={disabled || !canManage || (method.is_active && activeCount <= 1)} onValueChange={active => { void mutate(async () => {
                 const updated = await paymentMethodsService.setBuiltIn(method.key, active);
                 return config => ({ ...config, builtIns: config.builtIns.map(row => row.key === updated.key ? updated : row) });
               }); }} />
@@ -96,7 +96,7 @@ export function PaymentMethodsScreen() {
           : methods.config.custom.map(method => <View key={method.id} style={[ui.card, { padding: 16, gap: 12 }]}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               <View style={{ flex: 1, gap: 4 }}><Text style={ui.title}>{method.name}</Text><Text style={ui.muted}>{method.is_active ? "Active at checkout" : "Inactive"}</Text><Text style={ui.muted}>Updated {formatAppDateTime(method.updated_at)}</Text></View>
-              <Switch accessibilityLabel={`Enable ${method.name}`} value={method.is_active} disabled={disabled || !canManage || (method.is_active && activeCount <= 1)} trackColor={{ true: p.accent }}
+              <AppSwitch accessibilityLabel={`Enable ${method.name}`} value={method.is_active} disabled={disabled || !canManage || (method.is_active && activeCount <= 1)}
                 onValueChange={active => { void mutate(async () => { const updated = await paymentMethodsService.update(method.id, { is_active: active }); return config => ({ ...config, custom: config.custom.map(row => row.id === updated.id ? updated : row) }); }); }} />
             </View>
             {canManage && <View style={{ flexDirection: "row", gap: 12 }}>

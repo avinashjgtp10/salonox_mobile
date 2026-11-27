@@ -1,11 +1,12 @@
 import { pearl } from "@/components/auth/pearl/tokens";
+import { AppSwitch } from "@/components/ui/AppSwitch";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { StyleSheet, Switch, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -79,7 +80,7 @@ export default function BrandFormScreen({ id, mode }: { id?: string; mode: "crea
     {mode === "edit" && state.brandDetailsLoading && !brand ? <View style={styles.loading}><ActivityIndicator size="large" color={pearl.accentDeep} /></View> : mode === "edit" && state.brandDetailsError && !brand ? <Notice message={state.brandDetailsError} /> : <View style={styles.card}>
       <View style={styles.field}><Text translate style={styles.label}>Brand name</Text><View style={[styles.inputWrap, nameError && styles.inputWrapError]}><Ionicons name="ribbon-outline" size={18} color={nameError ? Colors.error : Colors.text2} /><TextInput ref={(input) => setFieldRef("name", input)} autoCapitalize="words" onChangeText={(value) => { setName(value); setNameError(undefined); }} placeholder="Enter brand name" placeholderTextColor={Colors.placeholder} style={styles.input} value={name} /></View>{nameError ? <Text style={styles.fieldError}>{nameError}</Text> : null}</View>
       <View style={styles.field}><Text translate style={styles.label}>Description</Text><View style={[styles.inputWrap, styles.multilineWrap]}><Ionicons name="document-text-outline" size={18} color={Colors.text2} /><TextInput multiline onChangeText={setDescription} placeholder="Optional notes" placeholderTextColor={Colors.placeholder} style={[styles.input, styles.multiline]} value={description} /></View></View>
-      {mode === "edit" ? <View style={styles.switchRow}><View><Text translate style={styles.switchTitle}>Active brand</Text><Text translate style={styles.switchHint}>Available when assigning products</Text></View><Switch onValueChange={setIsActive} value={isActive} trackColor={{ false: Colors.border, true: Colors.secondary }} thumbColor="#FFFFFF" /></View> : null}
+      {mode === "edit" ? <View style={styles.switchRow}><View><Text translate style={styles.switchTitle}>Active brand</Text><Text translate style={styles.switchHint}>Available when assigning products</Text></View><AppSwitch onValueChange={setIsActive} value={isActive} /></View> : null}
       {error ?? state.brandMutationError ? <Notice message={error ?? state.brandMutationError ?? ""} /> : null}
       <TouchableOpacity disabled={state.brandMutationLoading} onPress={() => void submit()} style={[styles.submit, state.brandMutationLoading && styles.disabled]}>{state.brandMutationLoading ? <ActivityIndicator color={Colors.onPrimary} /> : <Ionicons name="checkmark-circle-outline" size={19} color={Colors.onPrimary} />}<Text translate style={styles.submitText}>{state.brandMutationLoading ? "Saving..." : mode === "create" ? "Create Brand" : "Save Changes"}</Text></TouchableOpacity>
     </View>}

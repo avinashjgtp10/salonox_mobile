@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Switch, TouchableOpacity, View } from "react-native";
+import { AppSwitch } from "@/components/ui/AppSwitch";
+import { TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/ui/AppTypography";
 import { staffPermissionsService, type StaffPermission } from "@/services/staffPermissions.service";
@@ -61,13 +62,11 @@ export function StaffFormPermissions({ role, staffId, overrides, onChange, onRea
           {permission.description ? <Text style={staffUi.muted}>{permission.description}</Text> : null}
           {locked ? <Text style={staffUi.muted}>Enable {catalog.find(item => item.key === locked)?.name ?? locked} first</Text> : null}
         </View>
-        <Switch
+        <AppSwitch
           accessibilityLabel={permission.name}
           disabled={disabled || !!locked}
           value={effective[permission.key] === true}
           onValueChange={value => changePermission(permission.key, value)}
-          thumbColor="#FFFFFF"
-          trackColor={{ false: pearl.divider, true: pearl.accent }}
         />
       </View>
     );
