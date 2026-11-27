@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const APP_UPDATE_SNOOZE_KEY = "salonox.appUpdate.snooze";
 
-export const APP_UPDATE_SNOOZE_MS = 24 * 60 * 60 * 1000;
+const APP_UPDATE_SNOOZE_MS = 24 * 60 * 60 * 1000;
 
 type AppUpdateSnooze = {
   until: number;

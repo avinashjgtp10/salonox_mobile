@@ -1,12 +1,18 @@
+/**
+ * Update popup — the prototype's `.update-overlay` / `.update-box`: a centered
+ * card with the SalonOX mark in a tile, a version pill, a "What's new" block and
+ * Update Now / Remind me later. Putting it off leaves the dashboard chip behind
+ * (see UpdateChip), which brings this card back.
+ *
+ * Colours come from the pearl theme, not the prototype's violet on this one
+ * screen: every other surface in the app uses the pearl accent.
+ */
 import { Text } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
-import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Linking from "expo-linking";
-import type { ComponentProps } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BackHandler, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { BackHandler, Image, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import Animated, {
   Easing,
   interpolate,
@@ -16,21 +22,16 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Portal } from "@/components/ui/Portal";
-import { AppLayout } from "@/constants/layout";
-import {
-  DashboardRadius as Radius,
-  DashboardSpacing as Spacing,
-  type ThemeColors,
-} from "@/constants/theme";
+import { pearl, pearlGradients, pearlShadow } from "@/components/auth/pearl/tokens";
+import { usePearlPalette } from "@/components/auth/pearl/usePearlPalette";
 import type { AppReleaseNote } from "@/services/appUpdate.service";
+import { updateChip } from "@/services/updateChip";
 import { useAppTheme } from "@/theme/ThemeProvider";
 
 type UpdateAnnouncementModalProps = {
   androidStoreUrl?: string | null;
-  currentVersion?: string | null;
   description?: string | null;
   iosStoreUrl?: string | null;
   isMandatory: boolean;
@@ -40,23 +41,15 @@ type UpdateAnnouncementModalProps = {
   /** OTA updates: download and reload instead of opening the store. */
   onUpdate?: () => Promise<void>;
   isUpdating?: boolean;
-  reminderMessage?: string;
   releaseNotes?: AppReleaseNote[];
   title?: string | null;
   visible: boolean;
 };
 
-type IoniconName = ComponentProps<typeof Ionicons>["name"];
+const BRAND_MARK = require("../../../assets/images/brand/salonox-mark.png");
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const OPEN_EASING = Easing.bezier(0.16, 1, 0.3, 1);
 const CLOSE_EASING = Easing.bezier(0.4, 0, 1, 1);
-const LOGO_SOURCE = require("../../../assets/images/logo.png");
-const NOTE_ICONS: IoniconName[] = [
-  "sparkles-outline",
-  "shield-checkmark-outline",
-  "trending-up-outline",
-];
 
 const isOpenableStoreUrl = (value?: string | null): value is string => {
   const url = value?.trim();
@@ -68,23 +61,8 @@ const isOpenableStoreUrl = (value?: string | null): value is string => {
   return /^(https?|itms-apps|market):\/\//i.test(url);
 };
 
-const withAlpha = (hexColor: string, alpha: number) => {
-  const normalized = hexColor.replace("#", "");
-
-  if (normalized.length !== 6) {
-    return hexColor;
-  }
-
-  const red = Number.parseInt(normalized.slice(0, 2), 16);
-  const green = Number.parseInt(normalized.slice(2, 4), 16);
-  const blue = Number.parseInt(normalized.slice(4, 6), 16);
-
-  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
-};
-
 export function UpdateAnnouncementModal({
   androidStoreUrl,
-  currentVersion,
   description,
   iosStoreUrl,
   isMandatory,
@@ -93,33 +71,26 @@ export function UpdateAnnouncementModal({
   onReopen,
   onUpdate,
   isUpdating = false,
-  reminderMessage = "We'll remind you on a future launch after 24 hours.",
   releaseNotes = [],
   title,
   visible,
 }: UpdateAnnouncementModalProps) {
-  const { colors, scheme } = useAppTheme();
-  const [showReminder, setShowReminder] = useState(false);
-  useEffect(() => {
-    if (!showReminder) return;
-    const timer = setTimeout(() => setShowReminder(false), 4000);
-    return () => clearTimeout(timer);
-  }, [showReminder]);
-  const insets = useSafeAreaInsets();
+  const palette = usePearlPalette();
+  const isDark = useAppTheme().scheme === "dark";
   const { height } = useWindowDimensions();
-  const { gradientColors, styles } = useMemo(
-    () => createStyles(colors, scheme, insets.bottom, height),
-    [colors, height, insets.bottom, scheme],
-  );
+  const styles = useMemo(() => createStyles(palette, isDark, height), [height, isDark, palette]);
   const progress = useSharedValue(0);
-  const logoScale = useSharedValue(0.9);
-  const buttonScale = useSharedValue(1);
+  const iconScale = useSharedValue(0.9);
   const [isPresented, setIsPresented] = useState(visible);
   // The close animation finishes on the UI thread and reports back later. If the
   // modal was asked to open in the meantime (e.g. it mounted hidden and became
   // visible right after), that late report must not hide it again.
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
+  // The chip outlives a render of this component, so it holds a stable opener.
+  const reopenRef = useRef(onReopen);
+  reopenRef.current = onReopen;
+  const reopen = useCallback(() => reopenRef.current(), []);
   const hideIfStillClosed = useCallback(() => {
     if (!visibleRef.current) {
       setIsPresented(false);
@@ -129,18 +100,18 @@ export function UpdateAnnouncementModal({
   useEffect(() => {
     if (visible) {
       setIsPresented(true);
-      progress.value = withTiming(1, { duration: 360, easing: OPEN_EASING });
-      logoScale.value = withSpring(1, { damping: 13, stiffness: 140 });
+      progress.value = withTiming(1, { duration: 320, easing: OPEN_EASING });
+      iconScale.value = withSpring(1, { damping: 13, stiffness: 140 });
       return;
     }
 
-    progress.value = withTiming(0, { duration: 220, easing: CLOSE_EASING }, (finished) => {
+    progress.value = withTiming(0, { duration: 200, easing: CLOSE_EASING }, (finished) => {
       if (finished) {
         runOnJS(hideIfStillClosed)();
       }
     });
-    logoScale.value = withTiming(0.9, { duration: 180 });
-  }, [hideIfStillClosed, logoScale, progress, visible]);
+    iconScale.value = withTiming(0.9, { duration: 160 });
+  }, [hideIfStillClosed, iconScale, progress, visible]);
 
   useEffect(() => {
     if (!visible) {
@@ -165,19 +136,26 @@ export function UpdateAnnouncementModal({
     }
   }, [isMandatory, progress, visible]);
 
+  // While the popup is put off, the dashboard carries the chip that reopens it.
+  useEffect(() => {
+    if (visible || isMandatory) {
+      updateChip.hide();
+      return undefined;
+    }
+
+    updateChip.show({ version: latestVersion, open: reopen });
+
+    return () => updateChip.hide();
+  }, [isMandatory, latestVersion, reopen, visible]);
+
   const storeUrl = Platform.OS === "ios" ? iosStoreUrl : androidStoreUrl;
   const isStoreUrlUsable = isOpenableStoreUrl(storeUrl);
-  const resolvedTitle =
-    title?.trim() || (latestVersion ? `SalonOX v${latestVersion}` : "SalonOX Update");
+  const resolvedTitle = title?.trim() || (isMandatory ? "Update Required" : "New Update Available");
   const resolvedDescription =
-    description?.trim() ||
-    "Update SalonOX to get the latest improvements, fixes, and experience updates.";
-  const eyebrow = isMandatory ? "Update required" : "New update available";
-  const versionLabel = latestVersion
-    ? currentVersion
-      ? `Current ${currentVersion} - Latest ${latestVersion}`
-      : `Latest version ${latestVersion}`
-    : null;
+    description?.trim() || "We've made SalonOX even better with new features and improvements.";
+  const bullets = releaseNotes
+    .map(note => note.title?.trim() || note.description?.trim())
+    .filter((note): note is string => Boolean(note));
 
   const closeIfAllowed = () => {
     if (!isMandatory) {
@@ -218,407 +196,210 @@ export function UpdateAnnouncementModal({
     opacity: progress.value,
   }));
 
-  const sheetStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: interpolate(progress.value, [0, 1], [height, 0]) }],
+  const boxStyle = useAnimatedStyle(() => ({
+    opacity: progress.value,
+    transform: [{ scale: interpolate(progress.value, [0, 1], [0.94, 1]) }],
   }));
 
-  const logoStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: logoScale.value }],
+  const iconStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: iconScale.value }],
   }));
-
-  const buttonStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }],
-  }));
-
-  const pressIn = () => {
-    buttonScale.value = withTiming(0.98, { duration: 90 });
-  };
-
-  const pressOut = () => {
-    buttonScale.value = withTiming(1, { duration: 120 });
-  };
 
   if (!isPresented) {
-    if (isMandatory) return null;
-    return (
-      <Portal>
-        <View pointerEvents="box-none" style={StyleSheet.absoluteFillObject}>
-          {showReminder ? (
-            <View pointerEvents="none" style={styles.reminderContainer}>
-              <View accessibilityLiveRegion="polite" style={styles.reminderCard}>
-                <View style={styles.noteIcon}>
-                  <Ionicons name="notifications" color="#F4B740" size={24} />
-                </View>
-                <View style={styles.noteCopy}>
-                  <Text translate style={styles.noteTitle}>Reminder set!</Text>
-                  <Text style={styles.reminderText}>{reminderMessage}</Text>
-                </View>
-              </View>
-            </View>
-          ) : null}
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() => { setShowReminder(false); onReopen(); }}
-            style={[styles.showUpdateButton, { bottom: insets.bottom + 72 }]}
-          >
-            <Text translate style={styles.showUpdateText}>Show Update</Text>
-          </TouchableOpacity>
-        </View>
-      </Portal>
-    );
+    return null;
   }
 
   return (
     <Portal>
       <Animated.View pointerEvents="auto" style={[styles.overlay, backdropStyle]}>
-        <View style={styles.backdrop}>
-          <Pressable onPress={closeIfAllowed} style={StyleSheet.absoluteFillObject} />
-          <Animated.View
-            accessibilityRole="alert"
-            accessibilityViewIsModal
-            importantForAccessibility="yes"
-            style={[styles.sheet, sheetStyle]}
-          >
-            <View style={styles.sheetPressGuard}>
-              <View style={styles.handle} />
-
-              <View style={styles.header}>
-                <View style={styles.logoGlow}>
-                  <Animated.View style={logoStyle}>
-                    <Image contentFit="contain" source={LOGO_SOURCE} style={styles.logo} />
-                  </Animated.View>
-                </View>
-
-                <View style={styles.headerCopy}>
-                  <Text style={styles.eyebrow}>{eyebrow}</Text>
-                  <Text accessibilityRole="header" numberOfLines={2} style={styles.title}>
-                    {resolvedTitle}
-                  </Text>
-                  {versionLabel ? <Text style={styles.versionText}>{versionLabel}</Text> : null}
-                </View>
-              </View>
-
-              <LinearGradient colors={gradientColors.divider} style={styles.divider} />
-
-                <View style={styles.notesSection}>
-                  <ScrollView
-                    contentContainerStyle={styles.notesContent}
-                    nestedScrollEnabled
-                    showsVerticalScrollIndicator
-                    style={styles.notes}
-                  >
-                    <Text style={styles.description}>{resolvedDescription}</Text>
-                    {releaseNotes.length > 0 ? <Text translate style={styles.sectionTitle}>What&apos;s new</Text> : null}
-                    {releaseNotes.map((note, index) => {
-                      const iconName = NOTE_ICONS[index % NOTE_ICONS.length];
-
-                      return (
-                        <View
-                          key={`${note.title ?? note.description ?? "note"}-${index}`}
-                          style={styles.note}
-                        >
-                          <View style={styles.noteIcon}>
-                            <Ionicons color={colors.primaryText} name={iconName} size={19} />
-                          </View>
-                          <View style={styles.noteCopy}>
-                            {note.title ? <Text translate style={styles.noteTitle}>{note.title}</Text> : null}
-                            {note.description ? (
-                              <Text style={styles.noteDescription}>{note.description}</Text>
-                            ) : null}
-                          </View>
-                        </View>
-                      );
-                    })}
-                  </ScrollView>
-                </View>
-
-              <View style={styles.actions}>
-                <AnimatedPressable
-                  accessibilityRole="button"
-                  accessibilityState={{ busy: isUpdating, disabled: isUpdating }}
-                  disabled={isUpdating}
-                  onPress={handleUpdate}
-                  onPressIn={pressIn}
-                  onPressOut={pressOut}
-                  style={[styles.updateButton, buttonStyle]}
-                >
-                  <LinearGradient colors={gradientColors.button} style={styles.updateButtonGradient}>
-                    <Text translate style={styles.updateButtonText}>{isUpdating ? "Updating…" : "Update Now"}</Text>
-                  </LinearGradient>
-                </AnimatedPressable>
-
-                {!isMandatory && !isUpdating ? (
-                  <TouchableOpacity
-                    activeOpacity={0.78}
-                    onPress={() => {
-                      closeIfAllowed();
-                      setShowReminder(true);
-                    }}
-                    style={styles.laterButton}
-                  >
-                    <Text translate style={styles.laterButtonText}>Maybe Later</Text>
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-            </View>
+        <Pressable onPress={closeIfAllowed} style={StyleSheet.absoluteFillObject} />
+        <Animated.View
+          accessibilityRole="alert"
+          accessibilityViewIsModal
+          importantForAccessibility="yes"
+          style={[styles.box, boxStyle]}
+        >
+          <Animated.View style={[styles.iconTile, iconStyle]}>
+            <Image source={BRAND_MARK} style={styles.mark} resizeMode="contain" />
           </Animated.View>
-        </View>
+
+          <Text translate accessibilityRole="header" style={styles.title}>{resolvedTitle}</Text>
+
+          {latestVersion ? (
+            <View style={styles.versionPill}>
+              <Text style={styles.versionText}>v{latestVersion}</Text>
+            </View>
+          ) : null}
+
+          <Text translate style={styles.description}>{resolvedDescription}</Text>
+
+          {bullets.length > 0 ? (
+            <View style={styles.whatsNew}>
+              <Text translate style={styles.whatsNewTitle}>What&apos;s new</Text>
+              <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false} style={styles.whatsNewList}>
+                {bullets.map((bullet, index) => (
+                  <Text key={`${bullet}-${index}`} translate style={styles.whatsNewLine}>{`• ${bullet}`}</Text>
+                ))}
+              </ScrollView>
+            </View>
+          ) : null}
+
+          <View style={styles.actions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ busy: isUpdating, disabled: isUpdating }}
+              disabled={isUpdating}
+              onPress={handleUpdate}
+              style={({ pressed }) => [styles.updateButton, pressed && styles.pressed]}
+            >
+              <LinearGradient
+                colors={pearlGradients.primary}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.updateButtonFill}
+              >
+                <Text translate style={styles.updateButtonText}>{isUpdating ? "Updating…" : "Update Now"}</Text>
+              </LinearGradient>
+            </Pressable>
+
+            {!isMandatory && !isUpdating ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={closeIfAllowed}
+                style={({ pressed }) => [styles.remindButton, pressed && styles.remindPressed]}
+              >
+                <Text translate style={styles.remindText}>Remind me later</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </Animated.View>
       </Animated.View>
     </Portal>
   );
 }
 
-type GradientColors = ComponentProps<typeof LinearGradient>["colors"];
-type UpdateModalGradients = {
-  button: GradientColors;
-  divider: GradientColors;
-  logoGlow: GradientColors;
-};
-
-const createStyles = (
-  Colors: ThemeColors,
-  scheme: "light" | "dark",
-  bottomInset: number,
-  screenHeight: number,
-) => {
-  const isDark = scheme === "dark";
-  const accentPink = Colors.primary;
-  const accentPurple = Colors.purple;
-  const sheetMaxHeight = Math.min(screenHeight * 0.56, 480);
-
-  const styles = StyleSheet.create({
-    reminderContainer: {
-      ...StyleSheet.absoluteFillObject,
-      alignItems: "center",
-      justifyContent: "center",
-      paddingHorizontal: 32,
-    },
-    reminderCard: {
-      width: "100%",
-      maxWidth: 340,
-      backgroundColor: Colors.card,
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: "#F7D6E3",
-      padding: 18,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 12,
-      elevation: 8,
-      shadowColor: accentPink,
-      shadowOpacity: 0.2,
-      shadowRadius: 16,
-      shadowOffset: { width: 0, height: 6 },
-    },
-    reminderText: { color: accentPink, fontSize: 13, lineHeight: 19 },
-    showUpdateButton: {
-      position: "absolute",
-      alignSelf: "center",
-      backgroundColor: "#EF78A3",
-      borderRadius: 24,
-      paddingHorizontal: 24,
-      paddingVertical: 12,
-      elevation: 6,
-    },
-    showUpdateText: { color: "#FFFFFF", fontSize: 13, fontWeight: "700" },
+const createStyles = (palette: ReturnType<typeof usePearlPalette>, isDark: boolean, screenHeight: number) =>
+  StyleSheet.create({
     overlay: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: isDark ? "rgba(10, 8, 14, 0.78)" : "rgba(30, 20, 40, 0.45)",
-    },
-    backdrop: {
-      flex: 1,
-      justifyContent: "flex-end",
-    },
-    sheet: {
-      backgroundColor: Colors.card,
-      borderColor: isDark ? withAlpha(Colors.primary, 0.22) : "#F7D6E3",
-      borderRadius: 28,
-      borderWidth: 1,
-      height: sheetMaxHeight,
-      marginBottom: Math.max(bottomInset, 8),
-      marginHorizontal: 8,
-      paddingBottom: 16,
-      paddingHorizontal: AppLayout.contentHorizontalPadding,
-      paddingTop: Spacing.md,
-      shadowColor: accentPink,
-      shadowOffset: { width: 0, height: -16 },
-      shadowOpacity: isDark ? 0.28 : 0.2,
-      shadowRadius: 30,
-      elevation: 24,
-    },
-    sheetPressGuard: {
-      flex: 1,
-      flexShrink: 1,
-      minHeight: 0,
-      gap: 10,
-    },
-    handle: {
-      alignSelf: "center",
-      backgroundColor: isDark ? withAlpha(Colors.primary, 0.32) : "#FCD7E4",
-      borderRadius: Radius.full,
-      height: 4,
-      width: 38,
-    },
-    header: {
       alignItems: "center",
-      flexDirection: "row",
-      gap: Spacing.md,
-      paddingTop: Spacing.xs,
-    },
-    logoGlow: {
-      alignItems: "center",
-      borderRadius: Radius.xl,
-      height: 46,
+      // Pearl dim (Sheet.tsx), deepened a little for a dialog over busy content.
+      backgroundColor: "rgba(59,57,80,0.42)",
       justifyContent: "center",
-      width: 46,
+      padding: 28,
     },
-    logo: {
-      height: 32,
-      width: 32,
-    },
-    headerCopy: {
-      flex: 1,
-      gap: 4,
-    },
-    eyebrow: {
-      color: accentPink,
-      fontSize: 9,
-      fontWeight: "800",
-      letterSpacing: 0.3,
-      lineHeight: 12,
-      textTransform: "uppercase",
-    },
-    title: {
-      color: Colors.heading,
-      fontSize: 16,
-      fontWeight: "800",
-      letterSpacing: -0.2,
-      lineHeight: 20,
-    },
-    versionText: {
-      color: Colors.hint,
-      fontSize: 10,
-      fontVariant: ["tabular-nums"],
-      fontWeight: "700",
-      lineHeight: 16,
-    },
-    divider: {
-      borderRadius: Radius.full,
-      height: 1,
+    box: {
+      alignItems: "center",
+      // A dialog over content needs a solid surface, as the pearl confirm card does.
+      backgroundColor: isDark ? "#242038" : "#FBFAFD",
+      borderColor: palette.glassBorder,
+      borderCurve: "continuous",
+      borderRadius: 24,
+      borderWidth: 1,
+      elevation: 24,
+      gap: 14,
+      maxWidth: 320,
+      paddingBottom: 22,
+      paddingHorizontal: 24,
+      paddingTop: 28,
+      shadowColor: "#46446E",
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: 0.18,
+      shadowRadius: 40,
       width: "100%",
     },
-    description: {
-      color: Colors.text2,
-      fontSize: 11,
-      lineHeight: 16,
-    },
-    notesSection: {
-      flex: 1,
-      flexShrink: 1,
-      minHeight: 0,
-      gap: Spacing.md,
-    },
-    sectionTitle: {
-      color: "#EF8DB2",
-      textTransform: "uppercase",
-      fontSize: 10,
-      fontWeight: "800",
-      lineHeight: 14,
-    },
-    notes: {
-      flex: 1,
-      flexShrink: 1,
-    },
-    notesContent: {
-      gap: Spacing.md,
-      paddingBottom: 2,
-    },
-    note: {
-      alignItems: "flex-start",
-      flexDirection: "row",
-      gap: Spacing.md,
-      paddingVertical: 2,
-      shadowColor: accentPink,
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0,
-      shadowRadius: 12,
-    },
-    noteIcon: {
+    iconTile: {
       alignItems: "center",
-      backgroundColor: isDark ? withAlpha(Colors.primary, 0.15) : "#FDEAF2",
-      borderRadius: 13,
-      height: 28,
+      // The brand mark is dark navy + green, so it needs a light tile to read on;
+      // in dark mode that stays light rather than following the card.
+      backgroundColor: isDark ? "rgba(255,255,255,0.92)" : "rgba(230,227,243,0.9)",
+      borderColor: pearl.white,
+      borderCurve: "continuous",
+      borderRadius: 16,
+      borderWidth: 1,
+      height: 64,
       justifyContent: "center",
-      width: 28,
+      width: 64,
+      ...pearlShadow.card,
     },
-    noteCopy: {
-      flex: 1,
-      gap: 3,
+    mark: { height: 40, width: 39 },
+    title: {
+      color: palette.ink,
+      fontSize: 17,
+      fontWeight: "700",
+      textAlign: "center",
     },
-    noteTitle: {
-      color: Colors.heading,
+    versionPill: {
+      backgroundColor: isDark ? "rgba(167,162,208,0.16)" : "rgba(126,120,176,0.12)",
+      borderRadius: 20,
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+    },
+    versionText: {
+      color: palette.accentDeep,
       fontSize: 12,
       fontWeight: "600",
-      lineHeight: 17,
     },
-    noteDescription: {
-      color: Colors.text2,
-      fontSize: 11,
-      lineHeight: 16,
+    description: {
+      color: palette.muted,
+      fontSize: 13.5,
+      lineHeight: 19.5,
+      maxWidth: 260,
+      textAlign: "center",
+    },
+    whatsNew: {
+      backgroundColor: isDark ? "rgba(167,162,208,0.10)" : "rgba(126,120,176,0.06)",
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      width: "100%",
+    },
+    whatsNewTitle: {
+      color: palette.ink,
+      fontSize: 13,
+      fontWeight: "600",
+      marginBottom: 4,
+    },
+    whatsNewList: {
+      flexGrow: 0,
+      maxHeight: Math.max(96, screenHeight * 0.22),
+    },
+    whatsNewLine: {
+      color: palette.muted,
+      fontSize: 12.5,
+      lineHeight: 19,
     },
     actions: {
-      flexShrink: 0,
-      gap: Spacing.sm,
+      gap: 10,
+      marginTop: 4,
+      width: "100%",
     },
     updateButton: {
+      borderCurve: "continuous",
       borderRadius: 14,
       overflow: "hidden",
-      shadowColor: accentPink,
-      shadowOffset: { width: 0, height: 12 },
-      shadowOpacity: isDark ? 0.28 : 0.26,
-      shadowRadius: 18,
-      elevation: 10,
+      ...pearlShadow.button,
     },
-    updateButtonGradient: {
+    updateButtonFill: {
       alignItems: "center",
       justifyContent: "center",
-      minHeight: 46,
-      paddingHorizontal: Spacing.xl,
+      paddingVertical: 13,
     },
     updateButtonText: {
-      color: Colors.onPrimary,
-      fontSize: 16,
-      fontWeight: "900",
-      lineHeight: 22,
-    },
-    laterButton: {
-      alignItems: "center",
-      backgroundColor: isDark ? withAlpha(Colors.primary, 0.08) : Colors.card,
-      borderColor: isDark ? withAlpha(Colors.primary, 0.2) : "#F4CEDD",
-      borderRadius: 14,
-      borderWidth: 1,
-      justifyContent: "center",
-      minHeight: 42,
-    },
-    laterButtonText: {
-      color: accentPink,
+      color: "#FFFFFF",
       fontSize: 15,
-      fontWeight: "800",
-      lineHeight: 20,
+      fontWeight: "700",
+    },
+    pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
+    remindButton: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 10,
+    },
+    remindPressed: { opacity: 0.6 },
+    remindText: {
+      color: palette.muted,
+      fontSize: 14,
+      fontWeight: "500",
     },
   });
-
-  const gradientColors: UpdateModalGradients = {
-    button: isDark ? [accentPurple, accentPink] : ["#F9A8C9", "#EF648F"],
-    divider: [
-      withAlpha(accentPink, 0),
-      withAlpha(accentPink, isDark ? 0.36 : 0.32),
-      withAlpha(accentPink, 0),
-    ],
-    logoGlow: isDark
-      ? [withAlpha(accentPink, 0.26), withAlpha(accentPurple, 0.12)]
-      : ["#FFF4F8", "#FDE3EC"],
-  };
-
-  return { gradientColors, styles };
-};

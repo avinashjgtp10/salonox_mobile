@@ -21,6 +21,7 @@ import { HeroSurface } from "@/components/pearl/HeroSurface";
 import { Icon, type IconName } from "@/components/pearl/Icon";
 import { LoadError, Page } from "@/components/pearl/Page";
 import { IconButton, Skeleton, StatTile } from "@/components/pearl/ui";
+import { UpdateChip } from "@/components/pearl/UpdateChip";
 import { Text } from "@/components/ui/AppTypography";
 import { useAuth } from "@/context/AuthContext";
 import { AttendanceToast } from "@/features/attendance/components/AttendanceToast";
@@ -212,6 +213,7 @@ export default function DashboardScreen() {
     <>
       <Page header={<DashboardHeader onOpen={setSheet} />} refreshing={pulling} onRefresh={refresh}>
         <Text style={[pearlType.small, { paddingHorizontal: 2 }]}>{longDate(today)}</Text>
+        <UpdateChip />
         {isStaffAccount(user) && <StaffAttendanceCard compact />}
         {dashboardLocked ? <DashboardUpgradeRequired /> : showErrorState ? <LoadError onRetry={() => void fetchDashboard()} /> : (
           <>
