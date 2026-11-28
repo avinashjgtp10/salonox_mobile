@@ -12,6 +12,7 @@ import { LunoxContext, type LunoxOpener } from "@/components/lunox/LunoxContext"
 import { lunoxLauncher } from "@/services/lunoxLauncher";
 import { LunoxSheet } from "@/components/lunox/LunoxSheet";
 import { AppTabLayout, type AppTabItem } from "@/components/navigation/AppTabLayout";
+import { AppStatusBar } from "@/components/ui/AppStatusBar";
 
 export const unstable_settings = {
   initialRouteName: "dashboard",
@@ -52,6 +53,7 @@ export default function DashboardTabsLayout() {
   if (isStaffExperienceUser(user) && !isStaffBusinessTabAllowed(String(segments[1] ?? "dashboard"), user)) return <Redirect href="/dashboard" />;
   return (
     <LunoxContext.Provider value={openLunox}>
+      <AppStatusBar />
       <AppTabLayout tabs={tabs}>
         <Tabs.Screen name="team" options={{ href: null }} />
         <Tabs.Screen name="more" options={{ href: null }} />

@@ -12,6 +12,8 @@ import {
 import { resolveFontStyle } from "@/theme/typography";
 import { translateUiText } from "@/localization/translate";
 import { useRegionalPreferences } from "@/localization/preferences";
+import { toDarkToken } from "@/components/auth/pearl/darkTokenMap";
+import { useAppTheme } from "@/theme/ThemeProvider";
 
 const InheritedTypography = createContext<TextStyle>({ fontWeight: "400" });
 
@@ -21,6 +23,7 @@ export type TextInput = NativeTextInput;
 // eslint-disable-next-line @typescript-eslint/no-redeclare -- Preserve React Native's shared component and instance type name.
 export const Text = forwardRef<NativeText, TextProps & { translate?: boolean }>(function AppText({ style, children, translate = false, ...props }, ref) {
   const { language } = useRegionalPreferences();
+  const dark = useAppTheme().scheme === "dark";
   const inherited = useContext(InheritedTypography);
   const flattened = StyleSheet.flatten(style) ?? {};
   const typography: TextStyle = {
@@ -28,9 +31,13 @@ export const Text = forwardRef<NativeText, TextProps & { translate?: boolean }>(
     fontWeight: flattened.fontWeight ?? inherited.fontWeight,
     fontStyle: flattened.fontStyle ?? inherited.fontStyle,
   };
+  // Most text styles are built once from the light palette, so in dark mode
+  // they would paint dark ink on a dark background. Swap a light palette
+  // colour for its dim counterpart; anything else is left as written.
+  const darkColor = dark ? toDarkToken(flattened.color as string | undefined) : undefined;
   return (
     <InheritedTypography.Provider value={typography}>
-      <NativeText {...props} ref={ref} style={[style, resolveFontStyle(typography)]}>
+      <NativeText {...props} ref={ref} style={[style, resolveFontStyle(typography), darkColor ? { color: darkColor } : null]}>
         {translate ? translateChildren(children, language) : children}
       </NativeText>
     </InheritedTypography.Provider>

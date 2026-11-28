@@ -9,6 +9,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { pearl, pearlType } from "@/components/auth/pearl/tokens";
 import { Text } from "@/components/ui/AppTypography";
 import { IconButton } from "./ui";
+import { usePearlPalette } from "@/components/auth/pearl/usePearlPalette";
+import { useAppTheme } from "@/theme/ThemeProvider";
 
 // Prototype: transform .32s cubic-bezier(.2,.8,.2,1) both ways; backdrop opacity .25s.
 const PANEL_MS = 320;
@@ -31,6 +33,7 @@ function useMounted(visible: boolean, show: () => void, hide: (done: () => void)
 }
 
 export function BottomSheet({ visible, onClose, title, subtitle, headerRight, children, tall }: SheetProps) {
+  const panel = usePanelSurface();
   const insets = useSafeAreaInsets();
   const { height: H, width } = useWindowDimensions();
   const sheetWidth = Math.min(600, Math.max(0, width - insets.left - insets.right));
@@ -59,10 +62,10 @@ export function BottomSheet({ visible, onClose, title, subtitle, headerRight, ch
   if (!mounted) return null;
   return (
     <Modal transparent visible animationType="none" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
-      <Animated.View style={[StyleSheet.absoluteFill, styles.dim, { opacity: dim }]}>
+      <Animated.View style={[StyleSheet.absoluteFill, styles.dim, { backgroundColor: panel.scrim }, { opacity: dim }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
       </Animated.View>
-      <Animated.View accessibilityViewIsModal style={[styles.sheet, tall ? { top: insets.top + 76 } : { maxHeight: Math.min(H * 0.88, H - insets.top) }, { left: insets.left + (width - insets.left - insets.right - sheetWidth) / 2, width: sheetWidth, paddingBottom: insets.bottom + 30, transform: [{ translateY: y }] }]}>
+      <Animated.View accessibilityViewIsModal style={[styles.sheet, panel.surface, tall ? { top: insets.top + 76 } : { maxHeight: Math.min(H * 0.88, H - insets.top) }, { left: insets.left + (width - insets.left - insets.right - sheetWidth) / 2, width: sheetWidth, paddingBottom: insets.bottom + 30, transform: [{ translateY: y }] }]}>
         <View {...pan.panHandlers} style={styles.grab}><View style={styles.handle} /></View>
         {title ? (
           <View style={styles.head} {...pan.panHandlers}>
@@ -83,6 +86,7 @@ export function BottomSheet({ visible, onClose, title, subtitle, headerRight, ch
 }
 
 export function SideDrawer({ visible, onClose, children }: { visible: boolean; onClose: () => void; children: ReactNode }) {
+  const panel = usePanelSurface();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const W = Math.min(318, width * 0.84);
@@ -109,15 +113,27 @@ export function SideDrawer({ visible, onClose, children }: { visible: boolean; o
   if (!mounted) return null;
   return (
     <Modal transparent visible animationType="none" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
-      <Animated.View style={[StyleSheet.absoluteFill, styles.dim, { opacity: dim }]}>
+      <Animated.View style={[StyleSheet.absoluteFill, styles.dim, { backgroundColor: panel.scrim }, { opacity: dim }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close menu" />
       </Animated.View>
       <Animated.View {...pan.panHandlers} accessibilityViewIsModal
-        style={[styles.drawer, { width: W, paddingTop: Math.max(insets.top + 10, 54), paddingBottom: insets.bottom + 30, transform: [{ translateX: x }] }]}>
+        style={[styles.drawer, panel.surface, { width: W, paddingTop: Math.max(insets.top + 10, 54), paddingBottom: insets.bottom + 30, transform: [{ translateX: x }] }]}>
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, gap: 14 }} showsVerticalScrollIndicator={false}>{children}</ScrollView>
       </Animated.View>
     </Modal>
   );
+}
+
+/** Panel colours for the drawer and every bottom sheet. */
+function usePanelSurface() {
+  const p = usePearlPalette();
+  const dark = useAppTheme().scheme === "dark";
+  return {
+    surface: { backgroundColor: dark ? p.accentTint : "#FAF9FC", borderColor: dark ? p.glassBorder : p.white },
+    // A pale scrim barely registers over a dark app; deepen it so the panel
+    // reads as the thing in front.
+    scrim: dark ? "rgba(0,0,0,0.5)" : "rgba(59,57,80,0.22)",
+  };
 }
 
 const styles = StyleSheet.create({
