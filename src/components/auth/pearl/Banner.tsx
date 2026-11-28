@@ -3,7 +3,8 @@ import { StyleSheet, View } from "react-native";
 
 import { Text } from "@/components/ui/AppTypography";
 
-import { pearl, pearlType } from "./tokens";
+import { pearlType } from "./tokens";
+import { pearl } from "./themedPearl";
 
 export type BannerKind = "error" | "warn" | "info" | "success";
 

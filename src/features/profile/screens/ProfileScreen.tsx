@@ -1,4 +1,4 @@
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

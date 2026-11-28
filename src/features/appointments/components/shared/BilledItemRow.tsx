@@ -1,8 +1,8 @@
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { useMemo, useState } from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
 
 import { Text } from "@/components/ui/AppTypography";
 import { StaffPickerSheet } from "@/features/quickSale/components/StaffPickerSheet";
@@ -16,6 +16,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectCurrentStaff } from "@/store/staff/staff.slice";
 import type { AppointmentBilledItem } from "@/types/appointment";
 import type { PosStaffMember } from "@/types/sales";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 const STATUS_META: Record<"pending" | "in_progress" | "completed", { color: string; label: string }> = {
   pending: { color: "#8A8F98", label: "Pending" },
@@ -161,7 +162,7 @@ export function BilledItemRow({
 }
 
 const createLocalStyles = () =>
-  StyleSheet.create({
+  themedStyles((p) => ({
     controlsRow: {
       alignItems: "center",
       flexDirection: "row",
@@ -181,7 +182,7 @@ const createLocalStyles = () =>
       textTransform: "uppercase",
     },
     staffName: {
-      color: pearl.ink2,
+      color: p.ink2,
       flex: 1,
       fontSize: 12.5,
       fontWeight: "700",
@@ -207,10 +208,10 @@ const createLocalStyles = () =>
       opacity: 0.45,
     },
     timing: {
-      color: pearl.ink2,
+      color: p.ink2,
       fontSize: 13,
       fontWeight: "600",
       marginTop: 2,
       paddingBottom: 10,
     },
-  });
+  }));

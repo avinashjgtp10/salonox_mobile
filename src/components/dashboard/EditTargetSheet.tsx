@@ -2,16 +2,17 @@ import { useRegionalPreferences } from "@/localization/preferences";
 import { currencyLabel, currencyLocale, formatCurrencyCompact } from "@/utils/currency";
 /** Monthly target (prototype) — validated amount + presets; saves with the existing API. */
 import { useEffect, useState } from "react";
-import { Keyboard, Pressable, StyleSheet, View } from "react-native";
+import { Keyboard, Pressable, View } from "react-native";
 
 import { PrimaryButton, TextButton } from "@/components/auth/pearl/Buttons";
 import { TextField } from "@/components/auth/pearl/TextField";
-import { pearl, pearlType } from "@/components/auth/pearl/tokens";
+import { pearlType } from "@/components/auth/pearl/tokens";
 import { BottomSheet } from "@/components/pearl/Sheet";
 import { Text } from "@/components/ui/AppTypography";
 import { useAppToast } from "@/hooks/useAppToast";
 import { ApiError } from "@/services/api";
 import { monthlyProjectionService } from "@/services/monthlyProjection.service";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 const MIN = 10000;
 const MAX = 10000000;
@@ -114,9 +115,9 @@ export function EditTargetSheet({ visible, onClose, current, lastMonth, onSaved 
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((p) => ({
   presets: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 8 },
-  preset: { height: 34, paddingHorizontal: 13, borderRadius: 12, justifyContent: "center", backgroundColor: "rgba(255,255,255,0.7)", borderWidth: 1, borderColor: pearl.glassBorder },
-  on: { backgroundColor: pearl.accent, borderColor: pearl.accent },
-  presetText: { fontWeight: "600", fontSize: 12.5, color: pearl.ink2 },
-});
+  preset: { height: 34, paddingHorizontal: 13, borderRadius: 12, justifyContent: "center", backgroundColor: p.glassStrong, borderWidth: 1, borderColor: p.glassBorder },
+  on: { backgroundColor: p.accent, borderColor: p.accent },
+  presetText: { fontWeight: "600", fontSize: 12.5, color: p.ink2 },
+}));

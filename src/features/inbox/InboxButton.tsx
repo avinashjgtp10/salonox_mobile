@@ -1,7 +1,8 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { StyleSheet, TouchableOpacity } from "react-native";
 import { Text } from "@/components/ui/AppTypography";
-import { pearl, pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 
 export function InboxButton({
   label,

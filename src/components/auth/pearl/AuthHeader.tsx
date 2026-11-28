@@ -1,10 +1,12 @@
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { Ionicons } from "@expo/vector-icons";
-import { Image, StyleSheet, View } from "react-native";
+import { Image, View } from "react-native";
 
 import { Text } from "@/components/ui/AppTypography";
 
-import { pearl, pearlShadow, pearlType } from "./tokens";
+import { pearlShadow, pearlType } from "./tokens";
+import { pearl } from "./themedPearl";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 /** SalonOX brand block: logo mark in a pearl tile, wordmark and slogan. */
 export function BrandHeader() {
@@ -48,7 +50,7 @@ export function HeroIcon({ name, tone = "lilac", size = 64 }: { name: keyof type
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((p) => ({
   brand: { alignItems: "center", gap: 6, marginTop: 6, marginBottom: 2 },
   tile: {
     width: 72,
@@ -56,9 +58,9 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.82)",
+    backgroundColor: p.glassStrong,
     borderWidth: 1,
-    borderColor: pearl.white,
+    borderColor: p.white,
     ...pearlShadow.card,
   },
   mark: { width: 44, height: 45 },
@@ -70,12 +72,12 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: pearl.glass,
+    backgroundColor: p.glass,
     borderWidth: 1,
-    borderColor: pearl.glassBorder,
+    borderColor: p.glassBorder,
     ...pearlShadow.card,
   },
   spacer: { width: 42 },
   title: { flex: 1, textAlign: "center" },
   hero: { alignItems: "center", justifyContent: "center", alignSelf: "center", marginBottom: 6 },
-});
+}));

@@ -13,7 +13,8 @@
 //   (percentage)           depletes a configurable pool or runs until expiry.
 //   Loyalty              — free/automatic; crossing a visit threshold unlocks
 //                          that tier's discount, highest crossed tier only.
-import { pearl, pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
@@ -69,6 +70,7 @@ import {
 import { currencySymbol, formatCurrency } from "@/utils/currency";
 import { formatAppDate } from "@/utils/dateTime";
 import { toTitleCase } from "@/utils/titleCase";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 type MembershipFormScreenProps = {
   membershipId?: string;
@@ -1017,7 +1019,7 @@ const Field = forwardRef<TextInput, FieldProps>(function Field(
   );
 });
 
-const createStyles = (Colors: ThemeColors) => StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => themedStyles((p) => ({
   safeArea: { flex: 1 },
   centered: { alignItems: "center", flex: 1, justifyContent: "center" },
   content: { paddingBottom: Spacing.lg, paddingHorizontal: AppLayout.contentHorizontalPadding, paddingTop: Spacing.sm },
@@ -1069,9 +1071,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   messageErrorText: { color: Colors.error, flex: 1, fontSize: 13, fontWeight: "700", marginLeft: Spacing.sm },
   messageSuccess: { alignItems: "center", backgroundColor: Colors.successBg, borderRadius: AppRadius.control, flexDirection: "row", marginBottom: Spacing.md, padding: Spacing.md },
   messageSuccessText: { color: Colors.success, flex: 1, fontSize: 13, fontWeight: "700", marginLeft: Spacing.sm },
-  cancelButton: { alignItems: "center", backgroundColor: pearl.glass, borderColor: "rgba(126,120,176,0.45)", borderRadius: 16, borderWidth: 1, justifyContent: "center", minHeight: 50, paddingHorizontal: 20 },
-  cancelText: { color: pearl.accentDeep, fontSize: 14, fontWeight: "700" },
+  cancelButton: { alignItems: "center", backgroundColor: p.glass, borderColor: "rgba(126,120,176,0.45)", borderRadius: 16, borderWidth: 1, justifyContent: "center", minHeight: 50, paddingHorizontal: 20 },
+  cancelText: { color: p.accentDeep, fontSize: 14, fontWeight: "700" },
   saveButton: { alignItems: "center", borderRadius: 16, flex: 1, flexDirection: "row", gap: 8, justifyContent: "center", minHeight: 50, overflow: "hidden" },
   saveText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
   disabled: { opacity: 0.65 },
-});
+}));

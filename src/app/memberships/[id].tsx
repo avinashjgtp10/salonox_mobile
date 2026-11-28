@@ -1,4 +1,4 @@
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { AppBackButton } from "@/components/ui/AppBackButton";

@@ -200,7 +200,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     elevation: 24,
   },
   pearlCard: {
-    backgroundColor: "#FBFAFD",
+    backgroundColor: Colors.card,
     borderColor: "rgba(255,255,255,0.9)",
   },
   copy: {

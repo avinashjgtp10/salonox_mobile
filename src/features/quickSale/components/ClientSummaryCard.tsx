@@ -1,9 +1,8 @@
 import { useRegionalPreferences } from "@/localization/preferences";
 import { useEffect, useState } from "react";
-import { pearl } from "@/components/auth/pearl/tokens";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
-import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Modal, Pressable, ScrollView, View } from "react-native";
 
 import { useClientSummary } from "@/features/quickSale/hooks/useClientSummary";
 import { membershipService } from "@/services/membership.service";
@@ -14,9 +13,11 @@ import { formatCurrency } from "@/features/quickSale/utils/money";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { formatAppDate } from "@/utils/dateTime";
 import { maskPhone } from "@/utils/maskPhone";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
+import { themedTokens } from "@/components/auth/pearl/themedStyles";
 
 // Quick Sale reference tokens, plus the web card's grey labels and blue figures.
-const c = { line: pearl.glassBorder, fg: pearl.ink, label: pearl.muted, plum: pearl.accentDeep, blue: pearl.accentDeep, ink: pearl.accent };
+const c = themedTokens((p) => ({ line: p.glassBorder, fg: p.ink, label: p.muted, plum: p.accentDeep, blue: p.accentDeep, ink: p.accent }));
 
 type ClientSummaryCardProps = {
   compact?: boolean;
@@ -227,11 +228,11 @@ export function ClientSummaryCard({
   );
 }
 
-const s = StyleSheet.create({
+const s = themedStyles((p) => ({
   card: { gap: 12 },
   header: { alignItems: "center", flexDirection: "row", gap: 12 },
-  avatar: { alignItems: "center", backgroundColor: pearl.accentTint, borderRadius: 23, height: 46, justifyContent: "center", width: 46 },
-  avatarText: { color: pearl.accentDeep, fontSize: 17, fontWeight: "700" },
+  avatar: { alignItems: "center", backgroundColor: p.accentTint, borderRadius: 23, height: 46, justifyContent: "center", width: 46 },
+  avatarText: { color: p.accentDeep, fontSize: 17, fontWeight: "700" },
   flex: { flex: 1, minWidth: 0 },
   name: { color: c.fg, fontSize: 16, fontWeight: "700" },
   phone: { color: c.label, fontSize: 13, marginTop: 2 },
@@ -249,14 +250,14 @@ const s = StyleSheet.create({
   historyText: { color: "#FFFFFF", fontSize: 13, fontWeight: "700" },
   statLabelRow: { alignItems: "center", flexDirection: "row", gap: 4 },
   overlayBackdrop: { alignItems: "center", backgroundColor: "rgba(15, 23, 32, 0.45)", flex: 1, justifyContent: "center", padding: 24 },
-  overlayCard: { backgroundColor: pearl.bgTop, borderColor: c.line, borderRadius: 20, borderWidth: 1, maxHeight: "72%", padding: 18, width: "100%" },
+  overlayCard: { backgroundColor: p.bgTop, borderColor: c.line, borderRadius: 20, borderWidth: 1, maxHeight: "72%", padding: 18, width: "100%" },
   overlayHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: 12 },
   overlayTitle: { color: c.fg, fontSize: 16, fontWeight: "800" },
   overlayScroll: { flexGrow: 0 },
-  detailGroup: { backgroundColor: pearl.glass, borderColor: c.line, borderRadius: 14, borderWidth: 1, gap: 6, marginBottom: 12, padding: 14 },
+  detailGroup: { backgroundColor: p.glass, borderColor: c.line, borderRadius: 14, borderWidth: 1, gap: 6, marginBottom: 12, padding: 14 },
   detailName: { color: c.plum, fontSize: 14, fontWeight: "800", marginBottom: 2 },
   detailRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", gap: 12 },
   detailLabel: { color: c.label, fontSize: 12, fontWeight: "600" },
   detailValue: { color: c.fg, flexShrink: 1, fontSize: 13, fontWeight: "700", textAlign: "right" },
   detailEmpty: { color: c.label, fontSize: 13, paddingVertical: 8, textAlign: "center" },
-});
+}));

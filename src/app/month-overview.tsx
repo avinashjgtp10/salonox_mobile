@@ -6,9 +6,10 @@ import { useRegionalPreferences } from "@/localization/preferences";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 
-import { pearl, pearlType } from "@/components/auth/pearl/tokens";
+import { pearlType } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { EditTargetSheet, inrShort } from "@/components/dashboard/EditTargetSheet";
 import { Chips, LoadError, NoteBox, Page, PageHeader, ProgressBar } from "@/components/pearl/Page";
 import { Card, Divider, IconButton, SectionHeader, Skeleton, SmallButton, StatTile } from "@/components/pearl/ui";
@@ -21,6 +22,7 @@ import { useAppSelector } from "@/store/hooks";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { formatCurrencyRounded as money } from "@/utils/currency";
 import { buildProjectionTrend } from "@/utils/monthlyProjection";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -249,14 +251,14 @@ const Legend = ({ color, label }: { color: string; label: string }) => (
   </View>
 );
 
-const styles = StyleSheet.create({
+const styles = themedStyles((p) => ({
   cmp: { flexDirection: "row", gap: 16, alignItems: "flex-end" },
   cmpBars: { flexDirection: "row", gap: 14, alignItems: "flex-end", height: CMP_MAX + 44 },
   cmpBar: { width: 46, borderTopLeftRadius: 12, borderTopRightRadius: 12, borderBottomLeftRadius: 5, borderBottomRightRadius: 5 },
-  cmpValue: { fontWeight: "800", fontSize: 12, color: pearl.ink },
+  cmpValue: { fontWeight: "800", fontSize: 12, color: p.ink },
   legend: { flexDirection: "row", gap: 14, flexWrap: "wrap" },
   rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
-  big: { fontWeight: "800", fontSize: 19, color: pearl.ink },
+  big: { fontWeight: "800", fontSize: 19, color: p.ink },
   statRow: { flexDirection: "row", gap: 10 },
   // Columns stretch to full height so the badge can pin to the top band; the
   // side padding gives it room to overhang on the first and last bars, which
@@ -265,7 +267,7 @@ const styles = StyleSheet.create({
   dayCol: { alignItems: "center", justifyContent: "flex-end", gap: 6, width: TIP_COL_W },
   bar: { width: TIP_COL_W, borderTopLeftRadius: 7, borderTopRightRadius: 7, borderBottomLeftRadius: 3, borderBottomRightRadius: 3 },
   estimate: { backgroundColor: "rgba(201,181,236,0.45)", borderWidth: 1, borderColor: "rgba(132,102,184,0.35)", borderStyle: "dashed" },
-  barOn: { borderColor: pearl.accentDeep, borderWidth: 1.5 },
+  barOn: { borderColor: p.accentDeep, borderWidth: 1.5 },
   // Sits in the reserved band above the bars, centred on its column.
   tip: {
     position: "absolute",
@@ -280,8 +282,8 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     paddingVertical: 3,
     color: "#fff",
-    backgroundColor: pearl.ink,
+    backgroundColor: p.ink,
     borderRadius: 8,
     overflow: "hidden",
   },
-});
+}));

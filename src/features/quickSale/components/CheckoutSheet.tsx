@@ -1,4 +1,4 @@
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { currencyLabel } from "@/utils/currency";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";

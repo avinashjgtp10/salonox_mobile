@@ -1,9 +1,9 @@
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import type { createStyles } from "./appointmentStyles";
 
 /** Styling only: native date, availability and status pickers retain their handlers. */
 export function pearlBookingFields(styles: ReturnType<typeof createStyles>) {
-  const field = { backgroundColor: "rgba(255,255,255,0.7)", borderColor: "rgba(120,118,150,0.18)", borderWidth: 1, borderRadius: 16, minHeight: 52, paddingHorizontal: 14 };
+  const field = { backgroundColor: pearl.glassStrong, borderColor: "rgba(120,118,150,0.18)", borderWidth: 1, borderRadius: 16, minHeight: 52, paddingHorizontal: 14 };
   return {
     ...styles,
     inputLabel: { ...styles.inputLabel, fontSize: 12.5, fontWeight: "700" as const, color: pearl.ink2 },

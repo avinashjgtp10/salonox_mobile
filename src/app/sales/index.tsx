@@ -2,7 +2,7 @@ import { useRegionalPreferences } from "@/localization/preferences";
 import { DateRangePickerSheet } from "@/components/ui/DateRangePickerSheet";
 import { dateRangeLabel } from "@/utils/dateRangePresets";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { StatusPill, Tile } from "@/components/pearl/ui";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
@@ -16,7 +16,7 @@ import { screenTours } from "@/features/userGuide/screenTours";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Pressable, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Modal, Pressable, RefreshControl, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -46,6 +46,7 @@ import type { SaleListItem } from "@/types/sales";
 import { formatInvoiceNumber } from "@/utils/receipt";
 import { formatCurrency } from "@/utils/currency";
 import { SALES_LIST_SCREEN, useActiveScreen } from "@/utils/activeScreens";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 const SALE_SORT_OPTIONS = ["Amount (High-Low)", "Amount (Low-High)"] as const;
 type SaleSortOption = (typeof SALE_SORT_OPTIONS)[number];
@@ -461,7 +462,7 @@ function SalesHistoryScreenContent() {
   );
 }
 
-const createStyles = (Colors: ThemeColors) => StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => themedStyles((p) => ({
   safeArea: {
     backgroundColor: Colors.bg,
     flex: 1,
@@ -679,19 +680,19 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "600",
   },
   skeletonIcon: {
-    backgroundColor: pearl.accentTint,
+    backgroundColor: p.accentTint,
     borderRadius: 22,
     height: 44,
     width: 44,
   },
   skeletonName: {
-    backgroundColor: pearl.accentTint,
+    backgroundColor: p.accentTint,
     borderRadius: Radius.full,
     height: 16,
     width: "58%",
   },
   skeletonLine: {
-    backgroundColor: pearl.accentTint,
+    backgroundColor: p.accentTint,
     borderRadius: Radius.full,
     height: 12,
     marginTop: 8,
@@ -802,6 +803,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   sortOptionTextActive: {
     color: Colors.primaryText,
   },
-});
+}));
 
 export default withScreenTour(SalesHistoryScreenContent, screenTours.sales);

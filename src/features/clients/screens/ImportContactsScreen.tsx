@@ -1,5 +1,6 @@
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
-import { pearl, pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { PearlActionFooter } from "@/components/ui/PearlActionFooter";
 import { SettingsButton, useSettingsStyles } from "@/features/settings/SettingsUI";
 import { LinearGradient } from "expo-linear-gradient";

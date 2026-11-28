@@ -4,7 +4,9 @@
  */
 import { memo } from "react";
 import { SvgXml } from "react-native-svg";
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
+import { toDarkToken } from "@/components/auth/pearl/darkTokenMap";
+import { useAppTheme } from "@/theme/ThemeProvider";
 
 const PATHS = {
   share: '<path d="M12 16V3m-4 4 4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>',
@@ -69,6 +71,11 @@ export type IconName = keyof typeof PATHS;
 type Props = { name: IconName; size?: number; color?: string; strokeWidth?: number };
 
 export const Icon = memo(function Icon({ name, size = 20, color = pearl.muted, strokeWidth = 1.8 }: Props) {
+  // Callers pass light-palette colours from stylesheets built at module load,
+  // so in dark mode an icon would be drawn in near-black on a dark surface.
+  // Same remap the app's Text does.
+  const dark = useAppTheme().scheme === "dark";
+  const tint = dark ? toDarkToken(color) : color;
   const xml = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round">${PATHS[name]}</svg>`;
-  return <SvgXml xml={xml} width={size} height={size} color={color} />;
+  return <SvgXml xml={xml} width={size} height={size} color={tint} />;
 });

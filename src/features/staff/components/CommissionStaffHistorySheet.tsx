@@ -1,12 +1,13 @@
 import { useEffect, useMemo } from "react";
-import { StyleSheet, View } from "react-native";
+import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Text } from "@/components/ui/AppTypography";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { StaffAvatar } from "@/features/staff/components/StaffPearl";
 import { StaffStateView } from "@/features/staff/components/StaffStateView";
-import { pearl, pearlTones, type PearlTone } from "@/components/auth/pearl/tokens";
+import { pearlTones, type PearlTone } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { fetchCommissionHistoryThunk } from "@/middleware/staff/staffCommissions.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
@@ -19,6 +20,7 @@ import { formatAppDate } from "@/utils/dateTime";
 import { formatCurrency } from "@/utils/currency";
 import type { SalonCommissionRecord } from "@/types/salonCommissions";
 import type { CommissionHistoryEntry } from "@/types/staffCommissions";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 // Same six revenue sources the web app's commission drawer uses (CommissionsPage.tsx CATEGORIES).
 const CATEGORY_META: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap; tone: PearlTone }> = {
@@ -183,40 +185,40 @@ export function CommissionStaffHistorySheet({
   );
 }
 
-const s = StyleSheet.create({
+const s = themedStyles((p) => ({
   header: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 },
-  staffName: { color: pearl.ink, fontSize: 16, fontWeight: "800" },
-  staffMeta: { color: pearl.muted, fontSize: 12, marginTop: 2 },
+  staffName: { color: p.ink, fontSize: 16, fontWeight: "800" },
+  staffMeta: { color: p.muted, fontSize: 12, marginTop: 2 },
   summaryRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: pearl.glass,
-    borderColor: pearl.glassBorder,
+    backgroundColor: p.glass,
+    borderColor: p.glassBorder,
     borderWidth: 1,
     borderRadius: 18,
     padding: 14,
     marginBottom: 18,
   },
   summaryItem: { flex: 1, alignItems: "center", gap: 3 },
-  summaryDivider: { width: 1, alignSelf: "stretch", backgroundColor: pearl.divider, marginVertical: 2 },
-  summaryLabel: { color: pearl.muted, fontSize: 11, fontWeight: "600", textAlign: "center" },
-  summaryValue: { color: pearl.ink, fontSize: 15, fontWeight: "800" },
-  sectionTitle: { color: pearl.ink, fontSize: 14, fontWeight: "700", marginBottom: 10 },
+  summaryDivider: { width: 1, alignSelf: "stretch", backgroundColor: p.divider, marginVertical: 2 },
+  summaryLabel: { color: p.muted, fontSize: 11, fontWeight: "600", textAlign: "center" },
+  summaryValue: { color: p.ink, fontSize: 15, fontWeight: "800" },
+  sectionTitle: { color: p.ink, fontSize: 14, fontWeight: "700", marginBottom: 10 },
   row: {
     flexDirection: "row",
     gap: 10,
-    backgroundColor: pearl.glass,
-    borderColor: pearl.glassBorder,
+    backgroundColor: p.glass,
+    borderColor: p.glassBorder,
     borderWidth: 1,
     borderRadius: 16,
     padding: 12,
   },
   rowIcon: { width: 34, height: 34, borderRadius: 11, alignItems: "center", justifyContent: "center" },
   rowTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-  rowCategory: { color: pearl.ink, fontSize: 13, fontWeight: "700" },
+  rowCategory: { color: p.ink, fontSize: 13, fontWeight: "700" },
   statusPill: { borderRadius: 100, paddingHorizontal: 8, paddingVertical: 3 },
-  rowDate: { color: pearl.muted, fontSize: 11, marginTop: 1 },
-  rowRevenue: { color: pearl.ink2, fontSize: 12, marginTop: 4 },
-  rowAmount: { color: pearl.ink2, fontSize: 12.5, marginTop: 2 },
-  rowPayment: { color: pearl.accentDeep, fontSize: 11.5, marginTop: 4, fontWeight: "600" },
-});
+  rowDate: { color: p.muted, fontSize: 11, marginTop: 1 },
+  rowRevenue: { color: p.ink2, fontSize: 12, marginTop: 4 },
+  rowAmount: { color: p.ink2, fontSize: 12.5, marginTop: 2 },
+  rowPayment: { color: p.accentDeep, fontSize: 11.5, marginTop: 4, fontWeight: "600" },
+}));

@@ -1,5 +1,4 @@
 import { useRegionalPreferences } from "@/localization/preferences";
-import { pearl } from "@/components/auth/pearl/tokens";
 import { BookingSection } from "./BookingSection";
 import { Text } from "@/components/ui/AppTypography";
 import type { PickerTab } from "@/features/appointments/components/form/ServiceCatalogPicker";
@@ -12,6 +11,7 @@ import { currencyLabel } from "@/utils/currency";
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Keyboard, Pressable, ScrollView, View } from "react-native";
+import { themedStyles, themedTokens } from "@/components/auth/pearl/themedStyles";
 
 const ADD_OPTIONS: [PickerTab, string][] = [
   ["service", "Service"],
@@ -168,17 +168,17 @@ export function AppointmentItemsSection({
   );
 }
 
-const c = { plum: pearl.accentDeep };
-const s = {
+const c = themedTokens((p) => ({ plum: p.accentDeep }));
+const s = themedStyles((p) => ({
   ...legacyStyles,
-  muted: { ...legacyStyles.muted, color: pearl.muted },
-  name: { ...legacyStyles.name, color: pearl.ink },
-  label: { ...legacyStyles.label, color: pearl.ink2 },
-  link: { ...legacyStyles.link, color: pearl.accentDeep },
-  total: { ...legacyStyles.total, color: pearl.ink },
-  lineCard: { ...legacyStyles.lineCard, backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderRadius: 18 },
-  add: { ...legacyStyles.add, borderRadius: 12, backgroundColor: pearl.glass, borderColor: pearl.glassBorder },
-  addText: { ...legacyStyles.addText, color: pearl.accentDeep },
-  staffSelect: { ...legacyStyles.staffSelect, borderRadius: 16, backgroundColor: pearl.glass, borderColor: pearl.glassBorder },
-  timeSelect: { ...legacyStyles.timeSelect, borderRadius: 16, backgroundColor: pearl.glass, borderColor: pearl.glassBorder },
-};
+  muted: { ...legacyStyles.muted, color: p.muted },
+  name: { ...legacyStyles.name, color: p.ink },
+  label: { ...legacyStyles.label, color: p.ink2 },
+  link: { ...legacyStyles.link, color: p.accentDeep },
+  total: { ...legacyStyles.total, color: p.ink },
+  lineCard: { ...legacyStyles.lineCard, backgroundColor: p.glass, borderColor: p.glassBorder, borderRadius: 18 },
+  add: { ...legacyStyles.add, borderRadius: 12, backgroundColor: p.glass, borderColor: p.glassBorder },
+  addText: { ...legacyStyles.addText, color: p.accentDeep },
+  staffSelect: { ...legacyStyles.staffSelect, borderRadius: 16, backgroundColor: p.glass, borderColor: p.glassBorder },
+  timeSelect: { ...legacyStyles.timeSelect, borderRadius: 16, backgroundColor: p.glass, borderColor: p.glassBorder },
+}));

@@ -56,6 +56,10 @@ export const normalizeReportRequest = (slug: ReportSlug, filters: ReportFilters)
   if (slug === "rebooking-rate" && request.rebooking_days === undefined) request.rebooking_days = 45;
   if (slug === "membership-opportunity") { request.window_days ??= 90; request.min_visits ??= 0; }
 
+  if (slug === "lost-customers") {
+    request.lost_days = Math.max(1, Math.trunc(Number(request.lost_days)) || 90);
+  }
+
   if (slug === "ewallet") {
     // Match web: this balance report accepts an as-of date, not a transaction range.
     const today = getDateRangePreset("today").endDate;

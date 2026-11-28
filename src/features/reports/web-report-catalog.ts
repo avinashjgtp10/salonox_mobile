@@ -534,7 +534,7 @@ export const WEB_REPORT_CATALOG = [
   {
     "slug": "lost-customers",
     "title": "Lost Clients Report",
-    "subtitle": "Clients who stopped visiting — set your own inactivity window and filter by last-visit date range.",
+    "subtitle": "Clients inactive for your chosen number of days, with their visit history and spend.",
     "group": "Customers",
     "endpoint": "/api/report/lost-customers",
     "columns": [
@@ -549,6 +549,10 @@ export const WEB_REPORT_CATALOG = [
       {
         "key": "visits",
         "label": "Total Visits"
+      },
+      {
+        "key": "totalSpend",
+        "label": "Total Spend"
       },
       {
         "key": "firstVisit",

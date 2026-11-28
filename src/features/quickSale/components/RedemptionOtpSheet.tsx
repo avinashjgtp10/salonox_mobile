@@ -1,4 +1,5 @@
-import { pearl, pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { usePearlColors, type PearlColors } from "@/components/auth/pearl/usePearlColors";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
@@ -10,6 +11,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 const OTP_LENGTH = 6;
 
@@ -215,7 +217,7 @@ export function RedemptionOtpSheet({ clientId, clientName, kinds, onClose, onVer
   );
 }
 
-const createStyles = (Colors: PearlColors) => StyleSheet.create({
+const createStyles = (Colors: PearlColors) => themedStyles((p) => ({
   modalRoot: { backgroundColor: "rgba(20, 18, 16, 0.52)", flex: 1, justifyContent: "center", padding: 20 },
   modalKeyboardAvoiding: { flex: 1 },
   modalKeyboardContent: { alignItems: "center", flex: 1, justifyContent: "center" },
@@ -228,19 +230,19 @@ const createStyles = (Colors: PearlColors) => StyleSheet.create({
   closeButton: { alignItems: "center", backgroundColor: Colors.bg2, borderColor: Colors.border, borderRadius: 18, borderWidth: 1, height: 36, justifyContent: "center", width: 36 },
   body: { gap: Spacing.md },
   iconWrap: {
-    alignItems: "center", alignSelf: "center", backgroundColor: pearl.accentWash, borderRadius: 18,
+    alignItems: "center", alignSelf: "center", backgroundColor: p.accentWash, borderRadius: 18,
     height: 52, justifyContent: "center", width: 52,
   },
-  intro: { color: pearl.ink2, fontSize: 13, lineHeight: 19, textAlign: "center" },
-  sentTo: { color: pearl.ink, fontSize: 13, fontWeight: "700", textAlign: "center" },
+  intro: { color: p.ink2, fontSize: 13, lineHeight: 19, textAlign: "center" },
+  sentTo: { color: p.ink, fontSize: 13, fontWeight: "700", textAlign: "center" },
   codeInput: {
-    backgroundColor: pearl.field, borderColor: pearl.fieldBorder, borderRadius: 16, borderWidth: 1,
-    color: pearl.ink, fontSize: 24, fontWeight: "800", letterSpacing: 8, minHeight: 56,
+    backgroundColor: p.field, borderColor: p.fieldBorder, borderRadius: 16, borderWidth: 1,
+    color: p.ink, fontSize: 24, fontWeight: "800", letterSpacing: 8, minHeight: 56,
     paddingHorizontal: 14, textAlign: "center",
   },
   resend: { alignSelf: "center", paddingVertical: 6 },
-  resendText: { color: pearl.accentDeep, fontSize: 13, fontWeight: "700" },
-  resendDisabled: { color: pearl.muted },
+  resendText: { color: p.accentDeep, fontSize: 13, fontWeight: "700" },
+  resendDisabled: { color: p.muted },
   errorText: { color: Colors.error, fontSize: 12, fontWeight: "700", textAlign: "center" },
   actions: { flexDirection: "row", gap: Spacing.sm, marginTop: Spacing.xs },
   cancelButton: {
@@ -251,4 +253,4 @@ const createStyles = (Colors: PearlColors) => StyleSheet.create({
   primaryButton: { alignItems: "center", borderRadius: 16, flex: 1.4, justifyContent: "center", minHeight: 48, overflow: "hidden" },
   primaryText: { color: Colors.onPrimary, fontSize: 14, fontWeight: "800" },
   disabled: { opacity: 0.6 },
-});
+}));

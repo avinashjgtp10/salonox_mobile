@@ -1,9 +1,10 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router, type Href } from "expo-router";
 import { useRef, useState, type ReactNode } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, View } from "react-native";
 
-import { pearl, pearlGradients, pearlShadow } from "@/components/auth/pearl/tokens";
+import { pearlGradients, pearlShadow } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { Icon, type IconName } from "@/components/pearl/Icon";
 import { Page } from "@/components/pearl/Page";
 import { Card, Divider, IconButton, SectionHeader, StatusPill, Tile } from "@/components/pearl/ui";
@@ -12,6 +13,7 @@ import { Text } from "@/components/ui/AppTypography";
 import { useAppToast } from "@/hooks/useAppToast";
 import { getApiErrorMessage } from "@/services/api";
 import { supportService } from "@/services/support.service";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 export type DisconnectedScreen = "whatsapp" | "marketing" | "insights";
 type Row = { icon: IconName; title: string; body: string };
@@ -144,35 +146,35 @@ export function WhatsAppDisconnectedScreen({ screen, salonId, embedded, loading,
   </View>;
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((p) => ({
   root: { flex: 1 }, grow: { flex: 1, minWidth: 0 }, center: { textAlign: "center" }, bold: { fontWeight: "700" }, pressed: { opacity: 0.75 },
-  heading: { fontSize: 24, fontWeight: "800", letterSpacing: -0.5, color: pearl.ink },
+  heading: { fontSize: 24, fontWeight: "800", letterSpacing: -0.5, color: p.ink },
   whatsappHeader: { flexDirection: "row", alignItems: "center", gap: 10, paddingTop: 8, paddingBottom: 4 },
   pageHeader: { flexDirection: "row", alignItems: "center", gap: 10, paddingTop: 8, paddingBottom: 12 },
-  status: { flexDirection: "row", alignItems: "center", gap: 5 }, offDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: pearl.muted },
-  body: { fontSize: 12.5, lineHeight: 18, fontWeight: "500", color: pearl.muted, marginTop: 2 },
-  hint: { fontSize: 11.5, lineHeight: 16.1, fontWeight: "500", color: pearl.muted },
-  rowTitle: { fontSize: 14.5, fontWeight: "700", color: pearl.ink },
+  status: { flexDirection: "row", alignItems: "center", gap: 5 }, offDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: p.muted },
+  body: { fontSize: 12.5, lineHeight: 18, fontWeight: "500", color: p.muted, marginTop: 2 },
+  hint: { fontSize: 11.5, lineHeight: 16.1, fontWeight: "500", color: p.muted },
+  rowTitle: { fontSize: 14.5, fontWeight: "700", color: p.ink },
   list: { paddingVertical: 4 }, row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, paddingHorizontal: 14 },
   hero: { borderRadius: 26, paddingVertical: 20, paddingHorizontal: 18, gap: 12 },
   illustration: { height: 118, alignItems: "center", justifyContent: "center" },
   heroIcon: { width: 64, height: 64, borderRadius: 20, backgroundColor: "rgba(230,227,243,0.6)", alignItems: "center", justifyContent: "center" },
   bubble: { position: "absolute", paddingVertical: 7, paddingHorizontal: 11, borderRadius: 14, shadowColor: "#1F3A45", shadowOpacity: 0.1, shadowRadius: 14, shadowOffset: { width: 0, height: 6 } },
   firstBubble: { left: 8, top: 12, borderBottomLeftRadius: 4, backgroundColor: "rgba(220,248,198,0.95)" },
-  secondBubble: { right: 6, bottom: 10, borderBottomRightRadius: 4, backgroundColor: "#fff" }, bubbleText: { fontSize: 11.5, fontWeight: "700", color: pearl.ink },
+  secondBubble: { right: 6, bottom: 10, borderBottomRightRadius: 4, backgroundColor: p.glassStrong }, bubbleText: { fontSize: 11.5, fontWeight: "700", color: p.ink },
   primary: { minHeight: 52, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10, flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center" },
   primaryText: { fontSize: 15.5, fontWeight: "700", color: "#fff" }, smallPrimary: { minHeight: 36, borderRadius: 12, paddingVertical: 8 },
   note: { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 16, backgroundColor: "rgba(214,196,240,0.3)", borderWidth: 1, borderColor: "rgba(255,255,255,0.8)" },
-  noteText: { flex: 1, fontSize: 12.5, lineHeight: 18.125, fontWeight: "500", color: pearl.ink2 },
-  help: { minHeight: 48, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.6)", borderWidth: 1, borderColor: pearl.glassBorder, padding: 12, flexDirection: "row", gap: 6, alignItems: "center", justifyContent: "center" },
-  helpText: { fontSize: 14, fontWeight: "700", color: pearl.ink, textAlign: "center", flexShrink: 1 },
+  noteText: { flex: 1, fontSize: 12.5, lineHeight: 18.125, fontWeight: "500", color: p.ink2 },
+  help: { minHeight: 48, borderRadius: 16, backgroundColor: p.glassStrong, borderWidth: 1, borderColor: p.glassBorder, padding: 12, flexDirection: "row", gap: 6, alignItems: "center", justifyContent: "center" },
+  helpText: { fontSize: 14, fontWeight: "700", color: p.ink, textAlign: "center", flexShrink: 1 },
   loading: { minHeight: 240, alignItems: "center", justifyContent: "center" },
   connectionCard: { padding: 14, gap: 12 }, connectionRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  ready: { padding: 14, borderRadius: 22, borderWidth: 1, borderColor: pearl.glassBorder, flexDirection: "row", alignItems: "center", gap: 12 }, value: { fontSize: 19, fontWeight: "800", color: pearl.ink },
+  ready: { padding: 14, borderRadius: 22, borderWidth: 1, borderColor: p.glassBorder, flexDirection: "row", alignItems: "center", gap: 12 }, value: { fontSize: 19, fontWeight: "800", color: p.ink },
   audience: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6, paddingVertical: 2, paddingHorizontal: 8, borderRadius: 8, backgroundColor: "rgba(214,196,240,0.5)" },
   audienceText: { fontSize: 11, fontWeight: "700", color: "#6A4F98", flexShrink: 1 },
-  draft: { minHeight: 36, paddingHorizontal: 14, borderRadius: 12, marginTop: 2, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.65)", borderWidth: 1, borderColor: "#fff" }, draftText: { fontSize: 13, fontWeight: "700", color: pearl.accentDeep },
-  stats: { flexDirection: "row", gap: 10, opacity: 0.6 }, stat: { flex: 1, padding: 12, borderRadius: 20, gap: 4 }, statLabel: { fontSize: 12, color: pearl.muted, fontWeight: "600", marginTop: 6 },
+  draft: { minHeight: 36, paddingHorizontal: 14, borderRadius: 12, marginTop: 2, alignItems: "center", justifyContent: "center", backgroundColor: p.glassStrong, borderWidth: 1, borderColor: "#fff" }, draftText: { fontSize: 13, fontWeight: "700", color: p.accentDeep },
+  stats: { flexDirection: "row", gap: 10, opacity: 0.6 }, stat: { flex: 1, padding: 12, borderRadius: 20, gap: 4 }, statLabel: { fontSize: 12, color: p.muted, fontWeight: "600", marginTop: 6 },
   limit: { opacity: 0.6, paddingVertical: 12, paddingHorizontal: 14, gap: 8 }, between: { flexDirection: "row", justifyContent: "space-between", gap: 8 }, track: { height: 7, borderRadius: 4, backgroundColor: "rgba(120,118,150,0.14)" },
   empty: { paddingVertical: 22, paddingHorizontal: 16, alignItems: "center", gap: 6 },
-});
+}));

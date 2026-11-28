@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { RefreshControl, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { Text, TextInput } from "@/components/ui/AppTypography";
@@ -33,6 +33,7 @@ import { SalesSummaryDetailSheet } from "../components/sales-summary-detail-shee
 import { REPORT_FILTER_FIELDS, countReportFilters } from "../report-filters";
 import { createDefaultReportFilters, type ReportConfig, type ReportFilters } from "../report-config";
 import { getReportPagination, getReportRows, getReportSummary, humanizeReportKey, type ReportRow } from "../report-data";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 const getInvoiceDetailSaleId = (row: ReportRow, slug: ReportConfig["slug"]) => {
   const saleId = row.saleId ?? row.id;
@@ -271,10 +272,10 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
       refreshControl={<RefreshControl colors={[pearl.accent]} refreshing={Boolean(entry?.refreshing)} onRefresh={refresh} />}>
       <View style={styles.header}><AppBackButton onPress={() => router.back()} /><View style={styles.headerCopy}>{staffDetail ? <><Text translate style={styles.eyebrow}>Staff performance</Text><Text style={styles.staffName} numberOfLines={1}>{staffName || reportTitle}</Text></> : <><Text translate style={styles.title}>{reportTitle}</Text><Text style={styles.subtitle}>{config.group}</Text></>}</View></View>
       <View style={styles.filterRow}>
-        {dateKeys ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="Report date range" onPress={() => setRangeSheetVisible(true)} style={[styles.control, { flex: 1 }]}><Ionicons name="calendar-outline" size={17} color={pearl.accentDeep} /><Text style={[styles.controlText, { flex: 1 }]}>{dateRangeLabel}</Text><Ionicons name="chevron-down" size={15} color={pearl.accentDeep} /></TouchableOpacity> : null}
+        {dateKeys ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="Report date range" onPress={() => setRangeSheetVisible(true)} style={[styles.control, { flex: 1 }, config.slug === "lost-customers" && Boolean(filters.start_date || filters.end_date) && styles.activeFilter]}><Ionicons name="calendar-outline" size={17} color={pearl.accentDeep} /><Text style={[styles.controlText, { flex: 1 }]}>{config.slug === "lost-customers" ? "Last visit: " : ""}{dateRangeLabel}</Text><Ionicons name="chevron-down" size={15} color={pearl.accentDeep} /></TouchableOpacity> : null}
         {/* The staff detail view is already scoped to one person, so its only
             control is the date range - no Filters button. */}
-        {(!staffDetail && (REPORT_FILTER_FIELDS[config.slug]?.length ?? 0) > 0) ? <TouchableOpacity accessibilityRole="button" accessibilityLabel={'Filters, ' + activeFilterCount + ' active'} onPress={() => setFilterSheetVisible(true)} style={styles.control}><Ionicons name="funnel-outline" size={16} color={pearl.accentDeep} /><Text style={styles.controlText}>Filters{activeFilterCount ? ' · ' + activeFilterCount : ''}</Text></TouchableOpacity> : null}
+        {(!staffDetail && (REPORT_FILTER_FIELDS[config.slug]?.length ?? 0) > 0) ? <TouchableOpacity accessibilityRole="button" accessibilityLabel={'Filters, ' + activeFilterCount + ' active'} onPress={() => setFilterSheetVisible(true)} style={[styles.control, config.slug === "lost-customers" && activeFilterCount > 0 && styles.activeFilter]}><Ionicons name="funnel-outline" size={16} color={pearl.accentDeep} /><Text style={styles.controlText}>Filters{activeFilterCount ? ' · ' + activeFilterCount : ''}</Text></TouchableOpacity> : null}
       </View>
       {staffDetail ? null : <ReportSummaryCards summary={moreTotals ? summary : primarySummary} maxCards={moreTotals ? Number.MAX_SAFE_INTEGER : 2} labels={moreTotals ? undefined : { totalSale: "Total sales", outstandingAmount: "Outstanding", totalCommission: "Commission earned" }} />}
       {!staffDetail && summary && Object.keys(summary).length > 2 ? <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: moreTotals }} onPress={() => setMoreTotals((value) => !value)} style={styles.control}><Ionicons name="stats-chart-outline" size={17} color={pearl.accentDeep} /><Text translate style={[styles.controlText, { flex: 1 }]}>{moreTotals ? "Fewer totals" : "More totals"}</Text><Ionicons name={moreTotals ? "chevron-up" : "chevron-down"} size={16} color={pearl.muted} /></TouchableOpacity> : null}
@@ -300,20 +301,21 @@ const staffCardValue = (
   return reportCellValue(key, summary[key]);
 };
 
-const createStyles = (_colors: ThemeColors) => StyleSheet.create({
+const createStyles = (_colors: ThemeColors) => themedStyles((p) => ({
   safe: { flex: 1 }, content: { padding: 16, paddingBottom: 100, gap: 14 },
   header: { flexDirection: "row", alignItems: "center", gap: 12 }, headerCopy: { flex: 1, gap: 3 },
-  title: { fontSize: 22, fontWeight: "700", color: pearl.ink }, subtitle: { color: pearl.muted, fontSize: 12 },
-  eyebrow: { fontSize: 12, fontWeight: "700", letterSpacing: 0.6, textTransform: "uppercase", color: pearl.accentDeep },
-  staffName: { fontSize: 28, fontWeight: "800", letterSpacing: -0.5, color: pearl.ink },
+  title: { fontSize: 22, fontWeight: "700", color: p.ink }, subtitle: { color: p.muted, fontSize: 12 },
+  eyebrow: { fontSize: 12, fontWeight: "700", letterSpacing: 0.6, textTransform: "uppercase", color: p.accentDeep },
+  staffName: { fontSize: 28, fontWeight: "800", letterSpacing: -0.5, color: p.ink },
   statGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  statCard: { flexBasis: "47%", flexGrow: 1, minWidth: 150, borderRadius: 22, padding: 18, paddingBottom: 20, gap: 12, backgroundColor: "rgba(255,255,255,0.62)", borderWidth: 1, borderColor: "rgba(255,255,255,0.95)" },
-  statLabel: { fontSize: 12.5, fontWeight: "700", letterSpacing: 0.3, textTransform: "uppercase", color: pearl.ink2 },
-  statValue: { fontSize: 20, lineHeight: 26, fontWeight: "800", letterSpacing: -0.3, color: pearl.ink },
+  statCard: { flexBasis: "47%", flexGrow: 1, minWidth: 150, borderRadius: 22, padding: 18, paddingBottom: 20, gap: 12, backgroundColor: p.glassStrong, borderWidth: 1, borderColor: "rgba(255,255,255,0.95)" },
+  statLabel: { fontSize: 12.5, fontWeight: "700", letterSpacing: 0.3, textTransform: "uppercase", color: p.ink2 },
+  statValue: { fontSize: 20, lineHeight: 26, fontWeight: "800", letterSpacing: -0.3, color: p.ink },
   filterRow: { flexDirection: "row", gap: 8, alignItems: "center", flexWrap: "wrap" },
-  control: { flexDirection: "row", gap: 7, alignItems: "center", paddingHorizontal: 12, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: "#DDD9EB", backgroundColor: pearl.glass },
-  controlText: { color: pearl.accentDeep, fontSize: 12, fontWeight: "600" },
-  search: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: "#DDD9EB", backgroundColor: pearl.glass },
-  input: { flex: 1, fontSize: 13, color: pearl.ink, backgroundColor: "transparent", paddingVertical: 12 },
-  detailRow: { paddingVertical: 12, flexDirection: "row", justifyContent: "space-between", gap: 20, borderBottomWidth: 1, borderBottomColor: pearl.divider }, value: { flex: 1, textAlign: "right", fontSize: 13, fontWeight: "600", color: pearl.ink },
-});
+  activeFilter: { backgroundColor: p.accentTint, borderColor: p.accent, shadowColor: p.accent, shadowOpacity: 0.45, shadowRadius: 6, shadowOffset: { width: 0, height: 1 }, elevation: 4 },
+  control: { flexDirection: "row", gap: 7, alignItems: "center", paddingHorizontal: 12, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: "#DDD9EB", backgroundColor: p.glass },
+  controlText: { color: p.accentDeep, fontSize: 12, fontWeight: "600" },
+  search: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: "#DDD9EB", backgroundColor: p.glass },
+  input: { flex: 1, fontSize: 13, color: p.ink, backgroundColor: "transparent", paddingVertical: 12 },
+  detailRow: { paddingVertical: 12, flexDirection: "row", justifyContent: "space-between", gap: 20, borderBottomWidth: 1, borderBottomColor: p.divider }, value: { flex: 1, textAlign: "right", fontSize: 13, fontWeight: "600", color: p.ink },
+}));

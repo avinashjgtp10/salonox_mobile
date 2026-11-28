@@ -15,7 +15,7 @@ import { KeyboardInsetView } from "@/components/ui/KeyboardInsetView";
 import { PearlActionFooter } from "@/components/ui/PearlActionFooter";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { StaffHeader } from "../components/StaffPearl";
 import {
   CommissionButton,
@@ -526,10 +526,10 @@ export function CommissionRuleFormScreen() {
                             padding: 14,
                             borderRadius: 18,
                             borderWidth: 1.5,
-                            backgroundColor: "rgba(255,255,255,0.55)",
+                            backgroundColor: pearl.glassStrong,
                           },
                           selected && {
-                            backgroundColor: "rgba(255,255,255,0.85)",
+                            backgroundColor: pearl.glassStrong,
                             borderColor: pearl.accent,
                           },
                         ]}

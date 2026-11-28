@@ -3,7 +3,8 @@ import { router, type Href } from "expo-router";
 import { Fragment, useMemo } from "react";
 import { StyleSheet, View } from "react-native";
 
-import { pearl, pearlType, type PearlTone } from "@/components/auth/pearl/tokens";
+import { pearlType, type PearlTone } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { Avatar, Card, Divider, ListRow, SectionHeader, Skeleton, SmallButton, StatusPill, type PillTone } from "@/components/pearl/ui";
 import { Text } from "@/components/ui/AppTypography";
 import { findAttendanceRecordForStaff } from "@/features/attendance/utils/attendanceMatching";
@@ -143,7 +144,7 @@ export function StaffOnFloor() {
 }
 
 const styles = StyleSheet.create({
-  time: { width: 50, height: 46, borderRadius: 13, backgroundColor: "rgba(255,255,255,0.75)", alignItems: "center", justifyContent: "center" },
+  time: { width: 50, height: 46, borderRadius: 13, backgroundColor: pearl.glassStrong, alignItems: "center", justifyContent: "center" },
   empty: { padding: 16, alignItems: "center", gap: 8 },
   legend: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 8, opacity: 0.9 },
 });

@@ -1,12 +1,14 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { type ReactNode } from "react";
-import { Pressable, StyleSheet, View, type PressableProps, type StyleProp, type ViewStyle } from "react-native";
+import { Pressable, View, type PressableProps, type StyleProp, type ViewStyle } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 
-import { pearl, pearlGradients, pearlRadius, pearlShadow, pearlType } from "./tokens";
+import { pearlGradients, pearlRadius, pearlShadow, pearlType } from "./tokens";
+import { pearl } from "./themedPearl";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 type Base = Omit<PressableProps, "style" | "children"> & {
   title: string;
@@ -91,7 +93,7 @@ export function GoogleLogo({ size = 16 }: { size?: number }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((p) => ({
   primaryWrap: { borderRadius: pearlRadius.field },
   primary: { height: 52, borderRadius: pearlRadius.field, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 20 },
   glass: {
@@ -101,9 +103,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 9,
-    backgroundColor: "rgba(255,255,255,0.82)",
+    backgroundColor: p.glassStrong,
     borderWidth: 1,
-    borderColor: pearl.fieldBorder,
+    borderColor: p.fieldBorder,
   },
   glassText: { fontSize: 14 },
   outline: {
@@ -113,12 +115,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
-    backgroundColor: pearl.white,
+    backgroundColor: p.white,
     borderWidth: 1.5,
     borderColor: "rgba(126,120,176,0.55)",
     ...pearlShadow.card,
   },
-  outlineText: { color: pearl.accentDeep, fontWeight: "800" },
+  outlineText: { color: p.accentDeep, fontWeight: "800" },
   text: { height: 44, alignItems: "center", justifyContent: "center" },
   textPressed: { opacity: 0.6 },
   pressed: { transform: [{ scale: 0.98 }], opacity: 0.92 },
@@ -127,11 +129,11 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 7,
-    backgroundColor: pearl.white,
+    backgroundColor: p.white,
     borderWidth: 1,
-    borderColor: pearl.fieldBorder,
+    borderColor: p.fieldBorder,
     alignItems: "center",
     justifyContent: "center",
   },
-  ssoIconDark: { backgroundColor: pearl.ink, borderColor: pearl.ink },
-});
+  ssoIconDark: { backgroundColor: p.ink, borderColor: p.ink },
+}));

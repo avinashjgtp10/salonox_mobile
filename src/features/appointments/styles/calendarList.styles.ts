@@ -1,6 +1,7 @@
 import { AppLayout } from "@/constants/layout";
 import type { ThemeColors } from '@/constants/theme';
 import { StyleSheet } from 'react-native';
+import { pearl } from "@/components/auth/pearl/themedPearl";
 
 export const createCalendarListStyles = (Colors: ThemeColors) => StyleSheet.create({
   dinggListView: {
@@ -56,7 +57,7 @@ export const createCalendarListStyles = (Colors: ThemeColors) => StyleSheet.crea
   },
   dinggListAvatar: {
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: pearl.glassStrong,
     borderRadius: 28,
     height: 56,
     justifyContent: "center",

@@ -1,6 +1,7 @@
-import { StyleSheet, View, type ViewProps } from "react-native";
+import { View, type ViewProps } from "react-native";
 
-import { pearl, pearlRadius, pearlShadow, pearlSpace } from "./tokens";
+import { pearlRadius, pearlShadow, pearlSpace } from "./tokens";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 /** Frosted pearl card: translucent white surface with a bright edge. */
 export function GlassCard({ style, children, strong, ...rest }: ViewProps & { strong?: boolean }) {
@@ -11,14 +12,14 @@ export function GlassCard({ style, children, strong, ...rest }: ViewProps & { st
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((p) => ({
   card: {
-    backgroundColor: pearl.glass,
-    borderColor: pearl.glassBorder,
+    backgroundColor: p.glass,
+    borderColor: p.glassBorder,
     borderWidth: 1,
     borderRadius: pearlRadius.card,
     padding: pearlSpace.lg,
     ...pearlShadow.card,
   },
-  strong: { backgroundColor: pearl.glassStrong },
-});
+  strong: { backgroundColor: p.glassStrong },
+}));

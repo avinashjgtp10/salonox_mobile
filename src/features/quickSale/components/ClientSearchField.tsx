@@ -1,10 +1,9 @@
-import { pearl } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { InfiniteScrollLoader } from "@/components/ui/InfiniteScrollLoader";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState, type ReactNode } from "react";
-import { FlatList, Pressable, StyleSheet, View } from "react-native";
+import { FlatList, Pressable, View } from "react-native";
 
 import { ClientOptionRow } from "@/features/quickSale/components/ClientOptionRow";
 import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
@@ -14,6 +13,7 @@ import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import { useAppSelector } from "@/store/hooks";
 import type { ClientListItem } from "@/types/client";
 import { maskPhone } from "@/utils/maskPhone";
+import { themedStyles, themedTokens } from "@/components/auth/pearl/themedStyles";
 
 const MIN_QUERY_LENGTH = 1;
 // A page at a time, loaded more on scroll — not an arbitrary cap. Matches
@@ -22,7 +22,7 @@ const PAGE_SIZE = 10;
 const RESULTS_MAX_HEIGHT = 260;
 
 // Same Quick Sale reference tokens as QuickSaleForm.
-const c = { bg: "#FAF6F8", line: "#E9DFE5", fg: "#000000", muted: "#6B5D66", plum: pearl.accentDeep };
+const c = themedTokens((p) => ({ bg: p.field, line: p.fieldBorder, fg: p.ink, muted: p.muted, plum: p.accentDeep, glass: p.glass, glassBorder: p.glassBorder }));
 
 type ClientSearchFieldProps = {
   trailingAction?: ReactNode;
@@ -102,7 +102,7 @@ export function ClientSearchField({ onAddClient, onSelect, pearlStyle = false, t
   return (
     <View style={s.wrap}>
       <View style={[s.row, pearlStyle && { flexDirection: "column", alignItems: "stretch" }]}>
-        <View style={[s.searchBox, pearlStyle && { backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderRadius: 16, flex: 0 }]}>
+        <View style={[s.searchBox, pearlStyle && { backgroundColor: c.glass, borderColor: c.glassBorder, borderRadius: 16, flex: 0 }]}>
           <Ionicons color={c.muted} name="search" size={18} />
           <TextInput
             accessibilityLabel="Search client"
@@ -123,9 +123,9 @@ export function ClientSearchField({ onAddClient, onSelect, pearlStyle = false, t
           ) : null}
         </View>
         <View style={s.row}>
-        <Pressable accessibilityRole="button" onPress={() => onAddClient(query.trim())} style={[s.addButton, pearlStyle && { alignSelf: "flex-start", borderRadius: 12, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, minHeight: 36 }]}>
-          <Ionicons color="#000000" name="person-add-outline" size={16} />
-          <Text translate style={[s.addText, pearlStyle && { color: pearl.accentDeep, fontSize: 13 }]}>{pearlStyle ? "New client" : "Add Client"}</Text>
+        <Pressable accessibilityRole="button" onPress={() => onAddClient(query.trim())} style={[s.addButton, pearlStyle && { alignSelf: "flex-start", borderRadius: 12, backgroundColor: c.glass, borderWidth: 1, borderColor: c.glassBorder, minHeight: 36 }]}>
+          <Ionicons color={c.plum} name="person-add-outline" size={16} />
+          <Text translate style={[s.addText, pearlStyle && { color: c.plum, fontSize: 13 }]}>{pearlStyle ? "New client" : "Add Client"}</Text>
         </Pressable>
         {trailingAction}
         </View>
@@ -166,7 +166,7 @@ export function ClientSearchField({ onAddClient, onSelect, pearlStyle = false, t
   );
 }
 
-const s = StyleSheet.create({
+const s = themedStyles((p) => ({
   wrap: { gap: 10 },
   row: { alignItems: "center", flexDirection: "row", gap: 8 },
   searchBox: {
@@ -184,17 +184,17 @@ const s = StyleSheet.create({
   searchInput: { color: c.fg, flex: 1, fontSize: 14, paddingVertical: 10 },
   addButton: {
     alignItems: "center",
-    backgroundColor: pearl.accentTint,
+    backgroundColor: p.accentTint,
     borderRadius: 999,
     flexDirection: "row",
     gap: 6,
     minHeight: 46,
     paddingHorizontal: 14,
   },
-  addText: { color: "#000000", fontSize: 13, fontWeight: "700" },
+  addText: { color: p.ink, fontSize: 13, fontWeight: "700" },
   results: { borderColor: c.line, borderRadius: 14, borderWidth: 1, maxHeight: RESULTS_MAX_HEIGHT, overflow: "hidden" },
   empty: { alignItems: "center", flexDirection: "row", flexWrap: "wrap", paddingVertical: 4 },
   muted: { color: c.muted, fontSize: 13 },
   link: { color: c.plum, fontSize: 13, fontWeight: "700" },
   error: { color: "#E5484D", fontSize: 12 },
-});
+}));

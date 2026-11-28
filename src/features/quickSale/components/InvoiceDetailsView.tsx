@@ -1,11 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, type Href } from "expo-router";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
-import { pearl, pearlType } from "@/components/auth/pearl/tokens";
+import { pearlType } from "@/components/auth/pearl/tokens";
 import { Text } from "@/components/ui/AppTypography";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { BottomSheet } from "@/components/ui/BottomSheet";
@@ -16,6 +16,7 @@ import { formatInvoiceNumber, formatPaymentSummary, invoiceDateLabel } from "@/u
 import { maskPhone } from "@/utils/maskPhone";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import type { SaleDetail } from "@/types/sales";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 export function InvoiceDetailsView({ sale, onBack, onDelete, deleting }: { sale: SaleDetail; onBack: () => void; onDelete: () => void; deleting: boolean }) {
   "use no memo";
   useRegionalPreferences();
@@ -46,4 +47,4 @@ export function InvoiceDetailsView({ sale, onBack, onDelete, deleting }: { sale:
   </BottomSheet>
  </SafeAreaView></PearlBackground>;
 }
-const s=StyleSheet.create({page:{padding:18,gap:16,paddingBottom:40},header:{flexDirection:"row",gap:8,alignItems:"center"},price:{fontSize:14,fontWeight:"700",color:pearl.ink},kv:{paddingHorizontal:16,paddingVertical:13,flexDirection:"row",justifyContent:"space-between",gap:16,borderBottomWidth:1,borderBottomColor:pearl.divider},empty:{padding:16,color:pearl.muted},receipt:{padding:14,alignItems:"center",borderRadius:16,backgroundColor:pearl.glass},waTile:{width:40,height:40,borderRadius:13,alignItems:"center",justifyContent:"center",backgroundColor:"rgba(37,211,102,0.12)"},danger:{padding:15,marginTop:18,borderRadius:16,backgroundColor:"rgba(200,71,90,0.12)",alignItems:"center"},dangerText:{color:"#A8384A",fontSize:14,fontWeight:"700"}});
+const s=themedStyles((p) => ({page:{padding:18,gap:16,paddingBottom:40},header:{flexDirection:"row",gap:8,alignItems:"center"},price:{fontSize:14,fontWeight:"700",color:p.ink},kv:{paddingHorizontal:16,paddingVertical:13,flexDirection:"row",justifyContent:"space-between",gap:16,borderBottomWidth:1,borderBottomColor:p.divider},empty:{padding:16,color:p.muted},receipt:{padding:14,alignItems:"center",borderRadius:16,backgroundColor:p.glass},waTile:{width:40,height:40,borderRadius:13,alignItems:"center",justifyContent:"center",backgroundColor:"rgba(37,211,102,0.12)"},danger:{padding:15,marginTop:18,borderRadius:16,backgroundColor:"rgba(200,71,90,0.12)",alignItems:"center"},dangerText:{color:"#A8384A",fontSize:14,fontWeight:"700"}}));

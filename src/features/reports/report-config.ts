@@ -170,7 +170,7 @@ const baseReportConfigs: ReportConfig[] = [
 
   available({ slug: "client-revenue", title: "Client Revenue", subtitle: "Total spend, visit count and average ticket per client.", group: "Customers", icon: "people-outline", endpoint: "/api/report/client-revenue", filters: ["start_date", "end_date", "search"], paginated: true, primaryFields: ["clientName", "visits", "totalSpend", "lastVisit"], emptyMessage: "No client revenue found" }),
   available({ slug: "customer-frequency", title: "Customer Frequency", subtitle: "New, returning, frequent and lost customer analysis.", group: "Customers", icon: "repeat-outline", endpoint: "/api/report/customer-frequency", filters: ["start_date", "end_date", "search", "customer_type"], paginated: true, primaryFields: ["clientName", "visits", "totalSpend", "lastVisit"], emptyMessage: "No customer frequency records found" }),
-  available({ slug: "lost-customers", title: "Lost Customers", subtitle: "Clients who stopped visiting within your chosen inactivity window.", group: "Customers", icon: "person-remove-outline", endpoint: "/api/report/lost-customers", filters: ["start_date", "end_date", "search", "lost_days"], paginated: true, primaryFields: ["clientName", "lastVisit", "daysSinceLastVisit", "totalSpend"], emptyMessage: "No lost customers found" }),
+  available({ slug: "lost-customers", title: "Lost Clients Report", subtitle: "Clients who stopped visiting within your chosen inactivity window.", group: "Customers", icon: "person-remove-outline", endpoint: "/api/report/lost-customers", filters: ["start_date", "end_date", "search", "lost_days", "staff_ids"], paginated: true, primaryFields: ["clientName", "lastVisit", "daysSinceLastVisit", "totalSpend"], emptyMessage: "No lost customers found" }),
   available({ slug: "vip-customers", title: "VIP Customers", subtitle: "Top spending customers by configurable thresholds.", group: "Customers", icon: "star-outline", endpoint: "/api/report/customer-spend", filters: ["start_date", "end_date", "vip_min_spend", "low_max_spend", "segments", "staff_ids", "search"], paginated: true, primaryFields: ["clientName", "contact", "spendSegment", "visits", "totalSpend", "avgTicket", "firstVisit", "lastVisit", "daysSinceLastVisit"], emptyMessage: "No VIP customers found" }),
   available({ slug: "service-frequency", title: "Service Frequency", subtitle: "How often each client returns for a given service.", group: "Customers", icon: "cut-outline", endpoint: "/api/report/service-frequency", filters: ["start_date", "end_date", "service_ids", "category_ids", "staff_ids", "search"], paginated: true, primaryFields: ["clientName", "contact", "serviceName", "categoryName", "visits", "totalSpend", "firstVisit", "lastVisit", "daysSinceLastVisit"], emptyMessage: "No service frequency records" }),
   available({ slug: "referral-report", title: "Referral Report", subtitle: "Who referred whom, visits, revenue and reward status.", group: "Customers", icon: "people-circle-outline", endpoint: "/api/report/referral", filters: ["start_date", "end_date", "search"], paginated: true, primaryFields: ["referredClientName", "referrerName", "visits", "totalSpend"], emptyMessage: "No referral records found" }),
@@ -269,6 +269,7 @@ export const createDefaultReportFilters = (slug: ReportSlug): ReportFilters => {
   const { startDate: monthStart, endDate: monthEnd } = getDateRangePreset("this_month", today);
   const date = (value: Date) =>
     `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+  if (slug === "lost-customers") return { lost_days: "90", page: 1, limit: 10 };
   if (NO_DATE_REPORTS.has(slug)) return { page: 1, limit: 10 };
   if (DATE_FROM_REPORTS.has(slug)) return { date_from: monthStart, date_to: monthEnd, page: 1, limit: 10 };
   if (slug === "consumable-analytics") return { from: monthStart, to: monthEnd, page: 1, limit: 10 };
@@ -293,7 +294,6 @@ export const createDefaultReportFilters = (slug: ReportSlug): ReportFilters => {
   }
   if (slug === "staff-sales") return { ...base, period: "daily" };
   if (slug === "staff-item-sales") return { ...base, item_type: "service" };
-  if (slug === "lost-customers") return { ...base, lost_days: "90" };
   if (slug === "vip-customers") return { ...base, vip_min_spend: "25000", low_max_spend: "2000" };
   return base;
 };

@@ -4,10 +4,11 @@ import { getUserFullName } from "@/utils/userProfile";
 import { clientBirthdayLabel } from "../utils/clientBirthday";
 import { ClientBottomNav } from "../components/ClientBottomNav";
 import { LunoxSheet } from "@/components/lunox/LunoxSheet";
-import { Clipboard, Image, Linking , ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Clipboard, Image, Linking , ScrollView, TouchableOpacity, View } from "react-native";
 import { ClientEntrySheets } from "../components/ClientEntrySheets";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
-import { pearl, pearlTones } from "@/components/auth/pearl/tokens";
+import { pearlTones } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { LinearGradient } from "expo-linear-gradient";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { ClientButton, ClientMenuRow, clientUi } from "../components/ClientPearl";
@@ -68,6 +69,7 @@ import { buildClientProfileMetrics } from "@/features/clients/utils/clientProfil
 import type { ClientProfileLineEntry } from "@/features/clients/utils/clientProfile";
 import type { ClientMembershipRecord, ClientPackageRecord } from "@/types/client";
 import { formatCurrency } from "@/utils/currency";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 function formatCreatedDate(createdAt: string | null) {
   return formatAppDate(createdAt, "-");
@@ -536,7 +538,7 @@ export default function ClientDetailsScreen() {
     <ClientEntrySheets staffName={author} clientId={client.id} walletBalance={client.walletBalance} kind={entryKind} onClose={() => setEntryKind(null)} onSaved={(kind) => { toast.showSuccess(kind === "wallet" ? "Money added to wallet" : "Note saved"); void dispatch(fetchClientHistoryThunk(client.id)); if (kind === "note") { setActiveTab("notes"); void dispatch(fetchClientNotesThunk(client.id)); } }} />
   </SafeAreaView></PearlBackground>;
 }
-const createStyles = (Colors: ThemeColors) => StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => themedStyles((p) => ({
   summarySection: { marginBottom: 28 },
   summarySectionTitle: { color: Colors.heading, fontSize: 19, fontWeight: "800", marginBottom: 14 },
   summarySectionHeader: { alignItems: "center", flexDirection: "row", gap: 8 },
@@ -571,7 +573,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   profileCard: { padding: 14, gap: 4 },
   detailValueGroup: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 8 },
-  copyButton: { width: 36, height: 36, borderRadius: 12, backgroundColor: pearl.accentWash, alignItems: "center", justifyContent: "center" },
+  copyButton: { width: 36, height: 36, borderRadius: 12, backgroundColor: p.accentWash, alignItems: "center", justifyContent: "center" },
   detailRow: {
     alignItems: "center",
     flexDirection: "row",
@@ -622,6 +624,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-});
+}));
 
-const detailUi = StyleSheet.create({ header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, title: { color: pearl.ink, fontSize: 18, fontWeight: "700" }, name: { color: pearl.ink, fontSize: 18, fontWeight: "700" }, iconButton: { width: 44, height: 44, borderRadius: 16, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, justifyContent: "center", alignItems: "center" }, hero: { borderRadius: 28, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, padding: 16, gap: 16 }, identity: { flexDirection: "row", alignItems: "center", gap: 12 }, avatar: { width: 62, height: 62, borderRadius: 22, alignItems: "center", justifyContent: "center" }, wallet: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 12, borderTopWidth: 1, borderBottomWidth: 1, borderColor: pearl.divider }, balance: { color: pearl.ink, fontSize: 25, fontWeight: "800" }, quickAction: { flex: 1, alignItems: "center", gap: 6 }, actionCircle: { width: 40, height: 40, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: pearl.glass }, lunox: { flexDirection: "row", alignItems: "center", gap: 8, padding: 13, borderRadius: 16, borderWidth: 1, borderColor: pearl.glassBorder, backgroundColor: pearl.glass }, tabs: { flexDirection: "row", borderRadius: 17, padding: 4, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder }, tab: { flex: 1, minHeight: 40, borderRadius: 13, alignItems: "center", justifyContent: "center" }, metrics: { flexDirection: "row", flexWrap: "wrap", gap: 10 }, metric: { flexBasis: "47%", flexGrow: 1, padding: 14, gap: 6, borderRadius: 22, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder }, metricValue: { color: pearl.ink, fontSize: 21, fontWeight: "700" }, danger: { minHeight: 46, borderRadius: 16, borderWidth: 1, borderColor: pearl.dangerBorder, backgroundColor: pearl.dangerBg, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 } });
+const detailUi = themedStyles((p) => ({ header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, title: { color: p.ink, fontSize: 18, fontWeight: "700" }, name: { color: p.ink, fontSize: 18, fontWeight: "700" }, iconButton: { width: 44, height: 44, borderRadius: 16, backgroundColor: p.glass, borderWidth: 1, borderColor: p.glassBorder, justifyContent: "center", alignItems: "center" }, hero: { borderRadius: 28, backgroundColor: p.glass, borderWidth: 1, borderColor: p.glassBorder, padding: 16, gap: 16 }, identity: { flexDirection: "row", alignItems: "center", gap: 12 }, avatar: { width: 62, height: 62, borderRadius: 22, alignItems: "center", justifyContent: "center" }, wallet: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 12, borderTopWidth: 1, borderBottomWidth: 1, borderColor: p.divider }, balance: { color: p.ink, fontSize: 25, fontWeight: "800" }, quickAction: { flex: 1, alignItems: "center", gap: 6 }, actionCircle: { width: 40, height: 40, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: p.glass }, lunox: { flexDirection: "row", alignItems: "center", gap: 8, padding: 13, borderRadius: 16, borderWidth: 1, borderColor: p.glassBorder, backgroundColor: p.glass }, tabs: { flexDirection: "row", borderRadius: 17, padding: 4, backgroundColor: p.glass, borderWidth: 1, borderColor: p.glassBorder }, tab: { flex: 1, minHeight: 40, borderRadius: 13, alignItems: "center", justifyContent: "center" }, metrics: { flexDirection: "row", flexWrap: "wrap", gap: 10 }, metric: { flexBasis: "47%", flexGrow: 1, padding: 14, gap: 6, borderRadius: 22, backgroundColor: p.glass, borderWidth: 1, borderColor: p.glassBorder }, metricValue: { color: p.ink, fontSize: 21, fontWeight: "700" }, danger: { minHeight: 46, borderRadius: 16, borderWidth: 1, borderColor: p.dangerBorder, backgroundColor: p.dangerBg, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 } }));

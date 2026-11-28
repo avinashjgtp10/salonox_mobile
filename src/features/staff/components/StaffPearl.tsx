@@ -4,12 +4,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Text } from "@/components/ui/AppTypography";
 import { AppBackButton } from "@/components/ui/AppBackButton";
-import {
-  pearl,
-  pearlGradients,
-  pearlTones,
-} from "@/components/auth/pearl/tokens";
+import { pearlGradients, pearlTones } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { Image } from "expo-image";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 export function StaffHeader({
   title,
   subtitle,
@@ -139,32 +137,32 @@ export function StaffMenuItem({
     </TouchableOpacity>
   );
 }
-export const staffUi = StyleSheet.create({
+export const staffUi = themedStyles((p) => ({
   screen: { flex: 1 },
   content: { padding: 16, gap: 14, paddingBottom: 30 },
   header: { flexDirection: "row", alignItems: "center", gap: 12 },
-  title: { fontSize: 22, fontWeight: "700", color: pearl.ink },
-  heading: { fontSize: 15, fontWeight: "700", color: pearl.ink },
-  rowTitle: { fontSize: 14, fontWeight: "700", color: pearl.ink },
-  muted: { fontSize: 12, lineHeight: 18, color: pearl.muted },
+  title: { fontSize: 22, fontWeight: "700", color: p.ink },
+  heading: { fontSize: 15, fontWeight: "700", color: p.ink },
+  rowTitle: { fontSize: 14, fontWeight: "700", color: p.ink },
+  muted: { fontSize: 12, lineHeight: 18, color: p.muted },
   label: {
     fontSize: 12,
     fontWeight: "600",
-    color: pearl.ink2,
+    color: p.ink2,
     marginBottom: 7,
   },
   card: {
     borderRadius: 22,
-    backgroundColor: pearl.glass,
+    backgroundColor: p.glass,
     borderWidth: 1,
-    borderColor: pearl.glassBorder,
+    borderColor: p.glassBorder,
     overflow: "hidden",
   },
   formCard: {
     borderRadius: 22,
-    backgroundColor: pearl.glass,
+    backgroundColor: p.glass,
     borderWidth: 1,
-    borderColor: pearl.glassBorder,
+    borderColor: p.glassBorder,
     padding: 16,
     gap: 14,
   },
@@ -172,11 +170,11 @@ export const staffUi = StyleSheet.create({
     minHeight: 48,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: pearl.fieldBorder,
-    backgroundColor: pearl.field,
+    borderColor: p.fieldBorder,
+    backgroundColor: p.field,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: pearl.ink,
+    color: p.ink,
     fontSize: 14,
   },
   button: {
@@ -188,9 +186,9 @@ export const staffUi = StyleSheet.create({
     paddingHorizontal: 18,
   },
   secondary: {
-    backgroundColor: pearl.glass,
+    backgroundColor: p.glass,
     borderWidth: 1,
-    borderColor: pearl.glassBorder,
+    borderColor: p.glassBorder,
   },
   icon: {
     width: 38,
@@ -198,9 +196,9 @@ export const staffUi = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: pearl.glass,
+    backgroundColor: p.glass,
     borderWidth: 1,
-    borderColor: pearl.glassBorder,
+    borderColor: p.glassBorder,
   },
   menuRow: {
     flexDirection: "row",
@@ -208,9 +206,9 @@ export const staffUi = StyleSheet.create({
     padding: 14,
     gap: 12,
     borderBottomWidth: 1,
-    borderBottomColor: pearl.divider,
+    borderBottomColor: p.divider,
   },
-  error: { color: pearl.dangerText, fontSize: 12, lineHeight: 18 },
+  error: { color: p.dangerText, fontSize: 12, lineHeight: 18 },
   footer: {
     flexDirection: "row",
     gap: 12,
@@ -221,9 +219,9 @@ export const staffUi = StyleSheet.create({
     flexDirection: "row",
     borderRadius: 17,
     padding: 4,
-    backgroundColor: pearl.glass,
+    backgroundColor: p.glass,
     borderWidth: 1,
-    borderColor: pearl.glassBorder,
+    borderColor: p.glassBorder,
   },
   tab: {
     flex: 1,
@@ -236,8 +234,8 @@ export const staffUi = StyleSheet.create({
     padding: 14,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: pearl.dangerBorder,
-    backgroundColor: pearl.dangerBg,
+    borderColor: p.dangerBorder,
+    backgroundColor: p.dangerBg,
     alignItems: "center",
   },
-});
+}));

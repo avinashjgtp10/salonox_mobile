@@ -88,12 +88,12 @@ export const formatAppTime = (value: DateTimeInput, fallback = "-") => {
   return `${padTwo(hours12)}:${minutes} ${meridiem}`;
 };
 
-export const formatAppDateTime = (value: DateTimeInput, fallback = "-") => {
+export const formatAppDateTime = (value: DateTimeInput, fallback = "-", separator = " \u2022 ") => {
   const date = parseAppDateTime(value);
 
   if (!date) {
     return fallback;
   }
 
-  return `${formatAppDate(date, fallback)} • ${formatAppTime(date, fallback)}`;
+  return `${formatAppDate(date, fallback)}${separator}${formatAppTime(date, fallback)}`;
 };

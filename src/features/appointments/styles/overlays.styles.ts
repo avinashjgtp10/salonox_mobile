@@ -1,10 +1,9 @@
-import { pearl } from "@/components/auth/pearl/tokens";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import type { ThemeColors } from '@/constants/theme';
 import { DashboardSpacing as Spacing } from "@/constants/theme";
-import { StyleSheet } from 'react-native';
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
-export const createOverlaysStyles = (Colors: ThemeColors) => StyleSheet.create({
+export const createOverlaysStyles = (Colors: ThemeColors) => themedStyles((p) => ({
   quickSaleModalBackdrop: {
     alignItems: "center",
     backgroundColor: "rgba(15, 23, 42, 0.58)",
@@ -21,7 +20,7 @@ export const createOverlaysStyles = (Colors: ThemeColors) => StyleSheet.create({
     justifyContent: "flex-end",
   },
   bookingModalSurface: {
-    backgroundColor: pearl.bgMid,
+    backgroundColor: p.bgMid,
     // Edge to edge and flush with the bottom: any side or bottom gap shows the
     // calendar behind, including its red "now" marker, which reads as a stray
     // red background once a sheet opens on top.
@@ -77,4 +76,4 @@ export const createOverlaysStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontSize: 18,
     fontWeight: "900",
   }
-});
+}));

@@ -3,7 +3,9 @@ import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/ui/AppTypography";
-import { pearl, pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 export function CommissionButton({
   label,
@@ -31,7 +33,7 @@ export function CommissionButton({
         secondary && commissionUi.secondary,
         secondary &&
           compact && {
-            backgroundColor: "rgba(255,255,255,0.65)",
+            backgroundColor: pearl.glassStrong,
             borderWidth: 1,
             borderColor: "#FFFFFF",
           },
@@ -116,12 +118,12 @@ export function CommissionNote({ children }: { children: ReactNode }) {
   );
 }
 
-export const commissionUi = StyleSheet.create({
+export const commissionUi = themedStyles((p) => ({
   screen: { flex: 1, backgroundColor: "transparent" },
   content: { padding: 16, gap: 14 },
   card: {
-    backgroundColor: pearl.glass,
-    borderColor: pearl.glassBorder,
+    backgroundColor: p.glass,
+    borderColor: p.glassBorder,
     borderWidth: 1,
     borderRadius: 22,
     padding: 14,
@@ -138,8 +140,8 @@ export const commissionUi = StyleSheet.create({
   },
   chips: { flexDirection: "row", gap: 8 },
   chip: {
-    backgroundColor: pearl.glass,
-    borderColor: pearl.glassBorder,
+    backgroundColor: p.glass,
+    borderColor: p.glassBorder,
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 13,
@@ -148,27 +150,27 @@ export const commissionUi = StyleSheet.create({
     overflow: "hidden",
   },
   chipSelected: {
-    backgroundColor: pearl.accent,
+    backgroundColor: p.accent,
     borderColor: "transparent",
   },
-  title: { color: pearl.ink, fontSize: 14, fontWeight: "700" },
-  sectionTitle: { color: pearl.ink, fontSize: 15, fontWeight: "700" },
-  muted: { color: pearl.muted, fontSize: 12, lineHeight: 18 },
-  value: { color: pearl.ink, fontSize: 15, fontWeight: "700" },
-  label: { color: pearl.ink, fontSize: 12, fontWeight: "600" },
+  title: { color: p.ink, fontSize: 14, fontWeight: "700" },
+  sectionTitle: { color: p.ink, fontSize: 15, fontWeight: "700" },
+  muted: { color: p.muted, fontSize: 12, lineHeight: 18 },
+  value: { color: p.ink, fontSize: 15, fontWeight: "700" },
+  label: { color: p.ink, fontSize: 12, fontWeight: "600" },
   fieldGroup: { gap: 7 },
   input: {
-    backgroundColor: pearl.field,
+    backgroundColor: p.field,
     borderWidth: 1,
-    borderColor: pearl.fieldBorder,
+    borderColor: p.fieldBorder,
     borderRadius: 16,
     minHeight: 48,
     paddingHorizontal: 14,
-    color: pearl.ink,
+    color: p.ink,
     fontSize: 14,
   },
-  inputError: { borderColor: pearl.dangerText },
-  error: { color: pearl.dangerText, fontSize: 12, lineHeight: 18 },
+  inputError: { borderColor: p.dangerText },
+  error: { color: p.dangerText, fontSize: 12, lineHeight: 18 },
   button: {
     minHeight: 52,
     borderRadius: 16,
@@ -181,7 +183,7 @@ export const commissionUi = StyleSheet.create({
   },
   smallButton: { minHeight: 36, paddingHorizontal: 14, borderRadius: 12 },
   secondary: {
-    backgroundColor: "rgba(255,255,255,0.35)",
+    backgroundColor: p.glassStrong,
     borderWidth: 1.5,
     borderColor: "rgba(126,120,176,0.45)",
   },
@@ -192,7 +194,7 @@ export const commissionUi = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: "rgba(126,120,176,0.08)",
   },
-  noteText: { flex: 1, fontSize: 12, lineHeight: 19, color: pearl.ink2 },
+  noteText: { flex: 1, fontSize: 12, lineHeight: 19, color: p.ink2 },
   footer: {
     flexDirection: "row",
     gap: 10,
@@ -200,4 +202,4 @@ export const commissionUi = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: "transparent",
   },
-});
+}));

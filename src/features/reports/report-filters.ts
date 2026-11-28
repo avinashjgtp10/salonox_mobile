@@ -127,4 +127,4 @@ export const decodeReportSelection = (value?: string): string[] => {
 };
 
 export const countReportFilters = (slug: ReportSlug, filters: ReportFilters) =>
-  (REPORT_FILTER_FIELDS[slug] ?? []).reduce((count, field) => count + (field.kind === "boolean" ? Number(filters[field.key] === "false") : field.single || field.kind ? Number(Boolean(filters[field.key])) : decodeReportSelection(filters[field.key]).length), 0);
+  (REPORT_FILTER_FIELDS[slug] ?? []).filter((field) => field.key !== "lost_days" || Number(filters.lost_days) !== 90).reduce((count, field) => count + (field.kind === "boolean" ? Number(filters[field.key] === "false") : field.single || field.kind ? Number(Boolean(filters[field.key])) : decodeReportSelection(filters[field.key]).length), 0);
