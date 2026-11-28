@@ -1,10 +1,4 @@
-/**
- * Pearl hero background, drawn exactly like the prototype's `.glass-hero`:
- *   radial(120% 90% at top-left, blush .45 → transparent 45%),
- *   radial(90% 80% at bottom-right, sky .42 → transparent 50%),
- *   linear(140deg, #A9A4D2 0%, #8580B6 42%, #6A6597 78%, #5A5684 100%)
- * plus its `:after` glow (190px white circle, .35 → transparent 65%, at right -50 / top -60).
- */
+/** Pearl lavender gradient with soft blush and sky highlights. */
 import { type ReactNode, useState } from "react";
 import { type LayoutChangeEvent, Platform, StyleSheet, View, type ViewStyle } from "react-native";
 import Svg, { Circle, Defs, LinearGradient, RadialGradient, Rect, Stop } from "react-native-svg";
@@ -45,7 +39,7 @@ export function HeroSurface({ children, style, radius = 26 }: { children: ReactN
                 <Stop offset="0.5" stopColor="#C4E4F5" stopOpacity={0} />
               </RadialGradient>
               <RadialGradient id="heroGlow" gradientUnits="userSpaceOnUse" cx={w - 45} cy={35} r={95} fx={w - 45} fy={35}>
-                <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0.35} />
+                <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0.20} />
                 <Stop offset="0.65" stopColor="#FFFFFF" stopOpacity={0} />
               </RadialGradient>
             </Defs>
