@@ -10,6 +10,7 @@ import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { BottomSheet } from "@/components/ui/BottomSheet";
+import { PrimaryButton, TextButton } from "@/components/auth/pearl/Buttons";
 import { DateRangePickerSheet } from "@/components/ui/DateRangePickerSheet";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { appAlert as Alert } from "@/services/appAlert";
@@ -64,6 +65,7 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
   const [rangeSheetVisible, setRangeSheetVisible] = useState(false);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [selectedRow, setSelectedRow] = useState<ReportRow | null>(null);
+  const [exportColumns, setExportColumns] = useState<ReportColumn[] | null>(null);
   const [exporting, setExporting] = useState(false);
   const [moreTotals, setMoreTotals] = useState(false);
   const [search, setSearch] = useState(filters.search ?? "");
@@ -266,13 +268,17 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
     { key: "newClients", label: "New clients" },
     { key: "pendingCommission", label: "Commission pending" },
   ];
-  const exportCsv = async (visibleColumns: ReportColumn[]) => {
+  const exportCsv = async (visibleColumns: ReportColumn[], action: "share" | "download") => {
     if (exporting) return;
     setExporting(true);
-    try { await exportReportCsv(config, filters, visibleColumns, rows); }
+    try {
+      const filename = await exportReportCsv(config, filters, visibleColumns, rows, action);
+      if (filename) Alert.alert("CSV downloaded", `Saved ${filename} in the folder you selected.`);
+    }
     catch { Alert.alert("Export failed", "Could not export this report. Please try again."); }
     finally { setExporting(false); }
   };
+
 
   return <PearlBackground><SafeAreaView edges={["top"]} style={styles.safe}><AppStatusBar />
     <RefreshViewport><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
@@ -288,9 +294,25 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
       {!staffDetail && config.slug !== "client-source" && summary && Object.keys(summary).length > 2 ? <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: moreTotals }} onPress={() => setMoreTotals((value) => !value)} style={styles.control}><Ionicons name="stats-chart-outline" size={17} color={pearl.accentDeep} /><Text translate style={[styles.controlText, { flex: 1 }]}>{moreTotals ? "Fewer totals" : "More totals"}</Text><Ionicons name={moreTotals ? "chevron-up" : "chevron-down"} size={16} color={pearl.muted} /></TouchableOpacity> : null}
       {supportsSearch && !staffDetail ? <View style={styles.search}><Ionicons name="search-outline" size={18} color={pearl.muted} /><TextInput accessibilityLabel={'Search ' + reportTitle} placeholder={config.searchPlaceholder ?? 'Search ' + reportTitle.toLowerCase()} placeholderTextColor={pearl.muted} value={search} onChangeText={setSearch} underlineColorAndroid="transparent" style={styles.input} />{search ? <TouchableOpacity accessibilityLabel="Clear search" onPress={() => setSearch("")}><Ionicons name="close-circle" size={18} color={pearl.muted} /></TouchableOpacity> : null}</View> : null}
       {(entry?.loading && !entry.data) || staleStaffData ? <ReportSkeleton /> : entry?.error ? <ReportState error title="Report unavailable" description="We couldn’t load this report. Check your connection and try again." onRetry={refresh} /> : staffDetail ? (summary ? <View style={styles.statGrid}>{staffCards.map((card) => <View key={card.key} style={styles.statCard}><Text translate style={styles.statLabel}>{card.label}</Text><Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{staffCardValue(card.key, summary as Record<string, unknown>, extras)}</Text></View>)}</View> : <ReportState title={emptyMessage} description="Adjust the filters or refresh to check again." onRetry={refresh} />) : rows.length ?
-        <ReportTable queryKey={JSON.stringify({ ...filters, page: undefined })} onRequestAllRows={() => loadCompleteReport(config, filters, rows)} onSortError={() => Alert.alert("Sort unavailable", "Could not load the full report for sorting. Please try again.")} title={reportTitle} rows={rows} columns={columns} total={pagination?.total ?? rows.length} hasMore={hasMore} loadingMore={Boolean(entry?.loadingMore)} onLoadMore={loadMore} onRowPress={handleRowPress} onExport={(visibleColumns) => void exportCsv(visibleColumns)} exporting={exporting} /> :
+        <ReportTable queryKey={JSON.stringify({ ...filters, page: undefined })} onRequestAllRows={() => loadCompleteReport(config, filters, rows)} onSortError={() => Alert.alert("Sort unavailable", "Could not load the full report for sorting. Please try again.")} title={reportTitle} rows={rows} columns={columns} total={pagination?.total ?? rows.length} hasMore={hasMore} loadingMore={Boolean(entry?.loadingMore)} onLoadMore={loadMore} onRowPress={handleRowPress} onExport={setExportColumns} exporting={exporting} /> :
         <ReportState title={emptyMessage} description="Adjust the filters or refresh to check again." onRetry={refresh} />}
     </ScrollView></RefreshViewport>
+    <BottomSheet pearlStyle title="Export CSV" subtitle={reportTitle} visible={exportColumns !== null} onClose={() => setExportColumns(null)}>
+      <View style={styles.exportActions}>
+        {(["Share", "Download"] as const).map(label => (
+          <PrimaryButton
+            key={label}
+            title={label}
+            left={<View style={styles.exportIcon}><Ionicons name={label === "Share" ? "share-outline" : "download-outline"} size={18} color={pearl.white} /></View>}
+            onPress={() => {
+              setExportColumns(null);
+              if (exportColumns) void exportCsv(exportColumns, label === "Share" ? "share" : "download");
+            }}
+          />
+        ))}
+        <TextButton title="Cancel" color={Colors.primaryText} onPress={() => setExportColumns(null)} />
+      </View>
+    </BottomSheet>
     <ReportFilterSheet slug={config.slug} data={entry?.data} filters={filters} onApply={applyFilters} onClose={() => setFilterSheetVisible(false)} visible={filterSheetVisible} />
     {dateKeys ? <DateRangePickerSheet pearlStyle centered={false} allowAllTime={dateKeys.mode === "range"} mode={dateKeys.mode} startDate={filters[dateKeys.start] ?? null} endDate={dateKeys.end ? filters[dateKeys.end] ?? null : null} onApply={applyRange} onClose={() => setRangeSheetVisible(false)} visible={rangeSheetVisible} /> : null}
     <SalesSummaryDetailSheet onEdit={() => { refreshAfterEdit.current = true; }} onDeleted={refresh} saleId={selectedSaleId} onClose={() => setSelectedSaleId(null)} />
@@ -309,6 +331,8 @@ const staffCardValue = (
 };
 
 const createStyles = (_colors: ThemeColors) => themedStyles((p) => ({
+  exportActions: { width: "100%", alignItems: "stretch", gap: 12 },
+  exportIcon: { position: "absolute", start: 20, top: 0, bottom: 0, justifyContent: "center" },
   safe: { flex: 1 }, content: { padding: 16, paddingBottom: 100, gap: 14 },
   header: { flexDirection: "row", alignItems: "center", gap: 12 }, headerCopy: { flex: 1, gap: 3 },
   title: { fontSize: 22, fontWeight: "700", color: p.ink }, subtitle: { color: p.muted, fontSize: 12 },

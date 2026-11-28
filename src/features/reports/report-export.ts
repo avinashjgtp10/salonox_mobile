@@ -1,4 +1,5 @@
 import * as FileSystem from "expo-file-system/legacy";
+import { Directory } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { reportService } from "@/services/report.service";
 import { normalizeReportRequest } from "./report-request";
@@ -38,11 +39,30 @@ export async function loadCompleteReport(config: ReportConfig, filters: ReportFi
   return all;
 }
 
-export async function exportReportCsv(config: ReportConfig, filters: ReportFilters, columns: ReportColumn[], loadedRows: ReportRow[]) {
+export async function exportReportCsv(config: ReportConfig, filters: ReportFilters, columns: ReportColumn[], loadedRows: ReportRow[], action: "share" | "download") {
   const all = await loadCompleteReport(config, filters, loadedRows);
+  const csv = reportCsv(columns, all);
+  const filename = `SalonOX-${config.slug}-${Date.now()}.csv`;
+  if (action === "download") {
+    let directory: Awaited<ReturnType<typeof Directory.pickDirectoryAsync>>;
+    try {
+      directory = await Directory.pickDirectoryAsync();
+    } catch (error) {
+      if (error instanceof Error && /cancelled by the user/i.test(error.message)) return;
+      throw error;
+    }
+    const file = directory.createFile(filename, "text/csv");
+    try {
+      file.write(csv);
+    } catch (error) {
+      file.delete();
+      throw error;
+    }
+    return filename;
+  }
   if (!FileSystem.cacheDirectory) throw new Error("Export storage is unavailable.");
   if (!(await Sharing.isAvailableAsync())) throw new Error("Sharing is unavailable.");
-  const uri = `${FileSystem.cacheDirectory}SalonOX-${config.slug}-${Date.now()}.csv`;
-  await FileSystem.writeAsStringAsync(uri, reportCsv(columns, all), { encoding: FileSystem.EncodingType.UTF8 });
+  const uri = `${FileSystem.cacheDirectory}${filename}`;
+  await FileSystem.writeAsStringAsync(uri, csv, { encoding: FileSystem.EncodingType.UTF8 });
   await Sharing.shareAsync(uri, { mimeType: "text/csv", UTI: "public.comma-separated-values-text", dialogTitle: config.title });
 }
