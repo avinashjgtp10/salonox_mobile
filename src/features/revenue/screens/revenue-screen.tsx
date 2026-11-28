@@ -13,6 +13,7 @@ import { BottomSheet } from "@/components/pearl/Sheet";
 import { pearl } from "@/components/auth/pearl/tokens";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { useTaxName } from "@/hooks/useTaxName";
 import { getApiErrorMessage } from "@/services/api";
 import { reportService, type RevenueCategoryBreakdown } from "@/services/report.service";
 import { staffService } from "@/services/staff.service";
@@ -73,6 +74,8 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
   "use no memo";
   useRegionalPreferences();
   const colors = useThemeColors();
+  // GST in India, VAT in the UAE — the same wording the web app uses.
+  const taxName = useTaxName();
   const dispatch = useAppDispatch();
   const salonId = useAppSelector(selectActiveBranchId);
   const [revenue, setRevenue] = useState<Revenue | null>(null);
@@ -266,7 +269,7 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
                 <Text style={styles.heroAmount}>{currency(revenue.revenue)}</Text>
                 <View style={styles.heroRule} />
                 <View style={styles.heroTop}>
-                  <Text translate style={styles.heroFoot}>GST collected</Text>
+                  <Text style={styles.heroFoot}>{taxName} collected</Text>
                   <Text style={styles.heroFootValue}>
                     {revenue.gst === null ? "—" : currency(revenue.gst)}
                   </Text>
@@ -275,7 +278,7 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
             </Pressable>
             <Text translate style={[styles.title, { color: colors.heading }]}>Staff Performance</Text>
             <Text translate style={{ color: colors.text2 }}>
-              Billed item revenue including GST, using the same report as the web app. Collections are shown separately above.
+              {`Billed item revenue including ${taxName}, using the same report as the web app. Collections are shown separately above.`}
             </Text>
             {revenue.staffError ? (
               <View style={[styles.card, { backgroundColor: colors.card }]}>
@@ -368,19 +371,19 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
 
           <View style={styles.sheetRows}>
             <View style={styles.sheetRow}>
-              <Text translate style={styles.sheetRowLabel}>GST collected (included above)</Text>
+              <Text style={styles.sheetRowLabel}>{taxName} collected (included above)</Text>
               <Text style={styles.sheetRowValue}>
                 {revenue.gst === null ? "—" : currency(revenue.gst)}
               </Text>
             </View>
             <View style={styles.sheetRow}>
-              <Text translate style={styles.sheetRowLabel}>Net revenue (excl. GST)</Text>
+              <Text style={styles.sheetRowLabel}>Net revenue (excl. {taxName})</Text>
               <Text style={styles.sheetRowValue}>
                 {revenue.gst === null ? "—" : currency(revenue.revenue - revenue.gst)}
               </Text>
             </View>
             <View style={styles.sheetRow}>
-              <Text translate style={styles.sheetRowLabel}>Billed revenue (incl. GST)</Text>
+              <Text style={styles.sheetRowLabel}>Billed revenue (incl. {taxName})</Text>
               <Text style={styles.sheetRowValue}>
                 {revenue.billedRevenue === null ? "—" : currency(revenue.billedRevenue)}
               </Text>

@@ -19,6 +19,8 @@ import {
   type ReportRow,
 } from "@/features/reports/report-data";
 import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
+import { useTaxName } from "@/hooks/useTaxName";
+import { applyTaxName } from "@/utils/taxLabels";
 
 export const ReportSummaryCards = memo(function ReportSummaryCards({
   summary,
@@ -32,6 +34,7 @@ export const ReportSummaryCards = memo(function ReportSummaryCards({
   "use no memo";
   useRegionalPreferences();
   const Colors = usePearlColors();
+  const taxName = useTaxName();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const entries = useMemo(() => Object.entries(summary ?? {}).filter(([, value]) => value !== undefined && value !== null).slice(0, maxCards), [summary, maxCards]);
   if (!entries.length) return null;
@@ -41,7 +44,7 @@ export const ReportSummaryCards = memo(function ReportSummaryCards({
       {entries.map(([key, value]) => (
         <View key={key} style={styles.summaryCard}>
           <Text translate allowFontScaling numberOfLines={1} style={styles.summaryLabel}>
-            {labels?.[key] ?? humanizeReportKey(key)}
+            {applyTaxName(labels?.[key] ?? humanizeReportKey(key), taxName)}
           </Text>
           <Text adjustsFontSizeToFit allowFontScaling minimumFontScale={0.7} selectable numberOfLines={1} style={styles.summaryValue}>
             {formatReportValue(key, value)}

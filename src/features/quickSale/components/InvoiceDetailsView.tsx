@@ -10,6 +10,7 @@ import { Text } from "@/components/ui/AppTypography";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { Avatar, Card, IconButton, ListRow, StatusPill, Tile } from "@/components/pearl/ui";
+import { useTaxName } from "@/hooks/useTaxName";
 import { formatCurrency } from "@/utils/currency";
 import { formatInvoiceNumber, formatPaymentSummary, invoiceDateLabel } from "@/utils/receipt";
 import { maskPhone } from "@/utils/maskPhone";
@@ -19,6 +20,7 @@ export function InvoiceDetailsView({ sale, onBack, onDelete, deleting }: { sale:
   "use no memo";
   useRegionalPreferences();
  const [actionsOpen, setActionsOpen] = useState(false);
+ const taxName = useTaxName();
  const { clientName } = useClientPrivacy();
  const name = clientName(sale.clientName);
  const draft = ["draft", "pending"].includes(sale.status.toLowerCase());
@@ -30,7 +32,7 @@ export function InvoiceDetailsView({ sale, onBack, onDelete, deleting }: { sale:
    <Card><ListRow left={<Avatar initials={name.split(/\s+/).slice(0,2).map(word => word[0]).join("")} tone="rose" size={38} />} title={name} subtitle={maskPhone(sale.clientPhone)} right={<StatusPill tone={draft ? "warning" : sale.status === "completed" ? "success" : "danger"} label={draft ? "Pending" : sale.status === "completed" ? "Paid" : sale.status} />} onPress={sale.clientId ? () => go(('/clients/' + sale.clientId) as Href) : undefined} /></Card>
    <Card>{sale.lineItems.map(item => <ListRow key={item.id} left={<Tile icon={item.itemType === "product" ? "box" : "scissors"} tone="rose" />} title={item.name} subtitle={[item.staffName, 'Qty ' + item.quantity].filter(Boolean).join(" \u00b7 ")} right={<Text style={s.price}>{formatCurrency(item.totalPrice)}</Text>} />)}{!sale.lineItems.length && <Text translate style={s.empty}>No items recorded for this invoice.</Text>}</Card>
    <Card><View style={s.kv}><Text translate style={pearlType.small}>Date</Text><Text style={s.price}>{invoiceDateLabel(sale)}</Text></View></Card>
-   <Card>{[["Subtotal", formatCurrency(sale.subtotal)], ...(sale.discountAmount ? [["Discount", '- ' + formatCurrency(sale.discountAmount)]] : []), ["GST", formatCurrency(sale.taxAmount)], ["Paid by", formatPaymentSummary(sale.paymentMethod, sale.paymentReference)], ["Total", formatCurrency(sale.total)], ...(sale.outstandingAmount > 0 ? [["Outstanding", formatCurrency(sale.outstandingAmount)]] : [])].map(([label, value]) => <View key={label} style={s.kv}><Text translate style={label === "Total" ? s.price : pearlType.small}>{label}</Text><Text style={s.price}>{value}</Text></View>)}</Card>
+   <Card>{[["Subtotal", formatCurrency(sale.subtotal)], ...(sale.discountAmount ? [["Discount", '- ' + formatCurrency(sale.discountAmount)]] : []), [taxName, formatCurrency(sale.taxAmount)], ["Paid by", formatPaymentSummary(sale.paymentMethod, sale.paymentReference)], ["Total", formatCurrency(sale.total)], ...(sale.outstandingAmount > 0 ? [["Outstanding", formatCurrency(sale.outstandingAmount)]] : [])].map(([label, value]) => <View key={label} style={s.kv}><Text translate style={label === "Total" ? s.price : pearlType.small}>{label}</Text><Text style={s.price}>{value}</Text></View>)}</Card>
    {sale.notes ? <Card padded><Text translate style={s.price}>Notes</Text><Text style={pearlType.small}>{sale.notes}</Text></Card> : null}
    <Pressable style={s.receipt} onPress={() => go({ pathname: "/quick-sale/checkout", params: { saleId: sale.id, openReceipt: "1" } } as Href)}><Text translate style={pearlType.link}>View receipt</Text></Pressable>
   </ScrollView>

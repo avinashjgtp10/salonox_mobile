@@ -2,6 +2,7 @@ import React from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import type { ReceiptData } from "@/utils/receiptGenerator";
 import { invoiceMoney, invoiceRowStaff, invoiceStatus, invoiceSummary } from "@/utils/invoiceDocument";
+import { taxIdLabelForCountry } from "@/utils/taxLabels";
 
 /** Scrollable A4 companion to the web invoice used by print and share. */
 export function InvoicePreview({ data }: { data: ReceiptData }) {
@@ -14,7 +15,7 @@ export function InvoicePreview({ data }: { data: ReceiptData }) {
       <View style={styles.salonBlock}>
         {data.salon.logoUrl ? <Image source={{ uri: data.salon.logoUrl }} style={styles.logo} /> : <View style={[styles.logo, styles.placeholder]}><Text style={styles.initial}>{data.salon.name.charAt(0).toUpperCase()}</Text></View>}
         <View style={{ flex: 1 }}><Text style={styles.salonName}>{data.salon.name}</Text>
-          {[ [data.salon.address, data.salon.city, data.salon.state, data.salon.postalCode, data.salon.country].filter(Boolean).join(", "), data.salon.phone && `Ph: ${data.salon.phone}`, data.salon.email, data.salon.website, data.salon.gstin && `GSTIN: ${data.salon.gstin}`].filter(Boolean).map((line, i) => <Text key={i} style={styles.meta}>{line}</Text>)}
+          {[ [data.salon.address, data.salon.city, data.salon.state, data.salon.postalCode, data.salon.country].filter(Boolean).join(", "), data.salon.phone && `Ph: ${data.salon.phone}`, data.salon.email, data.salon.website, data.salon.gstin && `${taxIdLabelForCountry(data.salon.country)}: ${data.salon.gstin}`].filter(Boolean).map((line, i) => <Text key={i} style={styles.meta}>{line}</Text>)}
         </View>
       </View>
       <View style={styles.titleBlock}><Text style={styles.title}>INVOICE</Text><Text style={styles.meta}>Invoice No: {data.invoice.invoiceNumber}</Text><Text style={styles.meta}>Invoice Date: {data.invoice.date}</Text><Text style={styles.value}>{invoiceStatus(data)}</Text></View>

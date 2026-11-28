@@ -37,6 +37,7 @@ import {
   sanitizePhoneDigits,
 } from "@/utils/validation";
 import { SettingsButton, SettingsHeader, useSettingsStyles } from "./SettingsUI";
+import { useTaxIdLabel } from "@/hooks/useTaxName";
 
 type Field =
   | "businessName"
@@ -70,6 +71,9 @@ export default function SalonDetailsScreen() {
 }
 function SalonDetails() {
   const ui = useSettingsStyles();
+  // "GSTIN" in India, "TRN" in the UAE — the same field, named as the salon's
+  // country names it.
+  const taxIdLabel = useTaxIdLabel();
   const pearl = usePearlPalette();
   const user = useAppSelector(selectCurrentUser);
   const dispatch = useAppDispatch();
@@ -323,7 +327,7 @@ function SalonDetails() {
               </View>
               <View style={ui.formCard}>
                 <Text translate style={ui.title}>Tax</Text>
-                {field("gstin", "GSTIN")}
+                {field("gstin", taxIdLabel)}
                 <Text translate style={ui.muted}>Optional</Text>
               </View>
               <View style={ui.formCard}>
