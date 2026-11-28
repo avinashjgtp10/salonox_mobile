@@ -14,6 +14,8 @@ import { DateRangePickerSheet } from "@/components/ui/DateRangePickerSheet";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { appAlert as Alert } from "@/services/appAlert";
 import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
+import { useTaxName } from "@/hooks/useTaxName";
+import { applyTaxName } from "@/utils/taxLabels";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { rememberReportFilters, selectReportEntry } from "@/store/report/report.slice";
 import { fetchReportThunk } from "@/middleware/report/report.thunk";
@@ -160,7 +162,11 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
     ? { totalSale: summary.totalSale ?? "", outstandingAmount: summary.outstandingAmount ?? summary.dueAmount ?? summary.pendingAmount ?? "" }
     : config.slug === "staff-performance" ? { totalRevenue: summary.totalRevenue ?? "", totalCommission: summary.totalCommission ?? "" }
     : summary;
-  const columns = useMemo(() => reportColumns(rows, config.columns ?? [], config.primaryFields), [rows, config.columns, config.primaryFields]);
+  // UAE salons read VAT wherever the catalogue says GST, as on the web.
+  const taxName = useTaxName();
+  const reportTitle = applyTaxName(config.title, taxName);
+  const emptyMessage = applyTaxName(config.emptyMessage, taxName);
+  const columns = useMemo(() => reportColumns(rows, config.columns ?? [], config.primaryFields, taxName), [rows, config.columns, config.primaryFields, taxName]);
   const activeFilterCount = countReportFilters(config.slug, filters);
   // Opened from Revenue for a single staff member: this report becomes that
   // person's detail screen - their totals only, no chips, search or table.
@@ -263,7 +269,7 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
   return <PearlBackground><SafeAreaView edges={["top"]} style={styles.safe}><AppStatusBar />
     <RefreshViewport><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl colors={[pearl.accent]} refreshing={Boolean(entry?.refreshing)} onRefresh={refresh} />}>
-      <View style={styles.header}><AppBackButton onPress={() => router.back()} /><View style={styles.headerCopy}>{staffDetail ? <><Text translate style={styles.eyebrow}>Staff performance</Text><Text style={styles.staffName} numberOfLines={1}>{staffName || config.title}</Text></> : <><Text translate style={styles.title}>{config.title}</Text><Text style={styles.subtitle}>{config.group}</Text></>}</View></View>
+      <View style={styles.header}><AppBackButton onPress={() => router.back()} /><View style={styles.headerCopy}>{staffDetail ? <><Text translate style={styles.eyebrow}>Staff performance</Text><Text style={styles.staffName} numberOfLines={1}>{staffName || reportTitle}</Text></> : <><Text translate style={styles.title}>{reportTitle}</Text><Text style={styles.subtitle}>{config.group}</Text></>}</View></View>
       <View style={styles.filterRow}>
         {dateKeys ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="Report date range" onPress={() => setRangeSheetVisible(true)} style={[styles.control, { flex: 1 }]}><Ionicons name="calendar-outline" size={17} color={pearl.accentDeep} /><Text style={[styles.controlText, { flex: 1 }]}>{dateRangeLabel}</Text><Ionicons name="chevron-down" size={15} color={pearl.accentDeep} /></TouchableOpacity> : null}
         {/* The staff detail view is already scoped to one person, so its only
@@ -272,15 +278,15 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
       </View>
       {staffDetail ? null : <ReportSummaryCards summary={moreTotals ? summary : primarySummary} maxCards={moreTotals ? Number.MAX_SAFE_INTEGER : 2} labels={moreTotals ? undefined : { totalSale: "Total sales", outstandingAmount: "Outstanding", totalCommission: "Commission earned" }} />}
       {!staffDetail && summary && Object.keys(summary).length > 2 ? <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: moreTotals }} onPress={() => setMoreTotals((value) => !value)} style={styles.control}><Ionicons name="stats-chart-outline" size={17} color={pearl.accentDeep} /><Text translate style={[styles.controlText, { flex: 1 }]}>{moreTotals ? "Fewer totals" : "More totals"}</Text><Ionicons name={moreTotals ? "chevron-up" : "chevron-down"} size={16} color={pearl.muted} /></TouchableOpacity> : null}
-      {supportsSearch && !staffDetail ? <View style={styles.search}><Ionicons name="search-outline" size={18} color={pearl.muted} /><TextInput accessibilityLabel={'Search ' + config.title} placeholder={config.searchPlaceholder ?? 'Search ' + config.title.toLowerCase()} placeholderTextColor={pearl.muted} value={search} onChangeText={setSearch} underlineColorAndroid="transparent" style={styles.input} />{search ? <TouchableOpacity accessibilityLabel="Clear search" onPress={() => setSearch("")}><Ionicons name="close-circle" size={18} color={pearl.muted} /></TouchableOpacity> : null}</View> : null}
-      {(entry?.loading && !entry.data) || staleStaffData ? <ReportSkeleton /> : entry?.error ? <ReportState error title="Report unavailable" description="We couldn’t load this report. Check your connection and try again." onRetry={refresh} /> : staffDetail ? (summary ? <View style={styles.statGrid}>{staffCards.map((card) => <View key={card.key} style={styles.statCard}><Text translate style={styles.statLabel}>{card.label}</Text><Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{staffCardValue(card.key, summary as Record<string, unknown>, extras)}</Text></View>)}</View> : <ReportState title={config.emptyMessage} description="Adjust the filters or refresh to check again." onRetry={refresh} />) : rows.length ?
-        <ReportTable queryKey={JSON.stringify({ ...filters, page: undefined })} onRequestAllRows={() => loadCompleteReport(config, filters, rows)} onSortError={() => Alert.alert("Sort unavailable", "Could not load the full report for sorting. Please try again.")} title={config.title} rows={rows} columns={columns} total={pagination?.total ?? rows.length} hasMore={hasMore} loadingMore={Boolean(entry?.loadingMore)} onLoadMore={loadMore} onRowPress={handleRowPress} onExport={(visibleColumns) => void exportCsv(visibleColumns)} exporting={exporting} /> :
-        <ReportState title={config.emptyMessage} description="Adjust the filters or refresh to check again." onRetry={refresh} />}
+      {supportsSearch && !staffDetail ? <View style={styles.search}><Ionicons name="search-outline" size={18} color={pearl.muted} /><TextInput accessibilityLabel={'Search ' + reportTitle} placeholder={config.searchPlaceholder ?? 'Search ' + reportTitle.toLowerCase()} placeholderTextColor={pearl.muted} value={search} onChangeText={setSearch} underlineColorAndroid="transparent" style={styles.input} />{search ? <TouchableOpacity accessibilityLabel="Clear search" onPress={() => setSearch("")}><Ionicons name="close-circle" size={18} color={pearl.muted} /></TouchableOpacity> : null}</View> : null}
+      {(entry?.loading && !entry.data) || staleStaffData ? <ReportSkeleton /> : entry?.error ? <ReportState error title="Report unavailable" description="We couldn’t load this report. Check your connection and try again." onRetry={refresh} /> : staffDetail ? (summary ? <View style={styles.statGrid}>{staffCards.map((card) => <View key={card.key} style={styles.statCard}><Text translate style={styles.statLabel}>{card.label}</Text><Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{staffCardValue(card.key, summary as Record<string, unknown>, extras)}</Text></View>)}</View> : <ReportState title={emptyMessage} description="Adjust the filters or refresh to check again." onRetry={refresh} />) : rows.length ?
+        <ReportTable queryKey={JSON.stringify({ ...filters, page: undefined })} onRequestAllRows={() => loadCompleteReport(config, filters, rows)} onSortError={() => Alert.alert("Sort unavailable", "Could not load the full report for sorting. Please try again.")} title={reportTitle} rows={rows} columns={columns} total={pagination?.total ?? rows.length} hasMore={hasMore} loadingMore={Boolean(entry?.loadingMore)} onLoadMore={loadMore} onRowPress={handleRowPress} onExport={(visibleColumns) => void exportCsv(visibleColumns)} exporting={exporting} /> :
+        <ReportState title={emptyMessage} description="Adjust the filters or refresh to check again." onRetry={refresh} />}
     </ScrollView></RefreshViewport>
     <ReportFilterSheet slug={config.slug} data={entry?.data} filters={filters} onApply={applyFilters} onClose={() => setFilterSheetVisible(false)} visible={filterSheetVisible} />
     {dateKeys ? <DateRangePickerSheet pearlStyle centered={false} allowAllTime={dateKeys.mode === "range"} mode={dateKeys.mode} startDate={filters[dateKeys.start] ?? null} endDate={dateKeys.end ? filters[dateKeys.end] ?? null : null} onApply={applyRange} onClose={() => setRangeSheetVisible(false)} visible={rangeSheetVisible} /> : null}
     <SalesSummaryDetailSheet saleId={selectedSaleId} onClose={() => setSelectedSaleId(null)} />
-    <BottomSheet pearlStyle centered={false} title="Report details" visible={Boolean(selectedRow)} onClose={() => setSelectedRow(null)}>{selectedRow ? columns.map((column) => <View key={column.key} style={styles.detailRow}><Text style={styles.subtitle}>{column.label || humanizeReportKey(column.key)}</Text><Text selectable style={styles.value}>{reportCellValue(column.key, selectedRow[column.key])}</Text></View>) : null}</BottomSheet>
+    <BottomSheet pearlStyle centered={false} title="Report details" visible={Boolean(selectedRow)} onClose={() => setSelectedRow(null)}>{selectedRow ? columns.map((column) => <View key={column.key} style={styles.detailRow}><Text style={styles.subtitle}>{column.label || applyTaxName(humanizeReportKey(column.key), taxName)}</Text><Text selectable style={styles.value}>{reportCellValue(column.key, selectedRow[column.key])}</Text></View>) : null}</BottomSheet>
   </SafeAreaView></PearlBackground>;
 }
 /** Most cards read the report's own totals; two come from separate calls. */

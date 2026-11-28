@@ -3,6 +3,7 @@ import { invoiceStyles } from "./invoiceStyles";
 import { receiptPaper } from "./receiptPaper";
 import { buildThermalDocument } from "./receiptThermal";
 import { formatCurrency } from "./currency";
+import { taxIdLabelForCountry, taxNameForCountry } from "./taxLabels";
 
 export const invoiceMoney = formatCurrency;
 
@@ -40,7 +41,7 @@ export function invoiceSummary(data: ReceiptData) {
   if (p.taxBreakdown?.length) {
     p.taxBreakdown.forEach(t => add(`${t.name} ${t.rate}%${t.inclusive ? " (incl.)" : ""}`, t.amount, t.inclusive ? "" : "+"));
     add("Total Tax", p.gstAmount);
-  } else add("GST", p.gstAmount, "+");
+  } else add(taxNameForCountry(data.salon.country), p.gstAmount, "+");
   add("Extra Charges", p.exCharges, "+");
   add("Bill Discount", p.manualDiscount, "−");
   if (p.roundOff) add("Round Off", Math.abs(p.roundOff), p.roundOff > 0 ? "+" : "−");
@@ -61,7 +62,7 @@ export function generateInvoiceDocument(data: ReceiptData): string {
     const totalIndex = summary.findIndex(row => row.label === "Grand Total");
     return buildThermalDocument(profile, {
       salonName: data.salon.name, salonAddress: address, salonPhone: data.salon.phone,
-      gstNumber: data.salon.gstin, logoUrl: data.salon.logoUrl,
+      gstNumber: data.salon.gstin, taxIdLabel: taxIdLabelForCountry(data.salon.country), logoUrl: data.salon.logoUrl,
       invoiceNo: data.invoice.invoiceNumber, dateTime: data.invoice.date,
       clientName: data.client.name, clientPhone: data.client.phone || "—", staffName: data.staffName || "—",
       paymentMethod: data.invoice.paymentMethod,
@@ -90,7 +91,7 @@ export function generateInvoiceDocument(data: ReceiptData): string {
   <div class="inv-watermark">${esc(data.salon.name)}</div>
   <div class="inv-topbar"><div class="inv-salon-block">
   ${data.salon.logoUrl ? `<img class="inv-logo" src="${esc(data.salon.logoUrl)}" alt="">` : `<div class="inv-logo-placeholder">${esc(data.salon.name.charAt(0).toUpperCase())}</div>`}
-  <div><div class="inv-salon-name">${esc(data.salon.name)}</div><div class="inv-salon-meta">${[address, data.salon.phone && `Ph: ${data.salon.phone}`, data.salon.email, data.salon.website, data.salon.gstin && `GSTIN: ${data.salon.gstin}`].filter(Boolean).map(line => `<span>${esc(line)}</span>`).join("")}</div></div></div>
+  <div><div class="inv-salon-name">${esc(data.salon.name)}</div><div class="inv-salon-meta">${[address, data.salon.phone && `Ph: ${data.salon.phone}`, data.salon.email, data.salon.website, data.salon.gstin && `${taxIdLabelForCountry(data.salon.country)}: ${data.salon.gstin}`].filter(Boolean).map(line => `<span>${esc(line)}</span>`).join("")}</div></div></div>
   <div class="inv-title-block"><div class="inv-title-word">Invoice</div><table class="inv-meta-table"><tr><td>Invoice No</td><td><strong>${esc(data.invoice.invoiceNumber)}</strong></td></tr><tr><td>Invoice Date</td><td>${esc(data.invoice.date)}</td></tr><tr><td>Payment Status</td><td>${esc(invoiceStatus(data))}</td></tr></table></div></div>
   <div class="inv-info"><div class="inv-info-col"><div class="inv-section-label">Bill To</div>${info("Name", data.client.name)}${info("Phone", data.client.phone)}${info("Email", data.client.email)}</div>
   <div class="inv-info-col"><div class="inv-section-label">Appointment Details</div>${info("Date", data.invoice.date)}${info("Time", data.invoice.time)}${info("Staff", data.staffName)}${info("Payment Method", data.invoice.paymentMethod)}${info("Payment Status", invoiceStatus(data))}</div></div>

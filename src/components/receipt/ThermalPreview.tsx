@@ -2,6 +2,7 @@ import React from "react";
 import { Image, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import type { ReceiptData } from "@/utils/receiptGenerator";
 import { invoiceMoney, invoiceSummary, thermalRowMeta } from "@/utils/invoiceDocument";
+import { taxIdLabelForCountry } from "@/utils/taxLabels";
 
 export function ThermalPreview({ data }: { data: ReceiptData }) {
   const { width } = useWindowDimensions();
@@ -11,7 +12,7 @@ export function ThermalPreview({ data }: { data: ReceiptData }) {
   return <View style={[styles.paper, { width: Math.min(data.paperSize === "58mm" ? 260 : 320, width - 24) }]}>
     {data.salon.logoUrl ? <Image source={{ uri: data.salon.logoUrl }} style={styles.logo} /> : null}
     <Text style={styles.name}>{data.salon.name}</Text>
-    {[ [data.salon.address, data.salon.city, data.salon.state, data.salon.postalCode, data.salon.country].filter(Boolean).join(", "), data.salon.phone && `Ph: ${data.salon.phone}`, data.salon.gstin && `GSTIN: ${data.salon.gstin}`].filter(Boolean).map((line, i) => <Text key={i} style={styles.center}>{line}</Text>)}
+    {[ [data.salon.address, data.salon.city, data.salon.state, data.salon.postalCode, data.salon.country].filter(Boolean).join(", "), data.salon.phone && `Ph: ${data.salon.phone}`, data.salon.gstin && `${taxIdLabelForCountry(data.salon.country)}: ${data.salon.gstin}`].filter(Boolean).map((line, i) => <Text key={i} style={styles.center}>{line}</Text>)}
     <View style={styles.rule} />
     {pair("Invoice", data.invoice.invoiceNumber)}{pair("Date", data.invoice.date)}{pair("Client", data.client.name)}{pair("Phone", data.client.phone ?? "—")}{pair("Staff", data.staffName || "—")}{pair("Payment Method", data.invoice.paymentMethod)}
     <View style={styles.rule} />

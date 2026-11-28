@@ -28,6 +28,7 @@ import { getPackageCoveredQuantity } from "@/features/quickSale/utils/packageCov
 import { formatCurrency, parseAmount } from "@/features/quickSale/utils/money";
 import { isMissingStaff } from "@/features/quickSale/utils/staffRequirement";
 import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
+import { useTaxName } from "@/hooks/useTaxName";
 import type { CheckoutSaleSplitEntry, SalePaymentMethod } from "@/types/sales";
 import type {
   CheckoutSheetProps,
@@ -134,6 +135,8 @@ function CheckoutSheetComponent({
   // The amount field is prefilled with the full payable amount. This only
   // records whether the cashier has typed something else, so the prefill can
   // keep following the total until they do.
+  // GST in India, VAT in the UAE, on the bill as well as in reports.
+  const taxName = useTaxName();
   const [amountEdited, setAmountEdited] = useState(false);
   const [amountInput, setAmountInput] = useState("");
   const [discountMode, setDiscountMode] = useState<DiscountMode>(
@@ -1184,7 +1187,7 @@ function CheckoutSheetComponent({
 
                   {showGstSection ? (
                     <View style={styles.formCard}>
-                      <Text translate style={styles.sectionTitle}>GST</Text>
+                      <Text style={styles.sectionTitle}>{taxName}</Text>
                       <View style={styles.membershipRow}>
                         <View>
                           <Text translate style={styles.membershipStatus}>
@@ -1204,10 +1207,10 @@ function CheckoutSheetComponent({
                       </View>
                       <Text style={styles.gstPreviewText}>
                         {!includeGst
-                          ? "GST not applied"
+                          ? `${taxName} not applied`
                           : isPricingLoading
-                            ? "Calculating GST…"
-                            : `GST applied: ${formatCurrency(gstPreviewAmount)}`}
+                            ? `Calculating ${taxName}…`
+                            : `${taxName} applied: ${formatCurrency(gstPreviewAmount)}`}
                       </Text>
                     </View>
                   ) : null}

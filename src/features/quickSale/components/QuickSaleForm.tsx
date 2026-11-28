@@ -1,5 +1,6 @@
 import { currencyLabel } from "@/utils/currency";
 import { useRegionalPreferences } from "@/localization/preferences";
+import { useTaxName } from "@/hooks/useTaxName";
 import { pearl } from "@/components/auth/pearl/tokens";
 import { NoteBox } from "@/components/pearl/Page";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -65,6 +66,7 @@ export function Section({ title, children, aside }: { title?: string; children: 
 export function QuickSaleForm(p: Props) {
   "use no memo";
   useRegionalPreferences();
+  const taxName = useTaxName();
   const form = useRef<KeyboardAwareFormHandle>(null);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
@@ -153,7 +155,7 @@ export function QuickSaleForm(p: Props) {
           {p.pricingError ? <Text style={s.error}>{p.pricingError}</Text> : p.isPricingLoading ? <Text translate style={s.muted}>Updating total…</Text> : null}
         </Section>
         <Section>
-          {[["Subtotal", p.totals.subtotal], ...(p.totals.appliedMembershipDiscount ? [["Member discount", -p.totals.appliedMembershipDiscount]] : []), ...(p.totals.overallDiscount ? [["Discount", -p.totals.overallDiscount]] : []), ["GST", p.totals.taxAmount], ["Total", p.totals.grandTotal]].map(([label, amount]) => <View key={String(label)} style={s.row}><Text translate style={s.muted}>{label}</Text><Text style={label === "Total" ? s.total : s.name}>{formatCurrency(Number(amount))}</Text></View>)}
+          {[["Subtotal", p.totals.subtotal], ...(p.totals.appliedMembershipDiscount ? [["Member discount", -p.totals.appliedMembershipDiscount]] : []), ...(p.totals.overallDiscount ? [["Discount", -p.totals.overallDiscount]] : []), [taxName, p.totals.taxAmount], ["Total", p.totals.grandTotal]].map(([label, amount]) => <View key={String(label)} style={s.row}><Text translate style={s.muted}>{label}</Text><Text style={label === "Total" ? s.total : s.name}>{formatCurrency(Number(amount))}</Text></View>)}
         </Section>
         <Section title="Alert assigned staff">
           {field('Staff alert', alert, value => changeNotes(value, notes), false, true)}

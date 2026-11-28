@@ -9,11 +9,23 @@ import { Text, TextInput } from "@/components/ui/AppTypography";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { LunoxHeaderButton } from "@/components/lunox/LunoxHeaderButton";
+import { useTaxName } from "@/hooks/useTaxName";
+import { applyTaxName } from "@/utils/taxLabels";
 import { VISIBLE_REPORT_CONFIGS, VISIBLE_REPORT_GROUPS } from "../report-config";
 
 export default function ReportsHomeScreen() {
   const [search, setSearch] = useState("");
-  const sections = useMemo(() => VISIBLE_REPORT_GROUPS.map((title) => ({ title: title === "Customers" ? "Clients" : title, data: VISIBLE_REPORT_CONFIGS.filter((report) => report.group === title && [report.title, report.subtitle].join(" ").toLowerCase().includes(search.trim().toLowerCase())) })).filter((section) => section.data.length), [search]);
+  const taxName = useTaxName();
+  // Renamed before the search runs, so a UAE salon finds "VAT Report" by typing it.
+  const reports = useMemo(
+    () => VISIBLE_REPORT_CONFIGS.map((report) => ({
+      ...report,
+      title: applyTaxName(report.title, taxName),
+      subtitle: applyTaxName(report.subtitle, taxName),
+    })),
+    [taxName],
+  );
+  const sections = useMemo(() => VISIBLE_REPORT_GROUPS.map((title) => ({ title: title === "Customers" ? "Clients" : title, data: reports.filter((report) => report.group === title && [report.title, report.subtitle].join(" ").toLowerCase().includes(search.trim().toLowerCase())) })).filter((section) => section.data.length), [reports, search]);
   return <PearlBackground><SafeAreaView style={s.safe} edges={["top"]}><AppStatusBar />
     <SectionList sections={sections} keyExtractor={(item) => item.slug} stickySectionHeadersEnabled={false} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}
       ListHeaderComponent={<View style={s.top}><View style={s.header}><AppBackButton onPress={() => router.back()} /><View style={s.copy}><Text translate style={s.title}>Reports</Text><Text translate style={s.subtitle}>Find the answer you need</Text></View><LunoxHeaderButton /></View>
