@@ -20,7 +20,7 @@ import {
 } from "@/features/reports/report-data";
 import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { useTaxName } from "@/hooks/useTaxName";
-import { applyTaxName } from "@/utils/taxLabels";
+import { applyTaxName, isBlankTaxValue, isTaxColumnKey } from "@/utils/taxLabels";
 
 export const ReportSummaryCards = memo(function ReportSummaryCards({
   summary,
@@ -36,7 +36,12 @@ export const ReportSummaryCards = memo(function ReportSummaryCards({
   const Colors = usePearlColors();
   const taxName = useTaxName();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const entries = useMemo(() => Object.entries(summary ?? {}).filter(([, value]) => value !== undefined && value !== null).slice(0, maxCards), [summary, maxCards]);
+  const entries = useMemo(
+    () => Object.entries(summary ?? {})
+      .filter(([key, value]) => value !== undefined && value !== null && !(isTaxColumnKey(key) && isBlankTaxValue(value)))
+      .slice(0, maxCards),
+    [summary, maxCards],
+  );
   if (!entries.length) return null;
 
   return (

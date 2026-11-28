@@ -33,3 +33,22 @@ export const applyTaxName = (text: string, taxName: TaxName) =>
  */
 export const taxIdLabelForCountry = (country?: string | null) =>
   taxNameForCountry(country) === "VAT" ? "TRN" : "GSTIN";
+
+/**
+ * Columns and summary tiles that exist only to report tax: the tax amount, the
+ * rate, and the CGST/SGST/IGST split. "Taxable amount" is deliberately not one
+ * of them — it is the base the bill was charged on, and stays useful whether or
+ * not any tax was applied.
+ */
+export const isTaxColumnKey = (key: string) => /gst|vat|tax/i.test(key) && !/taxable/i.test(key);
+
+/**
+ * True when a tax cell holds nothing worth a column: null, blank, or zero —
+ * including the "0", "0.00" and "₹0.00" the reports API sends for a salon that
+ * charges no tax.
+ */
+export const isBlankTaxValue = (value: unknown) => {
+  if (value == null || value === "" || value === false) return true;
+  const numeric = typeof value === "number" ? value : Number(String(value).replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(numeric) && numeric === 0;
+};
