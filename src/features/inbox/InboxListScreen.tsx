@@ -10,8 +10,8 @@ import { maskPhone } from "@/utils/maskPhone";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, type Href } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { BackHandler, FlatList, TouchableOpacity, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BackHandler, FlatList, Keyboard, TouchableOpacity, View, type GestureResponderEvent } from "react-native";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { hasCustomPermission } from "@/utils/permissions";
 import { DeleteChatsModal } from "./DeleteChatsModal";
@@ -119,6 +119,22 @@ export default function InboxListScreen({
       ),
     [inbox.conversations, debouncedSearch, unreadOnly, unreadFirst],
   );
+  // Closing the keyboard when the results are dragged.
+  //
+  // keyboardDismissMode="on-drag" only fires once the list actually scrolls,
+  // and after a search the results usually fit on screen — so there is nothing
+  // to scroll, no drag event, and the keyboard stayed up covering them. Watch
+  // the raw touches instead: a deliberate vertical swipe anywhere over the
+  // results closes it whether the list can scroll or not. The threshold keeps
+  // a tap on a chat row (which always wobbles a pixel or two) from counting.
+  const dragOrigin = useRef<number | null>(null);
+  const onResultsTouchStart = (event: GestureResponderEvent) => { dragOrigin.current = event.nativeEvent.pageY; };
+  const onResultsTouchMove = (event: GestureResponderEvent) => {
+    if (dragOrigin.current === null || Math.abs(event.nativeEvent.pageY - dragOrigin.current) < 12) return;
+    dragOrigin.current = null;
+    Keyboard.dismiss();
+  };
+  const onResultsTouchEnd = () => { dragOrigin.current = null; };
   const refresh = useCallback(() => {
     void dispatch(fetchInboxConversationsThunk({ refresh: true }));
   }, [dispatch]);
@@ -191,6 +207,8 @@ export default function InboxListScreen({
             placeholderTextColor={p.muted}
             autoCorrect={false}
             autoCapitalize="none"
+            returnKeyType="search"
+            onSubmitEditing={() => Keyboard.dismiss()}
             style={s.searchInput}
           />
           {search ? (
@@ -274,6 +292,12 @@ export default function InboxListScreen({
             onRefresh={refresh}
             refreshing={inbox.conversationsRefreshing}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            onScrollBeginDrag={() => Keyboard.dismiss()}
+            onTouchStart={onResultsTouchStart}
+            onTouchMove={onResultsTouchMove}
+            onTouchEnd={onResultsTouchEnd}
+            onTouchCancel={onResultsTouchEnd}
             style={{ marginHorizontal: 16 }}
             contentContainerStyle={{
               flexGrow: 1,
