@@ -27,7 +27,6 @@ export function ExpensesScreen({ openNew = false }: { openNew?: boolean }) {
   const canEdit = canAccessBusinessModule(user, "edit_expense");
   const canDelete = canAccessBusinessModule(user, "delete_expense");
   const [rows, setRows] = useState<Expense[]>([]);
-  const [counterId, setCounterId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState("");
@@ -57,11 +56,9 @@ export function ExpensesScreen({ openNew = false }: { openNew?: boolean }) {
     const id = ++requestId.current;
     if (refresh) setRefreshing(true); else setLoading(true);
     try {
-      const [expenses, activeCounter] = await Promise.all([
-        expensesService.list(), canAdd ? expensesService.openCounterId() : Promise.resolve(null),
-      ]);
+      const expenses = await expensesService.list();
       if (!alive.current || id !== requestId.current) return;
-      setRows(expenses); setCounterId(activeCounter); setLocked(false); setLoadError("");
+      setRows(expenses); setLocked(false); setLoadError("");
     } catch (error) {
       if (!alive.current || id !== requestId.current) return;
       const response = error instanceof ApiError ? error.responseData as { error?: { code?: string } } | undefined : undefined;
@@ -71,7 +68,7 @@ export function ExpensesScreen({ openNew = false }: { openNew?: boolean }) {
     } finally {
       if (alive.current && id === requestId.current) { setLoading(false); setRefreshing(false); }
     }
-  }, [canAdd, canView]);
+  }, [canView]);
 
   useEffect(() => {
     alive.current = true;
@@ -97,19 +94,18 @@ export function ExpensesScreen({ openNew = false }: { openNew?: boolean }) {
     if (!type.trim()) { setFormError("Enter an expense category."); return; }
     if (parsedAmount === null) { setFormError("Enter an amount greater than zero, with up to two decimal places."); return; }
     if (!date) { setFormError("Choose an expense date."); return; }
-    if (!editing && !counterId) { setFormError("Open a cash counter from Cash Management on the web before adding an expense."); return; }
     mutationInFlight.current = true; setBusy(true); setFormError("");
     try {
       const input = { expense_type: type.trim(), description: description.trim(), amount: parsedAmount, expense_date: date };
       if (editing) await expensesService.update(editing.id, input);
-      else await expensesService.create(counterId!, input);
+      else await expensesService.create(input);
       if (alive.current) { setFormOpen(false); await load(true); }
     } catch (error) {
       if (alive.current) setFormError(getApiErrorMessage(error));
     } finally { mutationInFlight.current = false; if (alive.current) setBusy(false); }
   };
   const remove = (expense: Expense) => {
-    appAlert.alert("Delete expense?", `Delete ${expense.type} (${formatCurrency(expense.amount)})? This updates the cash counter balance.`, [
+    appAlert.alert("Delete expense?", `Delete ${expense.type} (${formatCurrency(expense.amount)})? This can't be undone.`, [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: () => { void (async () => {
         if (!alive.current || mutationInFlight.current) return;
@@ -152,17 +148,19 @@ export function ExpensesScreen({ openNew = false }: { openNew?: boolean }) {
         {!!loadError ? <EmptyState icon="alert" title="Unable to load expenses" body={loadError} action={<SmallButton title="Try again" icon="repeat" onPress={() => void load()} />} />
         : loading ? <><Skeleton h={90} /><Skeleton h={90} /><Skeleton h={90} /></>
         : <>
-          {canAdd && !counterId && <View style={styles.notice}><Icon name="info" size={20} color={p.accentDeep} /><Text style={[styles.muted, { flex: 1 }]}>To add an expense, open a cash counter from Cash Management on the web.</Text></View>}
           {!filtered.length ? <EmptyState icon="expense" title={rows.length ? "No matching expenses" : "No expenses yet"} body={rows.length ? "Try another search, category or date range." : "Record your salon's expenses to keep track of spending."} />
           : filtered.slice(0, visibleCount).map(expense => <View key={expense.id} style={styles.card}>
             <View style={styles.row}><View style={{ flex: 1, gap: 4 }}><Text style={styles.title}>{expense.type}</Text><Text style={styles.muted}>{formatAppDate(expense.date)}</Text></View><Text style={styles.amount}>{formatCurrency(expense.amount)}</Text></View>
             {!!expense.description && <Text style={styles.body}>{expense.description}</Text>}
             <View style={[styles.row, { justifyContent: "space-between" }]}>
-              <StatusPill tone={expense.counterStatus === "open" ? "success" : "neutral"} label={expense.counterStatus === "open" ? "Open counter" : "Closed counter"} />
-              {expense.counterStatus === "open" && <View style={styles.row}>
+              {/* Only an expense that came from a cash counter carries one. */}
+              {expense.counterStatus
+                ? <StatusPill tone={expense.counterStatus === "open" ? "success" : "neutral"} label={expense.counterStatus === "open" ? "Open counter" : "Closed counter"} />
+                : <View />}
+              <View style={styles.row}>
                 {canEdit && <SmallButton title="Edit" icon="edit" disabled={busy} onPress={() => edit(expense)} />}
                 {canDelete && <SmallButton title="Delete" icon="x" disabled={busy} onPress={() => remove(expense)} />}
-              </View>}
+              </View>
             </View>
           </View>)}
           {filtered.length > visibleCount && <SmallButton title="Show more" onPress={() => setVisibleCount(count => count + 20)} />}
@@ -172,9 +170,8 @@ export function ExpensesScreen({ openNew = false }: { openNew?: boolean }) {
     <DateRangePickerSheet visible={rangeOpen} startDate={start} endDate={end} onClose={() => setRangeOpen(false)} pearlStyle allowAllTime
       onApply={(from, to) => { setStart(from); setEnd(to); setRangeOpen(false); }} />
     <BottomSheet visible={formOpen && canView && !locked} title={editing ? "Edit expense" : "Add expense"} onClose={closeForm} pearlStyle scrollable avoidKeyboard
-      footer={<View style={[styles.row, { justifyContent: "flex-end" }]}><SmallButton title="Cancel" onPress={closeForm} disabled={busy} /><SmallButton title={busy ? "Saving…" : "Save expense"} primary onPress={() => void save()} disabled={busy || loading || (!editing && !counterId)} /></View>}>
-      {!!loadError ? <Text accessibilityRole="alert" style={{ color: p.dangerText }}>{loadError}</Text>
-        : !editing && !loading && !counterId && <Text style={styles.muted}>Open a cash counter from Cash Management on the web before adding an expense.</Text>}
+      footer={<View style={[styles.row, { justifyContent: "flex-end" }]}><SmallButton title="Cancel" onPress={closeForm} disabled={busy} /><SmallButton title={busy ? "Saving…" : "Save expense"} primary onPress={() => void save()} disabled={busy || loading} /></View>}>
+      {!!loadError ? <Text accessibilityRole="alert" style={{ color: p.dangerText }}>{loadError}</Text> : null}
       <Text translate style={styles.label}>Category *</Text>
       <TextInput accessibilityLabel="Expense category" placeholder="Choose or enter a category" value={type} onChangeText={setType} editable={!busy} style={styles.input} placeholderTextColor={p.placeholder} maxLength={100} />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
