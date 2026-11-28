@@ -79,7 +79,7 @@ export function ReportTable({ title, rows: incomingRows, columns, total, hasMore
   const visible = columns.filter((column, index) => index === 0 || !hidden.includes(column.key));
   const first = visible[0];
   const rest = visible.slice(1);
-  const width = (column: ReportColumn) => Math.min(widths[column.key] ?? (/invoice|date/i.test(column.key) ? 130 : /name|description|item/i.test(column.key) ? 170 : 140), column.key === visible[0]?.key ? Math.max(90, Math.min(240, (screenWidth - 32) * 0.5)) : 420);
+  const width = (column: ReportColumn) => Math.min(widths[column.key] ?? (column.key === "avgRevenue" ? 185 : /invoice|date/i.test(column.key) ? 130 : /name|description|item/i.test(column.key) ? 170 : 140), column.key === visible[0]?.key ? Math.max(90, Math.min(240, (screenWidth - 32) * 0.5)) : 420);
   const pageRows = ordered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const rowHeight = compact ? 40 : 56;
   const setColumnWidth = (key: string, value: number) => setWidths((current) => ({ ...current, [key]: value }));

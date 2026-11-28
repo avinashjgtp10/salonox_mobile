@@ -699,12 +699,20 @@ export const WEB_REPORT_CATALOG = [
         "label": "Clients"
       },
       {
-        "key": "share",
+        "key": "clientSharePct",
         "label": "% of Clients"
       },
       {
         "key": "totalVisits",
         "label": "Visits"
+      },
+      {
+        "key": "revenue",
+        "label": "Revenue"
+      },
+      {
+        "key": "avgRevenue",
+        "label": "Avg Revenue / Client"
       }
     ]
   },

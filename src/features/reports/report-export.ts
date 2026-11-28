@@ -16,6 +16,8 @@ export function reportCsv(columns: ReportColumn[], rows: ReportRow[]): string {
 
 export async function loadCompleteReport(config: ReportConfig, filters: ReportFilters, loadedRows: ReportRow[]): Promise<ReportRow[]> {
   let all = loadedRows;
+  // This endpoint returns every source for the selected filters in one response.
+  if (config.slug === "client-source") return loadedRows;
   if (config.source !== "consumables") {
     const request = { ...normalizeReportRequest(config.slug, filters), page: 1, limit: 100, is_export: true };
     const read = async (page: number) => config.source
