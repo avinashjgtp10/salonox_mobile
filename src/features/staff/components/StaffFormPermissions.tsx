@@ -8,7 +8,7 @@ import { getApiErrorMessage } from "@/services/api";
 import { cascadeOnKeys, cascadeOffKeys, lockedByMaster } from "../utils/permissionCascade";
 import { sortModuleNames, sortGroupNames } from "../utils/permissionModuleOrder";
 import { StaffButton, staffUi } from "./StaffPearl";
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 
 export function StaffFormPermissions({ role, staffId, overrides, onChange, onReady, disabled = false, notice }: {
   role: "Staff" | "Manager";

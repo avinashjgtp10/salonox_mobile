@@ -4,7 +4,8 @@ import { LunoxHeaderButton } from "@/components/lunox/LunoxHeaderButton";
 import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { LinearGradient } from "expo-linear-gradient";
-import { pearlGradients, pearl } from "@/components/auth/pearl/tokens";
+import { pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { QuickSaleForm } from "../components/QuickSaleForm";
@@ -2290,7 +2291,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   staffSelectValue: { color: Colors.heading, fontSize: 15, fontWeight: "800" },
   staffSelectPlaceholder: { color: Colors.text2, fontWeight: "600" },
   safeArea: {
-    backgroundColor: "#FAF6F8",
+    backgroundColor: Colors.bg,
     flex: 1,
   },
   paymentOnlyRoot: {

@@ -1,22 +1,26 @@
 import { useRegionalPreferences } from "@/localization/preferences";
 import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { LinearGradient } from "expo-linear-gradient";
-import { pearl, pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearlGradients } from "@/components/auth/pearl/tokens";
 import { formatCurrency } from "@/features/quickSale/utils/money";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { memo, useMemo } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import { PearlActionFooter } from "@/components/ui/PearlActionFooter";
+import { themedStyles, themedTokens } from "@/components/auth/pearl/themedStyles";
 
-const BRAND = pearl.accent;
 // Solid disabled colours: opacity on these buttons let the form behind the
-// floating bar show through on Android.
-const DISABLED_BG = "#F4F1F3";
-const DISABLED_BORDER = "#D9CDD4";
+// floating bar show through on Android. Resolved per theme so the disabled
+// state is not a white slab in Dim mode.
+const tone = themedTokens((p) => ({
+  brand: p.accent,
+  disabledBg: p.glassStrong,
+  disabledBorder: p.glassBorder,
+}));
 const DISABLED_TEXT = "#9A8E95";
 
 type MiniBillBarProps = {
@@ -69,7 +73,7 @@ function MiniBillBarComponent({
           ]}
         >
           {isSaving ? (
-            <ActivityIndicator color={BRAND} size="small" />
+            <ActivityIndicator color={tone.brand} size="small" />
           ) : (
             <Text translate
               adjustsFontSizeToFit
@@ -88,9 +92,9 @@ function MiniBillBarComponent({
           android_ripple={disabled ? undefined : { color: "rgba(255, 255, 255, 0.12)", borderless: false }}
           disabled={disabled}
           onPress={onCheckout}
-          style={({ pressed }) => [styles.cta, { backgroundColor: disabled ? DISABLED_BG : BRAND }, pressed && !disabled && styles.buttonPressed]}
+          style={({ pressed }) => [styles.cta, { backgroundColor: disabled ? tone.disabledBg : tone.brand }, pressed && !disabled && styles.buttonPressed]}
         >
-          <LinearGradient colors={disabled ? [DISABLED_BG, DISABLED_BG] : pearlGradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: "100%", height: 50, borderRadius: 16, flexDirection: "row", gap: 7, alignItems: "center", justifyContent: "center" }}><Text
+          <LinearGradient colors={disabled ? [tone.disabledBg, tone.disabledBg] : pearlGradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: "100%", height: 50, borderRadius: 16, flexDirection: "row", gap: 7, alignItems: "center", justifyContent: "center" }}><Text
             adjustsFontSizeToFit
             minimumFontScale={0.75}
             numberOfLines={1}
@@ -107,7 +111,7 @@ function MiniBillBarComponent({
 
 export const MiniBillBar = memo(MiniBillBarComponent);
 
-const createStyles = (Colors: ThemeColors) => StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => themedStyles((p) => ({
   wrap: {
     bottom: 18,
     left: 0,
@@ -159,18 +163,18 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     width: "100%",
   },
   pendingButtonDisabled: {
-    backgroundColor: DISABLED_BG,
-    borderColor: DISABLED_BORDER,
+    backgroundColor: tone.disabledBg,
+    borderColor: tone.disabledBorder,
   },
   pendingButtonText: {
-    color: pearl.accentDeep,
+    color: p.accentDeep,
     flexShrink: 1,
     fontSize: 14,
     fontWeight: "700",
   },
   cta: {
     alignItems: "center",
-    backgroundColor: BRAND,
+    backgroundColor: tone.brand,
     borderRadius: 16,
     flex: 1,
     flexDirection: "row",
@@ -189,4 +193,4 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   disabledText: {
     color: DISABLED_TEXT,
   },
-});
+}));

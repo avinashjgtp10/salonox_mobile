@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Keyboard, StyleSheet, View } from "react-native";
+import { Keyboard, View } from "react-native";
 
 import {
   AuthScreen,
@@ -14,14 +14,14 @@ import {
   authMessages,
   getAuthErrorCode,
   getAuthErrorMessage,
-  pearl,
-  pearlSpace,
+    pearlSpace,
   pearlType,
 } from "@/components/auth/pearl";
 import { Text } from "@/components/ui/AppTypography";
 import { useAppToast } from "@/hooks/useAppToast";
 import { authService } from "@/services/authService";
 import { isValidEmail } from "@/utils/validation";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState("");
@@ -112,7 +112,7 @@ export default function ForgotPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((p) => ({
   flex: { flex: 1 },
   hero: { alignItems: "center", gap: 10, paddingTop: 6, paddingBottom: pearlSpace.sm, paddingHorizontal: 10 },
   center: { textAlign: "center" },
@@ -125,11 +125,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 14,
     borderRadius: 16,
-    backgroundColor: pearl.infoBg,
+    backgroundColor: p.infoBg,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.8)",
   },
   noteIcon: { marginTop: 1 },
-  noteText: { flex: 1, color: pearl.ink2, lineHeight: 18 },
-  bold: { fontWeight: "700", color: pearl.ink2 },
-});
+  noteText: { flex: 1, color: p.ink2, lineHeight: 18 },
+  bold: { fontWeight: "700", color: p.ink2 },
+}));

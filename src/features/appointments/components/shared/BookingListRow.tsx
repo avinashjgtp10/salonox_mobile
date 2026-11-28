@@ -1,10 +1,10 @@
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { Text } from "@/components/ui/AppTypography";
-import { pearl } from "@/components/auth/pearl/tokens";
 import { StatusPill } from "@/components/pearl/ui";
 import { formatTimeLabel } from "@/features/appointments/utils/appointmentDateTime";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import type { AppointmentListItem } from "@/types/appointment";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 /** Rows share one rounded card, with dividers only between appointments. */
 export function BookingListRow({ appointment, first, last, onPress }: { appointment: AppointmentListItem; first: boolean; last: boolean; onPress: () => void }) {
@@ -18,11 +18,11 @@ export function BookingListRow({ appointment, first, last, onPress }: { appointm
     <StatusPill tone={tone} label={appointment.status} />
   </Pressable>;
 }
-const s = StyleSheet.create({
+const s = themedStyles((p) => ({
   first: { borderTopLeftRadius: 22, borderTopRightRadius: 22 },
   last: { borderBottomLeftRadius: 22, borderBottomRightRadius: 22, borderBottomWidth: 0 },
-  row: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, backgroundColor: pearl.glass, borderBottomWidth: 1, borderColor: pearl.divider },
-  time: { minWidth: 50, minHeight: 46, paddingHorizontal: 4, borderRadius: 13, backgroundColor: "rgba(255,255,255,0.7)", alignItems: "center", justifyContent: "center" },
-  hour: { fontSize: 12, fontWeight: "700", color: pearl.ink }, duration: { fontSize: 10.5, color: pearl.muted },
-  copy: { flex: 1, minWidth: 0 }, name: { fontSize: 14.5, fontWeight: "700", color: pearl.ink }, detail: { fontSize: 12.5, color: pearl.muted, marginTop: 2 },
-});
+  row: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, backgroundColor: p.glass, borderBottomWidth: 1, borderColor: p.divider },
+  time: { minWidth: 50, minHeight: 46, paddingHorizontal: 4, borderRadius: 13, backgroundColor: p.glassStrong, alignItems: "center", justifyContent: "center" },
+  hour: { fontSize: 12, fontWeight: "700", color: p.ink }, duration: { fontSize: 10.5, color: p.muted },
+  copy: { flex: 1, minWidth: 0 }, name: { fontSize: 14.5, fontWeight: "700", color: p.ink }, detail: { fontSize: 12.5, color: p.muted, marginTop: 2 },
+}));

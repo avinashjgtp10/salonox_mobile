@@ -3,7 +3,7 @@ import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { Text } from "@/components/ui/AppTypography";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { usePearlColors as useThemeColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { DashboardSpacing as Spacing } from "@/constants/theme";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";

@@ -1,11 +1,10 @@
 import { currencyLabel } from "@/utils/currency";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { useTaxName } from "@/hooks/useTaxName";
-import { pearl } from "@/components/auth/pearl/tokens";
 import { NoteBox } from "@/components/pearl/Page";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { FlatList, Keyboard, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { FlatList, Keyboard, Pressable, ScrollView, View } from "react-native";
 import { AppDatePickerModal } from "@/components/ui/AppDatePickerModal";
 import { formatAppDate } from "@/utils/dateTime";
 import { BottomSheet } from "@/components/ui/BottomSheet";
@@ -23,10 +22,12 @@ import { isMissingStaff, requiresStaff } from "../utils/staffRequirement";
 import { buildPricingLine } from "../utils/calculations";
 import { formatCurrency, parseAmount } from "../utils/money";
 import type { CatalogTab } from "../constants";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
+import { themedTokens } from "@/components/auth/pearl/themedStyles";
 
 // Visual tokens from the supplied Quick Sale reference. Shared with the
 // appointment booking form so its client and item sections match.
-export const c = { bg: "transparent", card: pearl.glass, line: pearl.glassBorder, fg: pearl.ink, muted: pearl.muted, plum: pearl.accentDeep, soft: pearl.accentTint };
+export const c = themedTokens((p) => ({ bg: "transparent", card: p.glass, line: p.glassBorder, fg: p.ink, muted: p.muted, plum: p.accentDeep, soft: p.accentTint }));
 export const types: Record<string, { label: string; color: string; bg: string }> = {
   service: { label: "Service", color: "#6D4DE0", bg: "#ECE9FB" },
   product: { label: "Product", color: "#2F64E6", bg: "#E3ECFF" },
@@ -190,7 +191,7 @@ export function FormField({ label, value, onChange, numeric, multiline, reveal }
   }} onFocus={() => { setDraft(value); setFocused(true); reveal?.(ref.current); }} onBlur={() => setFocused(false)} placeholder={numeric ? '0' : `Add ${label.toLowerCase()}…`} placeholderTextColor={c.muted} keyboardType={numeric ? 'decimal-pad' : 'default'} multiline={multiline} textAlignVertical={multiline ? 'top' : 'center'} style={[s.input, multiline && s.multiline]}/></View>;
 }
 
-export const s = StyleSheet.create({
+export const s = themedStyles((p) => ({
   staffField: { flex: 1, gap: 6 },
   timeField: { width: 112, gap: 6 },
   timeSelect: { minHeight: 38, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: c.line, borderRadius: 12, backgroundColor: c.bg },
@@ -201,7 +202,7 @@ export const s = StyleSheet.create({
   staffRequired: { borderColor: c.plum },
   staffError: { borderColor: '#E5484D' },
   staffName: { flex: 1, color: c.fg, fontSize: 14, fontWeight: '600' },
-  dateButton: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 36, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: c.line, backgroundColor: pearl.glass, alignSelf: "flex-start" },
+  dateButton: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 36, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: c.line, backgroundColor: p.glass, alignSelf: "flex-start" },
   page: { padding:16, paddingBottom:130, gap:14, backgroundColor:c.bg },
   section: { backgroundColor:c.card, borderWidth:1, borderColor:c.line, borderRadius:22, padding:14, gap:12 },
   row: { flexDirection:'row', alignItems:'center', justifyContent:'space-between', gap:10 },
@@ -213,6 +214,6 @@ export const s = StyleSheet.create({
   error:{color:'#E5484D',fontSize:12},
   lineCard:{borderWidth:1.5,borderColor:c.line,borderRadius:18,overflow:'hidden'},lineTop:{height:30,paddingHorizontal:12,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},tag:{fontSize:11,fontWeight:'700',letterSpacing:0.7,textTransform:'uppercase'},
   lineBody:{padding:10,gap:6},stepper:{flexDirection:'row',alignItems:'center',borderWidth:1,borderColor:c.line,borderRadius:10,gap:8},step:{padding:8},total:{fontSize:17,fontWeight:'700',color:c.fg},editor:{gap:10,borderTopWidth:1,borderColor:c.line,paddingTop:12},
-  addRow:{gap:8,paddingVertical:2},add:{backgroundColor:pearl.glass,borderWidth:1,borderColor:pearl.glassBorder,borderRadius:14,paddingHorizontal:14,paddingVertical:11},addText:{fontSize:12,fontWeight:'700',color:c.plum},
+  addRow:{gap:8,paddingVertical:2},add:{backgroundColor:p.glass,borderWidth:1,borderColor:p.glassBorder,borderRadius:14,paddingHorizontal:14,paddingVertical:11},addText:{fontSize:12,fontWeight:'700',color:c.plum},
   field:{flex:1,gap:6},label:{fontSize:12,fontWeight:'600',color:c.muted},input:{borderWidth:1,borderColor:c.line,borderRadius:12,paddingHorizontal:12,paddingVertical:11,color:c.fg,fontSize:14,backgroundColor:c.bg,minHeight:44},multiline:{minHeight:76},
-});
+}));

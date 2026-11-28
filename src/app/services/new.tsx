@@ -22,6 +22,7 @@ import {
 import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import type { ServiceCategoryItem } from "@/types/service";
 import { useValidationScroll } from "@/hooks/useValidationScroll";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 
 type FieldErrors = {
   categoryId?: string;
@@ -409,7 +410,7 @@ function CheckboxRow({
   return (
     <TouchableOpacity accessibilityRole="switch" accessibilityState={{ checked, disabled }} activeOpacity={0.84} disabled={disabled} onPress={onPress} style={styles.checkboxRow}>
       <Text translate style={styles.checkboxLabel}>{label}</Text>
-      <View style={[styles.checkbox, checked && styles.checkboxChecked]}><View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: "#FFFFFF", alignSelf: checked ? "flex-end" : "flex-start" }} /></View>
+      <View style={[styles.checkbox, checked && styles.checkboxChecked]}><View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: pearl.glassStrong, alignSelf: checked ? "flex-end" : "flex-start" }} /></View>
     </TouchableOpacity>
   );
 }

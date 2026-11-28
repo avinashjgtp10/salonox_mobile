@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
-import { Keyboard, Linking, Pressable, StyleSheet, View } from "react-native";
+import { Keyboard, Linking, Pressable, View } from "react-native";
 
 import {
   AuthScreen,
@@ -34,6 +34,7 @@ import type { AuthUser } from "@/types/auth";
 import { takeLoginNotice } from "@/utils/loginNotice";
 import { resolveLoginRoute } from "@/utils/routeResolver";
 import { isValidEmail } from "@/utils/validation";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 const getRouteParam = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value;
 
@@ -278,15 +279,15 @@ export default function LoginScreen() {
 
 const isInvalidCredentialsMessage = (message: string) => /incorrect/i.test(message);
 
-const styles = StyleSheet.create({
+const styles = themedStyles((p) => ({
   card: { gap: 13, paddingVertical: 22, paddingHorizontal: 18 },
   heading: { gap: 4 },
   title: { fontSize: 25 },
-  subtitle: { color: pearl.muted, fontSize: 14.5 },
+  subtitle: { color: p.muted, fontSize: 14.5 },
   forgot: { alignSelf: "flex-end", marginTop: -2 },
   or: { flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 2 },
-  line: { flex: 1, height: 1, backgroundColor: pearl.divider },
+  line: { flex: 1, height: 1, backgroundColor: p.divider },
   ssoRow: { flexDirection: "row", gap: pearlSpace.sm },
   flex: { flex: 1 },
   register: { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 22, paddingVertical: 14, paddingLeft: 16, paddingRight: 14 },
-});
+}));

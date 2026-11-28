@@ -1,5 +1,6 @@
 import { useFooterClearance } from "@/hooks/useFooterClearance";
-import { pearl, pearlType } from "@/components/auth/pearl/tokens";
+import { pearlType } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { Text } from "@/components/ui/AppTypography";
 import { TourButton, TourView, withScreenTour } from "@/features/userGuide/DashboardTour";
 import { screenTours } from "@/features/userGuide/screenTours";

@@ -16,7 +16,8 @@ import { Text, TextInput } from "@/components/ui/AppTypography";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
-import { pearl, pearlTones } from "@/components/auth/pearl/tokens";
+import { pearlTones } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import {
   StaffAvatar,

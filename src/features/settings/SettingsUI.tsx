@@ -11,6 +11,7 @@ import {
   pearlTones,
   type PearlTone,
 } from "@/components/auth/pearl/tokens";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 export function SettingsHeader({
   title,
@@ -123,7 +124,7 @@ export function SettingsRow({
     </TouchableOpacity>
   );
 }
-const createSettingsStyles = (pearl: ReturnType<typeof usePearlPalette>) => StyleSheet.create({
+const createSettingsStyles = () => themedStyles((p) => ({
   root: { flex: 1, backgroundColor: "transparent" },
   header: {
     paddingHorizontal: 16,
@@ -137,30 +138,30 @@ const createSettingsStyles = (pearl: ReturnType<typeof usePearlPalette>) => Styl
     lineHeight: 28,
     fontWeight: "800",
     letterSpacing: -0.5,
-    color: pearl.ink,
+    color: p.ink,
   },
-  title: { fontSize: 14, fontWeight: "700", color: pearl.ink },
-  muted: { fontSize: 12, lineHeight: 18, color: pearl.muted },
-  body: { fontSize: 13, lineHeight: 20, color: pearl.ink2 },
+  title: { fontSize: 14, fontWeight: "700", color: p.ink },
+  muted: { fontSize: 12, lineHeight: 18, color: p.muted },
+  body: { fontSize: 13, lineHeight: 20, color: p.ink2 },
   content: { paddingHorizontal: 16, paddingBottom: 24, gap: 14 },
   section: {
-    color: pearl.muted,
+    color: p.muted,
     fontSize: 12,
     fontWeight: "700",
     marginTop: 6,
     paddingHorizontal: 2,
   },
   card: {
-    backgroundColor: pearl.glass,
+    backgroundColor: p.glass,
     borderWidth: 1,
-    borderColor: pearl.glassBorder,
+    borderColor: p.glassBorder,
     borderRadius: 22,
     overflow: "hidden",
   },
   formCard: {
-    backgroundColor: pearl.glass,
+    backgroundColor: p.glass,
     borderWidth: 1,
-    borderColor: pearl.glassBorder,
+    borderColor: p.glassBorder,
     borderRadius: 22,
     padding: 16,
     gap: 14,
@@ -193,23 +194,22 @@ const createSettingsStyles = (pearl: ReturnType<typeof usePearlPalette>) => Styl
   secondary: {
     borderWidth: 1,
     borderColor: "rgba(126,120,176,.4)",
-    backgroundColor: pearl.glassStrong,
+    backgroundColor: p.glassStrong,
   },
   input: {
     minHeight: 48,
     borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: pearl.ink,
+    color: p.ink,
     fontSize: 14,
-    backgroundColor: pearl.field,
+    backgroundColor: p.field,
     borderWidth: 1,
-    borderColor: pearl.fieldBorder,
+    borderColor: p.fieldBorder,
   },
-  error: { color: pearl.dangerText, fontSize: 12, lineHeight: 18 },
-});
+  error: { color: p.dangerText, fontSize: 12, lineHeight: 18 },
+}));
 
 export function useSettingsStyles() {
- const palette = usePearlPalette();
- return useMemo(() => createSettingsStyles(palette), [palette]);
+ return useMemo(() => createSettingsStyles(), []);
 }

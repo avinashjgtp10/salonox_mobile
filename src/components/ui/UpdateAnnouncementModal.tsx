@@ -24,11 +24,12 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { Portal } from "@/components/ui/Portal";
-import { pearl, pearlGradients, pearlShadow } from "@/components/auth/pearl/tokens";
+import { pearlGradients, pearlShadow } from "@/components/auth/pearl/tokens";
 import { usePearlPalette } from "@/components/auth/pearl/usePearlPalette";
 import type { AppReleaseNote } from "@/services/appUpdate.service";
 import { updateChip } from "@/services/updateChip";
 import { useAppTheme } from "@/theme/ThemeProvider";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 type UpdateAnnouncementModalProps = {
   androidStoreUrl?: string | null;
@@ -279,7 +280,7 @@ export function UpdateAnnouncementModal({
 }
 
 const createStyles = (palette: ReturnType<typeof usePearlPalette>, isDark: boolean, screenHeight: number) =>
-  StyleSheet.create({
+  themedStyles((p) => ({
     overlay: {
       ...StyleSheet.absoluteFillObject,
       alignItems: "center",
@@ -313,7 +314,7 @@ const createStyles = (palette: ReturnType<typeof usePearlPalette>, isDark: boole
       // The brand mark is dark navy + green, so it needs a light tile to read on;
       // in dark mode that stays light rather than following the card.
       backgroundColor: isDark ? "rgba(255,255,255,0.92)" : "rgba(230,227,243,0.9)",
-      borderColor: pearl.white,
+      borderColor: p.white,
       borderCurve: "continuous",
       borderRadius: 16,
       borderWidth: 1,
@@ -402,4 +403,4 @@ const createStyles = (palette: ReturnType<typeof usePearlPalette>, isDark: boole
       fontSize: 14,
       fontWeight: "500",
     },
-  });
+  }));

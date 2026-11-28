@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { Keyboard, Pressable, StyleSheet, View } from "react-native";
+import { Keyboard, Pressable, View } from "react-native";
 
 import {
   AuthScreen,
@@ -22,6 +22,7 @@ import {
 import { Text } from "@/components/ui/AppTypography";
 import { useAppToast } from "@/hooks/useAppToast";
 import { authService } from "@/services/authService";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 const getParam = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
@@ -169,16 +170,16 @@ export default function VerifyOtpScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((p) => ({
   flex: { flex: 1 },
   hero: { alignItems: "center", gap: 10, paddingTop: 6, paddingBottom: pearlSpace.sm, paddingHorizontal: 10 },
   center: { textAlign: "center" },
   lead: { textAlign: "center", fontSize: 13.5, lineHeight: 20 },
-  email: { color: pearl.ink, fontWeight: "700" },
-  strong: { color: pearl.ink2, fontWeight: "700" },
+  email: { color: p.ink, fontWeight: "700" },
+  strong: { color: p.ink2, fontWeight: "700" },
   card: { gap: pearlSpace.md, borderRadius: 22 },
   errRow: { flexDirection: "row", gap: 6, alignItems: "center", justifyContent: "center" },
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   resend: { fontWeight: "700" },
-  resendOff: { color: pearl.muted },
-});
+  resendOff: { color: p.muted },
+}));

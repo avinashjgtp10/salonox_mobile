@@ -16,6 +16,7 @@ import {
 import {
   formatReportValue,
   humanizeReportKey,
+  isCollectedByMethod,
   type ReportRow,
 } from "@/features/reports/report-data";
 import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
@@ -38,7 +39,7 @@ export const ReportSummaryCards = memo(function ReportSummaryCards({
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const entries = useMemo(
     () => Object.entries(summary ?? {})
-      .filter(([key, value]) => value !== undefined && value !== null && !(isTaxColumnKey(key) && isBlankTaxValue(value)))
+      .filter(([key, value]) => !isCollectedByMethod(key) && value !== undefined && value !== null && !(isTaxColumnKey(key) && isBlankTaxValue(value)))
       .slice(0, maxCards),
     [summary, maxCards],
   );
@@ -48,10 +49,10 @@ export const ReportSummaryCards = memo(function ReportSummaryCards({
     <View accessibilityRole="summary" style={styles.summaryGrid}>
       {entries.map(([key, value]) => (
         <View key={key} style={styles.summaryCard}>
-          <Text translate allowFontScaling numberOfLines={1} style={styles.summaryLabel}>
+          <Text translate allowFontScaling numberOfLines={2} style={styles.summaryLabel}>
             {applyTaxName(labels?.[key] ?? humanizeReportKey(key), taxName)}
           </Text>
-          <Text adjustsFontSizeToFit allowFontScaling minimumFontScale={0.7} selectable numberOfLines={1} style={styles.summaryValue}>
+          <Text adjustsFontSizeToFit allowFontScaling minimumFontScale={0.5} selectable numberOfLines={1} style={styles.summaryValue}>
             {formatReportValue(key, value)}
           </Text>
         </View>
@@ -221,7 +222,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   summaryLabel: { color: Colors.text2, fontSize: 11, fontWeight: "700", textTransform: "uppercase" },
   summaryValue: {
     color: Colors.heading, fontFamily: Typography.fontFamilies.display, fontSize: 20,
-    fontVariant: ["tabular-nums"], fontWeight: "700", paddingTop: Spacing.sm,
+    fontVariant: ["tabular-nums"], fontWeight: "700", lineHeight: 28, paddingTop: Spacing.sm,
   },
   rowCard: {
     backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: AppRadius.card,

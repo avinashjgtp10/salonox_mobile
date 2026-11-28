@@ -75,7 +75,15 @@ const NOT_MONEY_KEYS = new Set([
 const isMoneyKey = (key: string) => !NOT_MONEY_KEYS.has(key) && (MONEY_KEYS.has(key) || currencyKey.test(key));
 const NUMERIC_STRING = /^-?\d+(\.\d+)?$/;
 
-export const formatReportValue = (key: string, value: unknown): string => {
+export const isCollectedByMethod = (key: string) => /^collected_?by_?method$/i.test(key);
+
+export const formatReportValue = (key: string, value: unknown, multilineDate = false): string => {
+  if (isCollectedByMethod(key) && Array.isArray(value)) {
+    return value.flatMap((entry) => {
+      if (typeof entry?.method !== "string") return [];
+      return [`${humanizeReportKey(entry.method)}: ${formatReportValue("amount", entry.amount)}`];
+    }).join("\n") || "—";
+  }
   if (value === null || value === undefined || value === "") return "—";
   if (/^payment_?reference$/i.test(key)) {
     let reference = value;
@@ -110,7 +118,7 @@ export const formatReportValue = (key: string, value: unknown): string => {
   }
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return formatAppDate(value, "—");
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}(?:T| )/.test(value)) {
-    return formatAppDateTime(value, "—");
+    return formatAppDateTime(value, "—", multilineDate ? "\n" : undefined);
   }
   if (typeof value === "object") {
     const record = value as Record<string, unknown>;

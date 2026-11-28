@@ -1,10 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { forwardRef, useState } from "react";
-import { Pressable, StyleSheet, View, type TextInputProps } from "react-native";
+import { Pressable, View, type TextInputProps } from "react-native";
 
 import { Text, TextInput } from "@/components/ui/AppTypography";
 
-import { pearl, pearlRadius, pearlType } from "./tokens";
+import { pearlRadius, pearlType } from "./tokens";
+import { pearl } from "./themedPearl";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 type Props = TextInputProps & {
   label: string;
@@ -69,7 +71,7 @@ export const TextField = forwardRef<TextInput, Props>(function TextField(
   );
 });
 
-const styles = StyleSheet.create({
+const styles = themedStyles((p) => ({
   group: { gap: 7 },
   field: {
     height: 52,
@@ -78,16 +80,16 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 14,
     borderRadius: pearlRadius.field,
-    backgroundColor: pearl.field,
+    backgroundColor: p.field,
     borderWidth: 1,
-    borderColor: pearl.fieldBorder,
+    borderColor: p.fieldBorder,
   },
-  focus: { borderColor: pearl.accent, borderWidth: 1.5, backgroundColor: pearl.fieldFocus },
-  bad: { borderColor: pearl.dangerFieldBorder, borderWidth: 1.5, backgroundColor: pearl.dangerField },
+  focus: { borderColor: p.accent, borderWidth: 1.5, backgroundColor: p.fieldFocus },
+  bad: { borderColor: p.dangerFieldBorder, borderWidth: 1.5, backgroundColor: p.dangerField },
   input: { flex: 1, height: "100%", paddingVertical: 0, ...pearlType.input },
   eye: { width: 32, height: 32, borderRadius: 9, alignItems: "center", justifyContent: "center" },
-  eyeOn: { backgroundColor: pearl.accentWash },
+  eyeOn: { backgroundColor: p.accentWash },
   errRow: { flexDirection: "row", gap: 6, alignItems: "flex-start", marginTop: 1, paddingRight: 8 },
   errIcon: { marginTop: 1 },
   flex: { flex: 1 },
-});
+}));

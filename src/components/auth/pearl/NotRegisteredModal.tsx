@@ -4,7 +4,9 @@ import { Modal, Pressable, StyleSheet, View } from "react-native";
 import { Text } from "@/components/ui/AppTypography";
 
 import { GlassButton, PrimaryButton, TextButton } from "./Buttons";
-import { pearl, pearlRadius, pearlSpace, pearlType } from "./tokens";
+import { pearlRadius, pearlSpace, pearlType } from "./tokens";
+import { pearl } from "./themedPearl";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 export type SsoProvider = "Google" | "Apple";
 
@@ -42,7 +44,7 @@ export function NotRegisteredModal({ visible, email, provider, onRegister, onRet
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((p) => ({
   dim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(59,57,80,0.28)" },
   center: { ...StyleSheet.absoluteFillObject, justifyContent: "center", padding: pearlSpace.xl },
   card: {
@@ -52,12 +54,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "rgba(250,249,252,0.97)",
     borderWidth: 1,
-    borderColor: pearl.white,
+    borderColor: p.white,
   },
   icon: { width: 56, height: 56, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(217,231,241,0.75)" },
   centerText: { textAlign: "center" },
   body: { textAlign: "center", fontSize: 13.5, lineHeight: 20 },
-  email: { color: pearl.ink, fontWeight: "700" },
+  email: { color: p.ink, fontWeight: "700" },
   stretchTop: { alignSelf: "stretch", marginTop: pearlSpace.sm },
   stretch: { alignSelf: "stretch" },
-});
+}));

@@ -1,7 +1,8 @@
 import { PearlActionFooter } from "@/components/ui/PearlActionFooter";
 import { AppSwitch } from "@/components/ui/AppSwitch";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
-import { pearl, pearlTones } from "@/components/auth/pearl/tokens";
+import { pearlTones } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { ClientButton, ClientChips, clientUi } from "../components/ClientPearl";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { maskPhone } from "@/utils/maskPhone";
@@ -46,6 +47,7 @@ import { usePearlColors, type PearlColors as ThemeColors } from "@/components/au
 import { EMAIL_INVALID_MESSAGE, isValidEmail } from "@/utils/validation";
 import { splitFullName } from "@/utils/name";
 import { useValidationScroll } from "@/hooks/useValidationScroll";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 const GENDER_OPTIONS = ["Female", "Male", "Other"] as const;
 
@@ -488,4 +490,4 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
 });
 
-const formUi = StyleSheet.create({ card: { padding: 16, gap: 14, borderRadius: 28, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder }, heading: { color: pearl.ink, fontSize: 16, fontWeight: "700" }, toggleRow: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 52 } });
+const formUi = themedStyles((p) => ({ card: { padding: 16, gap: 14, borderRadius: 28, backgroundColor: p.glass, borderWidth: 1, borderColor: p.glassBorder }, heading: { color: p.ink, fontSize: 16, fontWeight: "700" }, toggleRow: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 52 } }));

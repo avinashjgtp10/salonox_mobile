@@ -19,6 +19,9 @@ export function reportColumns(rows: ReportRow[], preferred: readonly ReportColum
     .map((column) => ({ ...column, label: applyTaxName(column.label, taxName) }));
 }
 
-export const reportCellValue = (key: string, value: unknown) => /phone|mobile|contact(?!person)/i.test(key)
-  ? value ? maskPhone(String(value)) : "—" : formatReportValue(key, value);
+export const reportCellValue = (key: string, value: unknown, multilineDate = false) => {
+  if (key === "totalContacts") return formatReportValue(key, value);
+  if (/phone|mobile|contact(?!person)/i.test(key)) return value ? maskPhone(String(value)) : "—";
+  return formatReportValue(key, value, multilineDate);
+};
 

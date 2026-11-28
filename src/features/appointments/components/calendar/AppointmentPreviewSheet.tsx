@@ -5,7 +5,8 @@ import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { getAppointmentInvoiceLabel } from "@/utils/clientPrivacy";
 import { appAlert as Alert } from "@/services/appAlert";
 import { salesService } from "@/services/sales.service";
-import { pearl, pearlGradients, pearlTones, type PearlTone } from "@/components/auth/pearl/tokens";
+import { pearlGradients, pearlTones, type PearlTone } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { Icon, type IconName } from "@/components/pearl/Icon";
 import { Ionicons } from "@expo/vector-icons";
 import { Avatar, IconButton, StatusPill, type PillTone } from "@/components/pearl/ui";
@@ -22,6 +23,7 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { Linking, Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 // Same item-type tags as the web's View Appointment cards, in the pearl tones.
 const ITEM_TONES: Record<AppointmentBilledItem["type"], PearlTone> = {
@@ -351,50 +353,50 @@ function SummaryRow({ divided, label, value }: { divided?: boolean; label: strin
   );
 }
 
-const s = StyleSheet.create({
+const s = themedStyles((p) => ({
   backdrop: { backgroundColor: "rgba(35,33,52,0.35)", flex: 1, justifyContent: "flex-end", paddingBottom: 8 },
   // Floats clear of the screen edge so the bottom corners (and the footer behind
   // the buttons) read as rounded, like the prototype's sheet panel.
-  sheet: { backgroundColor: "#F7F6FA", borderRadius: 28, marginHorizontal: 8, maxHeight: "90%", overflow: "hidden" },
-  handle: { alignSelf: "center", backgroundColor: pearl.divider, borderRadius: 2, height: 4, marginTop: 10, width: 36 },
+  sheet: { backgroundColor: p.bgBottom, borderRadius: 28, marginHorizontal: 8, maxHeight: "90%", overflow: "hidden" },
+  handle: { alignSelf: "center", backgroundColor: p.divider, borderRadius: 2, height: 4, marginTop: 10, width: 36 },
   header: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 18, paddingVertical: 12 },
-  title: { color: pearl.ink, fontSize: 18, fontWeight: "800" },
+  title: { color: p.ink, fontSize: 18, fontWeight: "800" },
   content: { gap: 14, paddingBottom: 18, paddingHorizontal: 18 },
   clientRow: { alignItems: "center", flexDirection: "row", gap: 12 },
   clientCopy: { flex: 1, minWidth: 0 },
-  clientName: { color: pearl.ink, fontSize: 18, fontWeight: "800" },
-  muted: { color: pearl.muted, fontSize: 13, marginTop: 2 },
-  body: { color: pearl.ink, fontSize: 14, lineHeight: 21 },
-  card: { backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderRadius: 22, borderWidth: 1, overflow: "hidden" },
+  clientName: { color: p.ink, fontSize: 18, fontWeight: "800" },
+  muted: { color: p.muted, fontSize: 13, marginTop: 2 },
+  body: { color: p.ink, fontSize: 14, lineHeight: 21 },
+  card: { backgroundColor: p.glass, borderColor: p.glassBorder, borderRadius: 22, borderWidth: 1, overflow: "hidden" },
   kv: { alignItems: "center", flexDirection: "row", gap: 14, justifyContent: "space-between", minHeight: 46, paddingHorizontal: 16, paddingVertical: 11 },
-  kvDivided: { borderTopColor: pearl.divider, borderTopWidth: 1 },
-  kvLabel: { color: pearl.muted, flexShrink: 1, fontSize: 13 },
-  kvValue: { color: pearl.ink, flexShrink: 1, fontSize: 13, fontWeight: "700", maxWidth: "70%", textAlign: "right" },
-  totalLabel: { color: pearl.ink, fontSize: 15, fontWeight: "800" },
-  paidLabel: { color: pearl.successText, fontSize: 13, fontWeight: "700" },
-  dueLabel: { color: pearl.dangerText, fontSize: 13, fontWeight: "700" },
+  kvDivided: { borderTopColor: p.divider, borderTopWidth: 1 },
+  kvLabel: { color: p.muted, flexShrink: 1, fontSize: 13 },
+  kvValue: { color: p.ink, flexShrink: 1, fontSize: 13, fontWeight: "700", maxWidth: "70%", textAlign: "right" },
+  totalLabel: { color: p.ink, fontSize: 15, fontWeight: "800" },
+  paidLabel: { color: p.successText, fontSize: 13, fontWeight: "700" },
+  dueLabel: { color: p.dangerText, fontSize: 13, fontWeight: "700" },
   quickActions: { flexDirection: "row", gap: 8 },
   quickAction: { alignItems: "center", flex: 1, gap: 7 },
-  quickIcon: { alignItems: "center", backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderRadius: 16, borderWidth: 1, height: 46, justifyContent: "center", width: 46 },
-  quickLabel: { color: pearl.ink, fontSize: 11.5, fontWeight: "600" },
-  alertCard: { backgroundColor: pearl.warningBg, borderColor: pearl.warningBorder, borderRadius: 18, borderWidth: 1, gap: 4, padding: 14 },
-  alertLabel: { color: pearl.warningText, fontSize: 12, fontWeight: "800", letterSpacing: 0.4, textTransform: "uppercase" },
-  sectionTitle: { color: pearl.ink, fontSize: 15, fontWeight: "800", marginBottom: -4, marginTop: 2 },
+  quickIcon: { alignItems: "center", backgroundColor: p.glass, borderColor: p.glassBorder, borderRadius: 16, borderWidth: 1, height: 46, justifyContent: "center", width: 46 },
+  quickLabel: { color: p.ink, fontSize: 11.5, fontWeight: "600" },
+  alertCard: { backgroundColor: p.warningBg, borderColor: p.warningBorder, borderRadius: 18, borderWidth: 1, gap: 4, padding: 14 },
+  alertLabel: { color: p.warningText, fontSize: 12, fontWeight: "800", letterSpacing: 0.4, textTransform: "uppercase" },
+  sectionTitle: { color: p.ink, fontSize: 15, fontWeight: "800", marginBottom: -4, marginTop: 2 },
   itemBody: { gap: 8, padding: 16 },
   itemTop: { alignItems: "flex-start", flexDirection: "row", gap: 10, justifyContent: "space-between" },
-  itemName: { color: pearl.ink, flex: 1, fontSize: 15, fontWeight: "700" },
-  itemPrice: { color: pearl.ink, fontSize: 14, fontWeight: "800" },
+  itemName: { color: p.ink, flex: 1, fontSize: 15, fontWeight: "700" },
+  itemPrice: { color: p.ink, fontSize: 14, fontWeight: "800" },
   itemMeta: { alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 8 },
   tag: { borderRadius: 7, paddingHorizontal: 7, paddingVertical: 2 },
   tagText: { fontSize: 10, fontWeight: "800", letterSpacing: 0.2 },
-  itemBreakdown: { color: pearl.muted, fontSize: 12 },
-  noteButton: { alignItems: "center", alignSelf: "flex-start", backgroundColor: pearl.glassStrong, borderColor: pearl.glassBorder, borderRadius: 12, borderWidth: 1, flexDirection: "row", gap: 7, marginTop: 6, minHeight: 38, paddingHorizontal: 12 },
-  noteButtonText: { color: pearl.accentDeep, fontSize: 13, fontWeight: "700" },
-  footer: { backgroundColor: "#F7F6FA", borderTopColor: pearl.divider, borderTopWidth: 1, flexDirection: "row", gap: 10, paddingHorizontal: 18, paddingTop: 12 },
-  secondary: { alignItems: "center", backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderRadius: 16, borderWidth: 1, flexDirection: "row", gap: 7, justifyContent: "center", minHeight: 50, paddingHorizontal: 18 },
-  secondaryText: { color: pearl.accentDeep, fontSize: 14, fontWeight: "700" },
+  itemBreakdown: { color: p.muted, fontSize: 12 },
+  noteButton: { alignItems: "center", alignSelf: "flex-start", backgroundColor: p.glassStrong, borderColor: p.glassBorder, borderRadius: 12, borderWidth: 1, flexDirection: "row", gap: 7, marginTop: 6, minHeight: 38, paddingHorizontal: 12 },
+  noteButtonText: { color: p.accentDeep, fontSize: 13, fontWeight: "700" },
+  footer: { backgroundColor: p.bgBottom, borderTopColor: p.divider, borderTopWidth: 1, flexDirection: "row", gap: 10, paddingHorizontal: 18, paddingTop: 12 },
+  secondary: { alignItems: "center", backgroundColor: p.glass, borderColor: p.glassBorder, borderRadius: 16, borderWidth: 1, flexDirection: "row", gap: 7, justifyContent: "center", minHeight: 50, paddingHorizontal: 18 },
+  secondaryText: { color: p.accentDeep, fontSize: 14, fontWeight: "700" },
   primaryWrap: { flex: 1 },
-  primaryDisabled: { backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderRadius: 16, borderWidth: 1 },
+  primaryDisabled: { backgroundColor: p.glass, borderColor: p.glassBorder, borderRadius: 16, borderWidth: 1 },
   primary: { alignItems: "center", borderRadius: 16, flexDirection: "row", gap: 7, justifyContent: "center", minHeight: 50 },
   primaryText: { color: "#fff", fontSize: 14, fontWeight: "700" },
-});
+}));

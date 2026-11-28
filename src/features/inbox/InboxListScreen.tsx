@@ -1,5 +1,5 @@
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { api } from "@/services/api";
 import { MARKETING } from "@/services/api/endpoints/marketing.endpoints";
 import { asRecord, toSafeString } from "@/utils/apiNormalize";

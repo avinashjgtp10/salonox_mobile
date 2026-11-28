@@ -1,7 +1,7 @@
-import { StyleSheet } from "react-native";
 import { useMemo } from "react";
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { useAppTheme } from "@/theme/ThemeProvider";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 export function useInboxTheme() {
   const theme = useAppTheme();
@@ -25,7 +25,7 @@ export function useInboxTheme() {
   );
   const styles = useMemo(
     () =>
-      StyleSheet.create({
+      themedStyles((p) => ({
         fill: { flex: 1, minWidth: 0 },
         root: { flex: 1, backgroundColor: "transparent" },
         header: {
@@ -48,16 +48,16 @@ export function useInboxTheme() {
           borderRadius: 14,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: pearl.glassStrong,
+          backgroundColor: p.glassStrong,
           borderWidth: 1,
-          borderColor: pearl.glassBorder,
+          borderColor: p.glassBorder,
         },
         search: {
           margin: 14,
           marginBottom: 8,
           borderRadius: 16,
           borderWidth: 1,
-          borderColor: pearl.fieldBorder,
+          borderColor: p.fieldBorder,
           backgroundColor: palette.field,
           paddingLeft: 12,
           flexDirection: "row",
@@ -83,15 +83,15 @@ export function useInboxTheme() {
           minHeight: 34,
           paddingHorizontal: 13,
           borderRadius: 12,
-          backgroundColor: pearl.glass,
+          backgroundColor: p.glass,
           borderWidth: 1,
-          borderColor: pearl.glassBorder,
+          borderColor: p.glassBorder,
           alignItems: "center",
           justifyContent: "center",
           flexDirection: "row",
           gap: 6,
         },
-        selected: { backgroundColor: pearl.accent },
+        selected: { backgroundColor: p.accent },
         selectedText: { color: "#FFFFFF", fontWeight: "600" },
         accentText: { color: palette.accent },
         badge: {
@@ -109,8 +109,8 @@ export function useInboxTheme() {
           gap: 13,
           padding: 14,
           borderBottomWidth: 1,
-          borderBottomColor: pearl.divider,
-          backgroundColor: pearl.glass,
+          borderBottomColor: p.divider,
+          backgroundColor: p.glass,
         },
         avatar: {
           width: 48,
@@ -142,8 +142,8 @@ export function useInboxTheme() {
           padding: 13,
           borderRadius: 18,
           borderWidth: 1,
-          borderColor: pearl.glassBorder,
-          backgroundColor: pearl.glassStrong,
+          borderColor: p.glassBorder,
+          backgroundColor: p.glassStrong,
           gap: 6,
         },
         outgoing: {
@@ -204,9 +204,9 @@ export function useInboxTheme() {
           paddingHorizontal: 12,
           paddingVertical: 12,
           borderRadius: 16,
-          backgroundColor: pearl.warningBg,
+          backgroundColor: p.warningBg,
           borderWidth: 1,
-          borderColor: pearl.warningBorder,
+          borderColor: p.warningBorder,
           gap: 10,
         },
         error: { color: palette.error, fontSize: 13, lineHeight: 19 },
@@ -277,7 +277,7 @@ export function useInboxTheme() {
           borderRadius: 10,
           backgroundColor: palette.active,
         },
-      }),
+      })),
     [palette],
   );
   return { ...theme, palette, styles };

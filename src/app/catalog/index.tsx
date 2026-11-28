@@ -22,7 +22,8 @@ import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout } from "@/constants/layout";
 import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
-import { pearl, pearlGradients, pearlTones } from "@/components/auth/pearl/tokens";
+import { pearlGradients, pearlTones } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { LinearGradient } from "expo-linear-gradient";
 import { LunoxHeaderButton } from "@/components/lunox/LunoxHeaderButton";
 
@@ -60,6 +61,7 @@ import type { Product } from "@/types/product";
 import type { ServiceListItem } from "@/types/service";
 import { formatCurrency as formatMoney } from "@/utils/currency";
 import { formatUnitSize } from "@/utils/productUnit";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 type CatalogItem = FilterableCatalogItem & {
   id: string;
@@ -549,27 +551,27 @@ export default function CatalogScreen() {
   );
 }
 
-const createStyles = (Colors: ThemeColors) => StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => themedStyles((p) => ({
   safeArea: { flex: 1 }, content: { paddingBottom: AppLayout.contentBottomPadding + 80, paddingHorizontal: 16 },
   listHeader: { gap: 14, paddingTop: 8, paddingBottom: 8 },
   header: { flexDirection: "row", alignItems: "center", gap: 12, paddingBottom: 4 },
-  title: { color: pearl.ink, fontSize: 23, fontWeight: "800" }, subtitle: { color: pearl.muted, fontSize: 12, marginTop: 2 },
-  tabsScroller: { backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderWidth: 1, borderRadius: 17 },
+  title: { color: p.ink, fontSize: 23, fontWeight: "800" }, subtitle: { color: p.muted, fontSize: 12, marginTop: 2 },
+  tabsScroller: { backgroundColor: p.glass, borderColor: p.glassBorder, borderWidth: 1, borderRadius: 17 },
   tabsContent: { padding: 4, gap: 4 }, tab: { minHeight: 42, paddingHorizontal: 16, alignItems: "center", justifyContent: "center", borderRadius: 13 },
-  tabActive: { backgroundColor: pearl.glassStrong }, tabText: { fontSize: 13, fontWeight: "600", color: pearl.muted }, tabTextActive: { color: pearl.ink, fontWeight: "700" },
-  summaryRow: { flexDirection: "row", gap: 10 }, summaryTile: { flex: 1, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, borderRadius: 22, padding: 14, gap: 6 },
-  summaryLabel: { color: pearl.muted, fontSize: 12 }, summaryValue: { color: pearl.ink, fontSize: 23, fontWeight: "800" },
-  toolbar: { flexDirection: "row", alignItems: "center", gap: 8 }, searchBox: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderWidth: 1, borderRadius: 16, paddingHorizontal: 12 },
-  searchInput: { flex: 1, paddingVertical: 12, fontSize: 14, color: pearl.ink }, viewButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder },
-  chips: { flexDirection: "row", gap: 8 }, chip: { paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderWidth: 1 }, chipActive: { backgroundColor: pearl.accentWash, borderColor: pearl.accentTint }, chipText: { color: pearl.ink2, fontSize: 12, fontWeight: "600" },
-  filterToolbar: { flexDirection: "row", alignItems: "center", gap: 10 }, filterButton: { minHeight: 36, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, borderRadius: 12, backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderWidth: 1 },
-  filterButtonText: { color: pearl.accentDeep, fontSize: 12, fontWeight: "600" }, clearFilterText: { color: pearl.accentDeep, fontSize: 12, fontWeight: "700" }, resultCount: { flex: 1, color: pearl.muted, fontSize: 11 },
-  tableRow: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 82, padding: 12, backgroundColor: pearl.glass, borderBottomWidth: 1, borderColor: pearl.divider },
+  tabActive: { backgroundColor: p.glassStrong }, tabText: { fontSize: 13, fontWeight: "600", color: p.muted }, tabTextActive: { color: p.ink, fontWeight: "700" },
+  summaryRow: { flexDirection: "row", gap: 10 }, summaryTile: { flex: 1, backgroundColor: p.glass, borderWidth: 1, borderColor: p.glassBorder, borderRadius: 22, padding: 14, gap: 6 },
+  summaryLabel: { color: p.muted, fontSize: 12 }, summaryValue: { color: p.ink, fontSize: 23, fontWeight: "800" },
+  toolbar: { flexDirection: "row", alignItems: "center", gap: 8 }, searchBox: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: p.glass, borderColor: p.glassBorder, borderWidth: 1, borderRadius: 16, paddingHorizontal: 12 },
+  searchInput: { flex: 1, paddingVertical: 12, fontSize: 14, color: p.ink }, viewButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: p.glass, borderWidth: 1, borderColor: p.glassBorder },
+  chips: { flexDirection: "row", gap: 8 }, chip: { paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, backgroundColor: p.glass, borderColor: p.glassBorder, borderWidth: 1 }, chipActive: { backgroundColor: p.accentWash, borderColor: p.accentTint }, chipText: { color: p.ink2, fontSize: 12, fontWeight: "600" },
+  filterToolbar: { flexDirection: "row", alignItems: "center", gap: 10 }, filterButton: { minHeight: 36, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, borderRadius: 12, backgroundColor: p.glass, borderColor: p.glassBorder, borderWidth: 1 },
+  filterButtonText: { color: p.accentDeep, fontSize: 12, fontWeight: "600" }, clearFilterText: { color: p.accentDeep, fontSize: 12, fontWeight: "700" }, resultCount: { flex: 1, color: p.muted, fontSize: 11 },
+  tableRow: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 82, padding: 12, backgroundColor: p.glass, borderBottomWidth: 1, borderColor: p.divider },
   itemIcon: { width: 40, height: 40, borderRadius: 13, justifyContent: "center", alignItems: "center" },
-  tableName: { color: pearl.ink, fontSize: 14, fontWeight: "700" }, tableCell: { color: pearl.muted, fontSize: 12, lineHeight: 18 }, tablePrice: { color: pearl.ink, fontSize: 13, fontWeight: "700" },
+  tableName: { color: p.ink, fontSize: 14, fontWeight: "700" }, tableCell: { color: p.muted, fontSize: 12, lineHeight: 18 }, tablePrice: { color: p.ink, fontSize: 13, fontWeight: "700" },
   stockPill: { borderRadius: 12, paddingHorizontal: 7, paddingVertical: 3, fontSize: 10, fontWeight: "600" }, tableDeleteButton: { width: 22, minHeight: 44, alignItems: "center", justifyContent: "center" },
-  catalogGridRow: { gap: 10, marginBottom: 10 }, catalogGridCard: { flexBasis: "46%", flexGrow: 1, minWidth: 120, backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderWidth: 1, borderRadius: 22, padding: 14 }, catalogGridCopy: { gap: 7, flex: 1 },
+  catalogGridRow: { gap: 10, marginBottom: 10 }, catalogGridCard: { flexBasis: "46%", flexGrow: 1, minWidth: 120, backgroundColor: p.glass, borderColor: p.glassBorder, borderWidth: 1, borderRadius: 22, padding: 14 }, catalogGridCopy: { gap: 7, flex: 1 },
   fab: { position: "absolute", right: 20, bottom: 28, borderRadius: 18, overflow: "hidden", minHeight: 52, paddingHorizontal: 22, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }, addButtonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
-  choices: { borderRadius: 22, overflow: "hidden", backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder }, choice: { flexDirection: "row", gap: 12, alignItems: "center", padding: 14, borderBottomWidth: 1, borderBottomColor: pearl.divider },
-  state: { alignItems: "center", minHeight: 240, padding: 24, gap: 10 }, stateTitle: { color: pearl.ink, fontSize: 17, fontWeight: "700", textAlign: "center" }, stateText: { color: pearl.muted, fontSize: 13, lineHeight: 20, textAlign: "center" }, retryButton: { paddingHorizontal: 20, paddingVertical: 12, borderRadius: 16, borderWidth: 1, borderColor: Colors.primary }, retryText: { color: pearl.accentDeep, fontSize: 14, fontWeight: "700" },
-});
+  choices: { borderRadius: 22, overflow: "hidden", backgroundColor: p.glass, borderWidth: 1, borderColor: p.glassBorder }, choice: { flexDirection: "row", gap: 12, alignItems: "center", padding: 14, borderBottomWidth: 1, borderBottomColor: p.divider },
+  state: { alignItems: "center", minHeight: 240, padding: 24, gap: 10 }, stateTitle: { color: p.ink, fontSize: 17, fontWeight: "700", textAlign: "center" }, stateText: { color: p.muted, fontSize: 13, lineHeight: 20, textAlign: "center" }, retryButton: { paddingHorizontal: 20, paddingVertical: 12, borderRadius: 16, borderWidth: 1, borderColor: Colors.primary }, retryText: { color: p.accentDeep, fontSize: 14, fontWeight: "700" },
+}));

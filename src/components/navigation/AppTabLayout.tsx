@@ -7,16 +7,18 @@ import { BottomTabBarHeightCallbackContext, type BottomTabBarProps } from "@reac
 import { LinearGradient } from "expo-linear-gradient";
 import { router, Tabs, type Href } from "expo-router";
 import { type ReactNode, useContext, useEffect, useMemo, useState } from "react";
-import { Image, type LayoutChangeEvent, Platform, Pressable, StyleSheet, View } from "react-native";
+import { Image, type LayoutChangeEvent, Platform, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Defs, LinearGradient as SvgGradient, Path, Stop } from "react-native-svg";
 
-import { pearl, pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { Icon, type IconName } from "@/components/pearl/Icon";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/ui/AppTypography";
 import { usePearlPalette } from "@/components/auth/pearl/usePearlPalette";
 import { useAppTheme } from "@/theme/ThemeProvider";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 const BAR_H = 70; // pill height
 const LIFT = 26; // space above the pill for the notch and the raised button
@@ -167,7 +169,7 @@ export function AppTabLayout({ children, tabs }: AppTabLayoutProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((p) => ({
   wrap: { position: "absolute", left: 14, right: 14 },
   bar: {
     width: "100%", maxWidth: 600, alignSelf: "center",
@@ -178,16 +180,16 @@ const styles = StyleSheet.create({
   row: { flex: 1, flexDirection: "row", alignItems: "center", paddingHorizontal: 6 },
   slot: { flex: 1, alignSelf: "stretch", alignItems: "center", justifyContent: "center", gap: 3, paddingTop: 6 },
   label: { fontWeight: "600", fontSize: 10.5 },
-  marker: { width: 18, height: 3, borderRadius: 2, backgroundColor: pearl.accent, marginTop: 2 },
+  marker: { width: 18, height: 3, borderRadius: 2, backgroundColor: p.accent, marginTop: 2 },
   raised: {
     position: "absolute", top: -30, alignSelf: "center",
     width: 56, height: 56, borderRadius: 28,
     alignItems: "center", justifyContent: "center", backgroundColor: "#FBFAFD",
-    borderWidth: 3, borderColor: pearl.accentTint,
+    borderWidth: 3, borderColor: p.accentTint,
     shadowColor: "#1F3A45", shadowOpacity: 0.22, shadowRadius: 12, shadowOffset: { width: 0, height: 8 }, elevation: 8,
   },
   raisedAction: { borderColor: "#FBFAFD" },
   raisedLabel: { color: "#1F3A45" },
-  badge: { position: "absolute", top: -5, right: -9, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 3, backgroundColor: pearl.accent, borderWidth: 2, borderColor: "#fff", alignItems: "center", justifyContent: "center" },
+  badge: { position: "absolute", top: -5, right: -9, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 3, backgroundColor: p.accent, borderWidth: 2, borderColor: "#fff", alignItems: "center", justifyContent: "center" },
   badgeText: { color: "#fff", fontWeight: "800", fontSize: 9, lineHeight: 11 },
-});
+}));

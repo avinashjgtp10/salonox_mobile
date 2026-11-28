@@ -1,9 +1,9 @@
 import { useEffect, useMemo } from "react";
-import { FlatList, RefreshControl, StyleSheet, View } from "react-native";
+import { FlatList, RefreshControl, View } from "react-native";
 
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { StaffAvatar, staffUi } from "@/features/staff/components/StaffPearl";
 import { fetchStaffScheduleThunk } from "@/middleware/staff/staffSchedule.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -16,6 +16,7 @@ import {
 import type { RootState } from "@/store";
 import type { ScheduleDayEntry } from "@/types/staffSchedule";
 import { isValidStaffId } from "@/utils/staffIds";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 type StaffLite = { id: string; name: string; initials: string; avatarUrl?: string | null };
 
@@ -122,17 +123,17 @@ export function StaffWeeklyShiftsView({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((p) => ({
   card: { gap: 12, marginTop: 4, padding: 14 },
   cardHeader: { alignItems: "center", flexDirection: "row", gap: 12 },
   loadingRow: { paddingVertical: 10 },
   grid: { flexDirection: "row", gap: 4, justifyContent: "space-between" },
   col: { alignItems: "center", flex: 1, gap: 4 },
-  dayHeader: { color: pearl.ink2, fontSize: 11, fontWeight: "800", textTransform: "uppercase" },
-  dayHeaderSunday: { color: pearl.warningText },
-  cell: { alignItems: "center", backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderRadius: 10, borderWidth: 1, minHeight: 50, paddingHorizontal: 3, paddingVertical: 5, width: "100%" },
-  cellOff: { backgroundColor: pearl.warningBg, borderColor: pearl.warningBg },
-  cellOffText: { color: pearl.warningText, fontSize: 10, fontWeight: "800" },
-  cellTime: { color: pearl.ink, fontSize: 9.5, fontWeight: "700", textAlign: "center" },
-  cellDash: { color: pearl.muted, fontSize: 9 },
-});
+  dayHeader: { color: p.ink2, fontSize: 11, fontWeight: "800", textTransform: "uppercase" },
+  dayHeaderSunday: { color: p.warningText },
+  cell: { alignItems: "center", backgroundColor: p.glass, borderColor: p.glassBorder, borderRadius: 10, borderWidth: 1, minHeight: 50, paddingHorizontal: 3, paddingVertical: 5, width: "100%" },
+  cellOff: { backgroundColor: p.warningBg, borderColor: p.warningBg },
+  cellOffText: { color: p.warningText, fontSize: 10, fontWeight: "800" },
+  cellTime: { color: p.ink, fontSize: 9.5, fontWeight: "700", textAlign: "center" },
+  cellDash: { color: p.muted, fontSize: 9 },
+}));

@@ -3,6 +3,7 @@ import { StyleSheet, TouchableOpacity, View, type StyleProp, type ViewStyle, typ
 import { Icon } from "@/components/pearl/Icon";
 import { usePearlPalette } from "@/components/auth/pearl/usePearlPalette";
 import { AppLayout } from "@/constants/layout";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 
 type AppBackButtonProps = Omit<TouchableOpacityProps, "onPress"> & {
   fallbackHref?: Href;
@@ -23,6 +24,6 @@ export function AppBackButtonPlaceholder({ style }: { style?: StyleProp<ViewStyl
   return <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[style, styles.button, styles.placeholder]} />;
 }
 const styles = StyleSheet.create({
-  button: { width: 42, height: 42, flexShrink: 0, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.8)", borderColor: "rgba(255,255,255,0.95)", borderWidth: 1, shadowColor: "#46446E", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 10, elevation: 0 },
+  button: { width: 42, height: 42, flexShrink: 0, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: pearl.glassStrong, borderColor: "rgba(255,255,255,0.95)", borderWidth: 1, shadowColor: "#46446E", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 10, elevation: 0 },
   placeholder: { opacity: 0 },
 });

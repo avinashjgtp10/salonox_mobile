@@ -27,7 +27,7 @@ import {
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { DateRangePickerSheet } from "@/components/ui/DateRangePickerSheet";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import {
   StaffHeader,
   StaffAvatar,

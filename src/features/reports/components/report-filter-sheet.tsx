@@ -40,6 +40,7 @@ export function ReportFilterSheet({ slug, data, filters, onApply, onClose, visib
     for (const field of definitions) {
       const value = draft[field.key]?.[0];
       if (!value) continue;
+      if (field.key === "lost_days" && Number(value) < 1) return "Enter at least one day of inactivity.";
       if (field.kind === "number" && (field.decimal ? !/^\d+(?:\.\d{1,2})?$/.test(value) || !Number.isFinite(Number(value)) : !/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)))) return `${field.label} must be a non-negative ${field.decimal ? "amount with up to two decimal places" : "whole number"}.`;
       if (field.kind === "date" && (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(value)) || new Date(value).toISOString().slice(0, 10) !== value)) return `${field.label} must be a valid date (YYYY-MM-DD).`;
     }
@@ -50,7 +51,7 @@ export function ReportFilterSheet({ slug, data, filters, onApply, onClose, visib
     const next = { ...filters, page: 1 };
     definitions.forEach((field) => {
       const values = draft[field.key] ?? [];
-      next[field.key] = field.kind === "boolean" ? values[0] ?? "true" : field.single || field.kind ? values[0] ?? "" : values.length ? JSON.stringify(values) : "";
+      next[field.key] = field.kind === "boolean" ? values[0] ?? "true" : field.single || field.kind ? values[0] ?? (field.key === "lost_days" ? "90" : "") : values.length ? JSON.stringify(values) : "";
     });
     onApply(next);
   }} />;

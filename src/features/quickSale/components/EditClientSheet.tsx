@@ -1,4 +1,4 @@
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { parsePhoneNumber, isValidPhoneNumber, getCountryCallingCode, type CountryCode } from "libphonenumber-js";
 import { useEffect, useRef, useState } from "react";
