@@ -1,4 +1,4 @@
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { AppSwitch } from "@/components/ui/AppSwitch";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { useEffect, useMemo, useState } from "react";

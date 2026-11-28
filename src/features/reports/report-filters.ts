@@ -1,4 +1,5 @@
 import type { FilterOption } from "@/components/ui/FilterSheet";
+import { CLIENT_SOURCES } from "@/features/clients/constants/clientSources";
 import type { ReportFilterKey, ReportFilters, ReportSlug } from "./report-config";
 
 export type ReportFilterDefinition = {
@@ -79,7 +80,7 @@ Object.assign(REPORT_FILTER_FIELDS, {
   "pending-payment": [],
   "cash-management": [field("status", "Status", options("open", "closed"), true)],
   "all-clients": [gender, activeStatus, clientSource, field("has_membership", "Membership", [{ id: "true", label: "Has Membership" }, { id: "false", label: "No Membership" }], true), field("has_package", "Package", [{ id: "true", label: "Has Package" }, { id: "false", label: "No Package" }], true), field("customer_type", "Visit History", options("new", "repetitive"), true), field("birth_month", "Birth Month", months, true), { ...numberField("total_spend_min", "Minimum Spend"), decimal: true }, { ...numberField("total_spend_max", "Maximum Spend"), decimal: true }, dateField("joined_from", "Joined from"), dateField("joined_to", "Joined to"), dateField("last_visit_from", "Last visit from"), dateField("last_visit_to", "Last visit to")],
-  "client-source": [source("sources", "Client Source", "sources")],
+  "client-source": [field("sources", "Client Source", [...CLIENT_SOURCES.map(({ value, label }) => ({ id: value, label })), { id: "not_set", label: "Not set" }])],
   "enquiry-report": [staff, service, field("statuses", "Status", options("New", "Contacted", "Follow-up", "Converted", "Lost", "Closed")), source("sources", "Source", "sources"), dateField("follow_up_date", "Follow-up Date")],
   "commission-report": [staff, field("category", "Item", options("services", "products", "memberships", "packages"), true), payoutStatus],
   "tip-report": [staff, payoutStatus],
@@ -127,4 +128,4 @@ export const decodeReportSelection = (value?: string): string[] => {
 };
 
 export const countReportFilters = (slug: ReportSlug, filters: ReportFilters) =>
-  (REPORT_FILTER_FIELDS[slug] ?? []).reduce((count, field) => count + (field.kind === "boolean" ? Number(filters[field.key] === "false") : field.single || field.kind ? Number(Boolean(filters[field.key])) : decodeReportSelection(filters[field.key]).length), 0);
+  (REPORT_FILTER_FIELDS[slug] ?? []).filter((field) => field.key !== "lost_days" || Number(filters.lost_days) !== 90).reduce((count, field) => count + (field.kind === "boolean" ? Number(filters[field.key] === "false") : field.single || field.kind ? Number(Boolean(filters[field.key])) : decodeReportSelection(filters[field.key]).length), 0);

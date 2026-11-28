@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { StyleSheet, useWindowDimensions, View } from "react-native";
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop } from "react-native-svg";
 import { usePearlPalette } from "./usePearlPalette";
+import { themedStyles } from "./themedStyles";
 
 /**
  * Pearl background, drawn exactly like the prototype's `.bg`:
@@ -68,6 +69,6 @@ export function PearlBackground({ children }: { children?: ReactNode }) {
   );
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1, backgroundColor: "#F5F4F6" },
-});
+const styles = themedStyles((p) => ({
+  fill: { flex: 1, backgroundColor: p.bgMid },
+}));

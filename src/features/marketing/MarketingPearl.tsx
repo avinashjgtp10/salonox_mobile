@@ -5,10 +5,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Text } from "@/components/ui/AppTypography";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import {
-  pearl,
   pearlGradients,
   pearlTones,
 } from "@/components/auth/pearl/tokens";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 export function MarketingHeader({
   title,
@@ -82,7 +82,7 @@ export function MarketingStat({
     </View>
   );
 }
-export const m = StyleSheet.create({
+export const m = themedStyles((p) => ({
   root: { flex: 1, backgroundColor: "transparent" },
   content: { paddingHorizontal: 16, paddingBottom: 28, gap: 14 },
   header: {
@@ -93,7 +93,7 @@ export const m = StyleSheet.create({
     paddingVertical: 14,
   },
   heading: {
-    color: pearl.ink,
+    color: p.ink,
     fontSize: 22,
     lineHeight: 28,
     fontWeight: "800",
@@ -108,17 +108,17 @@ export const m = StyleSheet.create({
   },
   fill: { flex: 1, minWidth: 0 },
   card: {
-    backgroundColor: pearl.glass,
-    borderColor: pearl.glassBorder,
+    backgroundColor: p.glass,
+    borderColor: p.glassBorder,
     borderWidth: 1,
     borderRadius: 22,
     padding: 14,
     gap: 12,
   },
-  title: { color: pearl.ink, fontSize: 14, fontWeight: "700" },
-  small: { color: pearl.muted, fontSize: 11.5, lineHeight: 17 },
-  body: { color: pearl.ink2, fontSize: 12.5, lineHeight: 19 },
-  section: { color: pearl.ink2, fontSize: 13, fontWeight: "700" },
+  title: { color: p.ink, fontSize: 14, fontWeight: "700" },
+  small: { color: p.muted, fontSize: 11.5, lineHeight: 17 },
+  body: { color: p.ink2, fontSize: 12.5, lineHeight: 19 },
+  section: { color: p.ink2, fontSize: 13, fontWeight: "700" },
   icon: {
     width: 32,
     height: 32,
@@ -131,9 +131,9 @@ export const m = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 14,
-    backgroundColor: pearl.glassStrong,
+    backgroundColor: p.glassStrong,
     borderWidth: 1,
-    borderColor: pearl.glassBorder,
+    borderColor: p.glassBorder,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -143,17 +143,17 @@ export const m = StyleSheet.create({
     minHeight: 34,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: pearl.glassBorder,
-    backgroundColor: pearl.glass,
+    borderColor: p.glassBorder,
+    backgroundColor: p.glass,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 13,
     paddingVertical: 7,
   },
-  chipText: { color: pearl.ink2, fontSize: 12, fontWeight: "600" },
+  chipText: { color: p.ink2, fontSize: 12, fontWeight: "600" },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   stat: { flex: 1, minWidth: 0, padding: 12, gap: 6, borderRadius: 20 },
-  value: { color: pearl.ink, fontSize: 25, fontWeight: "800" },
+  value: { color: p.ink, fontSize: 25, fontWeight: "800" },
   track: {
     height: 6,
     backgroundColor: "rgba(126,120,176,0.13)",
@@ -161,7 +161,7 @@ export const m = StyleSheet.create({
     overflow: "hidden",
     marginTop: 6,
   },
-  bar: { height: "100%", backgroundColor: pearl.accent, borderRadius: 6 },
+  bar: { height: "100%", backgroundColor: p.accent, borderRadius: 6 },
   chart: { flexDirection: "row", alignItems: "flex-end", height: 100, gap: 3 },
   barSlot: { flex: 1, height: "100%", justifyContent: "flex-end" },
   note: {
@@ -169,13 +169,13 @@ export const m = StyleSheet.create({
     gap: 8,
     padding: 12,
     borderRadius: 16,
-    backgroundColor: pearl.warningBg,
+    backgroundColor: p.warningBg,
     borderWidth: 1,
-    borderColor: pearl.warningBorder,
+    borderColor: p.warningBorder,
   },
   badge: {
-    color: pearl.successText,
-    backgroundColor: pearl.successBg,
+    color: p.successText,
+    backgroundColor: p.successBg,
     borderRadius: 20,
     paddingHorizontal: 9,
     paddingVertical: 5,
@@ -183,11 +183,11 @@ export const m = StyleSheet.create({
     fontWeight: "700",
   },
   empty: {
-    color: pearl.muted,
+    color: p.muted,
     fontSize: 13,
     lineHeight: 20,
     padding: 20,
     textAlign: "center",
   },
-  error: { color: pearl.dangerText, fontSize: 13, lineHeight: 20 },
-});
+  error: { color: p.dangerText, fontSize: 13, lineHeight: 20 },
+}));

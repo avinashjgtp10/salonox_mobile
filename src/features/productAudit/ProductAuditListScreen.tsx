@@ -1,5 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { pearl, pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { SettingsButton } from "@/features/settings/SettingsUI";
 import { formatAppDateTime } from "@/utils/dateTime";
 import { useCallback, useEffect, useRef, useState } from "react";

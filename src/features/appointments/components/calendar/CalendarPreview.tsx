@@ -1,4 +1,4 @@
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { useFooterClearance } from "@/hooks/useFooterClearance";
 import { PortalProvider } from "@/components/ui/PortalProvider";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";

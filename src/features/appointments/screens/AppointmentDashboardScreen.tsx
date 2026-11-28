@@ -1,6 +1,7 @@
 import { useRegionalPreferences } from "@/localization/preferences";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
-import { pearl, pearlGradients, pearlType } from "@/components/auth/pearl/tokens";
+import { pearlGradients, pearlType } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { Icon } from "@/components/pearl/Icon";
 import { IconButton, StatTile } from "@/components/pearl/ui";
 import { LinearGradient } from "expo-linear-gradient";
@@ -28,9 +29,10 @@ import type { AppointmentStatus } from "@/types/appointment";
 import type { Href } from "expo-router";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Image, RefreshControl, TouchableOpacity, ScrollView, StyleSheet, View } from "react-native";
+import { Image, RefreshControl, TouchableOpacity, ScrollView, View } from "react-native";
 import { LunoxSheet } from "@/components/lunox/LunoxSheet";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 function AppointmentDashboardScreenContent() {
   "use no memo";
@@ -185,15 +187,15 @@ function AppointmentDashboardScreenContent() {
 
 export const AppointmentDashboardScreen = withScreenTour(AppointmentDashboardScreenContent, screenTours.bookings);
 
-const ui = StyleSheet.create({
+const ui = themedStyles((p) => ({
   content: { paddingHorizontal: 18, paddingTop: 4, paddingBottom: 120 },
   header: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8 },
   stats: { flexDirection: "row", gap: 10, marginVertical: 14 }, stat: { flex: 1 },
-  tabs: { borderRadius: 16, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, marginBottom: 14 },
+  tabs: { borderRadius: 16, backgroundColor: p.glass, borderWidth: 1, borderColor: p.glassBorder, marginBottom: 14 },
   tab: { paddingHorizontal: 13, paddingVertical: 10, borderRadius: 12 }, tabOn: { backgroundColor: "rgba(255,255,255,0.85)" },
-  tabText: { fontSize: 13, fontWeight: "600", color: pearl.muted },
-  revenue: { marginTop: 14, padding: 14, borderRadius: 16, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, alignItems: "center" },
-  revenueText: { fontSize: 14, fontWeight: "700", color: pearl.ink },
+  tabText: { fontSize: 13, fontWeight: "600", color: p.muted },
+  revenue: { marginTop: 14, padding: 14, borderRadius: 16, backgroundColor: p.glass, borderWidth: 1, borderColor: p.glassBorder, alignItems: "center" },
+  revenueText: { fontSize: 14, fontWeight: "700", color: p.ink },
   fab: { position: "absolute", right: 18, bottom: 42, borderRadius: 18, overflow: "hidden" },
   fabInner: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 18, minHeight: 50 }, fabText: { color: "#fff", fontSize: 14, fontWeight: "700" },
-});
+}));

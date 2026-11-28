@@ -15,7 +15,7 @@ import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView
 import { KeyboardInsetView } from "@/components/ui/KeyboardInsetView";
 import { PearlActionFooter } from "@/components/ui/PearlActionFooter";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { appAlert as Alert } from "@/services/appAlert";
 import { getApiErrorMessage } from "@/services/api";
 import { authService } from "@/services/authService";

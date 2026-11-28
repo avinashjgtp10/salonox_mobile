@@ -1,4 +1,4 @@
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { Text } from "@/components/ui/AppTypography";
 import { memo, useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet } from "react-native";

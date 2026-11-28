@@ -34,6 +34,7 @@ import { AddJobCardItemSheet } from "@/features/appointments/components/shared/A
 import { buildAddJobCardItemPayload, type JobCardItemDraft } from "@/features/appointments/utils/addJobCardItem";
 import { appointmentService } from "@/services/appointment.service";
 import { getApiErrorMessage } from "@/services/api";
+import { useTaxName } from "@/hooks/useTaxName";
 
 export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | "staff" } = {}) {
   "use no memo";
@@ -193,12 +194,13 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
 
   // Payment & Billing card.
   const paymentStatusValue = paymentStatus === "Paid" ? "Paid successfully" : isStaffMode ? appointment?.paymentStatus : paymentStatus === "Partial" ? "Partially paid" : "Unpaid";
+  const taxName = useTaxName();
   const paymentMethodValue = appointment?.paymentMethod;
   const subtotalValue = salesSummary ? formatCurrency(salesSummary.subtotal) : null;
   const discountValue = salesSummary && salesSummary.discount > 0 ? `-${formatCurrency(salesSummary.discount)}` : null;
   const couponRowLabel = salesSummary?.couponCode ? `Coupon (${salesSummary.couponCode})` : "Coupon";
   const couponValue = salesSummary && salesSummary.couponDiscount > 0 ? `-${formatCurrency(salesSummary.couponDiscount)}` : null;
-  const taxRowLabel = salesSummary?.taxLabel || "GST";
+  const taxRowLabel = salesSummary?.taxLabel || taxName;
   const taxValue = salesSummary && salesSummary.totalTax > 0 ? `+${formatCurrency(salesSummary.totalTax)}` : null;
   const exChargesValue = salesSummary && salesSummary.exCharges > 0 ? `+${formatCurrency(salesSummary.exCharges)}` : null;
   const tipValue = salesSummary && salesSummary.tipAmount > 0 ? formatCurrency(salesSummary.tipAmount) : null;

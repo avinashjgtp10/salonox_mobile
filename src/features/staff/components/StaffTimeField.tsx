@@ -3,7 +3,7 @@ import { Platform, TouchableOpacity, View } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/ui/AppTypography";
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { StaffButton, staffUi } from "./StaffPearl";
 
 export function StaffTimeField({ label, value, onChange, error, disabled }: {

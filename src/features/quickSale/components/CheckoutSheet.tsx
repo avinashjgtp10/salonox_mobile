@@ -1,4 +1,4 @@
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { currencyLabel } from "@/utils/currency";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
@@ -28,6 +28,7 @@ import { getPackageCoveredQuantity } from "@/features/quickSale/utils/packageCov
 import { formatCurrency, parseAmount } from "@/features/quickSale/utils/money";
 import { isMissingStaff } from "@/features/quickSale/utils/staffRequirement";
 import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
+import { useTaxName } from "@/hooks/useTaxName";
 import type { CheckoutSaleSplitEntry, SalePaymentMethod } from "@/types/sales";
 import type {
   CheckoutSheetProps,
@@ -134,6 +135,8 @@ function CheckoutSheetComponent({
   // The amount field is prefilled with the full payable amount. This only
   // records whether the cashier has typed something else, so the prefill can
   // keep following the total until they do.
+  // GST in India, VAT in the UAE, on the bill as well as in reports.
+  const taxName = useTaxName();
   const [amountEdited, setAmountEdited] = useState(false);
   const [amountInput, setAmountInput] = useState("");
   const [discountMode, setDiscountMode] = useState<DiscountMode>(
@@ -452,6 +455,13 @@ function CheckoutSheetComponent({
     (Math.round(splitTotal * 100) - Math.round(amountToCollect * 100)) / 100,
   );
   const splitMismatch = paymentMethod === "split" && Math.round(splitTotal * 100) !== Math.round(amountToCollect * 100);
+  // What the cashier has actually entered, as opposed to what the bill asks
+  // for. In split these differ until the entries add up, and the Collect
+  // button must show the real figure rather than promising the bill total.
+  const collectedAmount = paymentMethod === "split" ? splitTotal : amountToCollect;
+  // A sale on the payment step collects something. Nothing entered means the
+  // cashier wants Save Pending on the review step, not a zero-value sale.
+  const nothingToCollect = collectedAmount <= 0;
   const discountValue = parseAmount(discountDraft);
   const discountEligibleSubtotal = useMemo(() => {
     if (totals.discountBase !== undefined) return totals.discountBase;
@@ -500,6 +510,7 @@ function CheckoutSheetComponent({
     // during one is held by handleComplete until the new totals land.
     !pricingError &&
     (noPaymentRequired || (paymentConfig.ready && !paymentConfig.error)) &&
+    (noPaymentRequired || !nothingToCollect) &&
     (noPaymentRequired || paymentMethod !== "split" || (splitEntries.length > 0 && !splitMismatch));
   const showPaymentMethodValidation = paymentValidationAttempted && !noPaymentRequired && paymentMethod === null;
   // Set when Complete is tapped mid-recalculation; released below once the
@@ -666,6 +677,28 @@ function CheckoutSheetComponent({
     setLastSingleMethod(method);
   };
 
+  // Split used to open with every field at zero, so the sheet showed ₹0 owing
+  // against a ₹300 bill until the cashier typed the whole thing in by hand.
+  // Seed the full amount into the method they were already on (or the first
+  // one offered); splitting it is then a matter of moving part of it across.
+  const handleSelectSplit = () => {
+    setPaymentMethod("split");
+    setSplitAmounts((current) => {
+      const alreadyStarted = paymentOptions.some((method) => parseAmount(current[method.value] ?? "") > 0);
+
+      if (alreadyStarted || amountToCollect <= 0) {
+        return current;
+      }
+
+      const seeded =
+        lastSingleMethod && paymentOptions.some((method) => method.value === lastSingleMethod)
+          ? lastSingleMethod
+          : paymentOptions[0]?.value;
+
+      return seeded ? { ...current, [seeded]: amountToCollect.toFixed(2) } : current;
+    });
+  };
+
   const handleContinueToPayment = () => {
     if (!hasItems) {
       return;
@@ -819,7 +852,7 @@ function CheckoutSheetComponent({
                     <TouchableOpacity
                       key="payment-mode-split"
                       activeOpacity={0.84}
-                      onPress={() => setPaymentMethod("split")}
+                      onPress={handleSelectSplit}
                       style={[styles.methodCard, styles.methodModeCard, paymentMethod === "split" && styles.methodCardActive]}
                     >
                       <Text translate style={[styles.methodText, paymentMethod === "split" && styles.methodTextActive]}>Split</Text>
@@ -853,20 +886,16 @@ function CheckoutSheetComponent({
                       <Text translate style={styles.inputLabel}>Split Payment</Text>
                       {paymentOptions.map((method) => {
                         const methodValue = splitAmountInput(method.value);
-                        const methodAmount = parseAmount(methodValue);
-                        const isUnusedMethodDisabled = splitRemaining === 0 && methodAmount === 0;
 
                         return (
                           <View key={`split-${method.value}`} style={styles.inputGroup}>
                             <Text translate style={styles.inputLabel}>{method.label}</Text>
                             <TextInput
-                              accessibilityState={{ disabled: isUnusedMethodDisabled }}
-                              editable={!isUnusedMethodDisabled}
                               keyboardType="decimal-pad"
                               onChangeText={(value) => setSplitAmounts((current) => ({ ...current, [method.value]: value }))}
-                              placeholder={isUnusedMethodDisabled ? "Fully paid" : "0"}
+                              placeholder="0"
                               placeholderTextColor={Colors.placeholder}
-                              style={[styles.input, isUnusedMethodDisabled && styles.inputDisabled]}
+                              style={styles.input}
                               value={methodValue}
                             />
                             {/* Right under the field being typed into, right-aligned — visible next to the
@@ -918,6 +947,10 @@ function CheckoutSheetComponent({
                   {amountExceedsTotal ? (
                     <Text style={styles.errorText}>
                       Amount cannot exceed the grand total ({formatCurrency(totals.grandTotal)}).
+                    </Text>
+                  ) : nothingToCollect && paymentMethod !== "split" ? (
+                    <Text translate style={styles.errorText}>
+                      Enter an amount to collect, or go back and save the bill as pending.
                     </Text>
                   ) : (
                     <Text style={styles.gstPreviewText}>Due after this payment: {formatCurrency(dueAmount)}</Text>
@@ -1154,7 +1187,7 @@ function CheckoutSheetComponent({
 
                   {showGstSection ? (
                     <View style={styles.formCard}>
-                      <Text translate style={styles.sectionTitle}>GST</Text>
+                      <Text style={styles.sectionTitle}>{taxName}</Text>
                       <View style={styles.membershipRow}>
                         <View>
                           <Text translate style={styles.membershipStatus}>
@@ -1174,10 +1207,10 @@ function CheckoutSheetComponent({
                       </View>
                       <Text style={styles.gstPreviewText}>
                         {!includeGst
-                          ? "GST not applied"
+                          ? `${taxName} not applied`
                           : isPricingLoading
-                            ? "Calculating GST…"
-                            : `GST applied: ${formatCurrency(gstPreviewAmount)}`}
+                            ? `Calculating ${taxName}…`
+                            : `${taxName} applied: ${formatCurrency(gstPreviewAmount)}`}
                       </Text>
                     </View>
                   ) : null}
@@ -1424,7 +1457,7 @@ function CheckoutSheetComponent({
                           {checkoutStep === "payment"
                             ? dueAmount > 0
                               ? "Record Payment"
-                              : `Collect ${formatCurrency(amountToCollect)}`
+                              : `Collect ${formatCurrency(collectedAmount)}`
                             : "Continue to Payment"}
                         </Text>
                         <Ionicons

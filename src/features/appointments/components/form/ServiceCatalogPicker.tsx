@@ -1,5 +1,6 @@
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
-import { pearl, pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { IconButton } from "@/components/pearl/ui";
 import { LinearGradient } from "expo-linear-gradient";
 import { PearlCatalogRow } from "@/features/quickSale/components/PearlCatalogRow";
@@ -20,6 +21,7 @@ import { formatUnitSize } from "@/utils/productUnit";
 import { useEffect, useMemo, useState } from "react";
 import { FlatList, Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 const NO_CLIENT_PACKAGES: ClientPackage[] = [];
 
@@ -217,22 +219,22 @@ export function ServiceCatalogPicker({
   );
 }
 
-const ui = StyleSheet.create({
+const ui = themedStyles((p) => ({
  overlay: { flex: 1, backgroundColor: "rgba(35,33,52,0.35)", justifyContent: "flex-end" },
  panel: { flex: 1, borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: "hidden" },
- handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: pearl.divider, alignSelf: "center", marginTop: 10 },
+ handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: p.divider, alignSelf: "center", marginTop: 10 },
  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 18, paddingVertical: 12 },
- title: { fontSize: 20, fontWeight: "800", color: pearl.ink },
+ title: { fontSize: 20, fontWeight: "800", color: p.ink },
  body: { flex: 1, paddingHorizontal: 18, gap: 10 },
  // flexShrink: 0 keeps the chip rows from being squeezed vertically (which
  // clipped the pills) when the service list below wants the column's space.
  chipRow: { flexGrow: 0, flexShrink: 0 },
  tabs: { flexDirection: "row", gap: 8, alignItems: "center", paddingVertical: 2 },
- chip: { minHeight: 36, alignItems: "center", justifyContent: "center", paddingHorizontal: 14, paddingVertical: 9, borderRadius: 14, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder },
- chipOn: { backgroundColor: pearl.accent },
- chipText: { fontSize: 13, lineHeight: 18, fontWeight: "600", color: pearl.accentDeep },
- search: { flexDirection: "row", alignItems: "center", backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, borderRadius: 16, paddingHorizontal: 14, minHeight: 48 },
- input: { flex: 1, fontSize: 14, color: pearl.ink, paddingVertical: 10 },
+ chip: { minHeight: 36, alignItems: "center", justifyContent: "center", paddingHorizontal: 14, paddingVertical: 9, borderRadius: 14, backgroundColor: p.glass, borderWidth: 1, borderColor: p.glassBorder },
+ chipOn: { backgroundColor: p.accent },
+ chipText: { fontSize: 13, lineHeight: 18, fontWeight: "600", color: p.accentDeep },
+ search: { flexDirection: "row", alignItems: "center", backgroundColor: p.glass, borderWidth: 1, borderColor: p.glassBorder, borderRadius: 16, paddingHorizontal: 14, minHeight: 48 },
+ input: { flex: 1, fontSize: 14, color: p.ink, paddingVertical: 10 },
  done: { minHeight: 50, borderRadius: 16, alignItems: "center", justifyContent: "center" },
  doneText: { fontSize: 15, fontWeight: "700", color: "#fff" },
-});
+}));

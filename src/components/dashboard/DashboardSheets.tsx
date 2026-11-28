@@ -5,10 +5,11 @@ import { canAccessBusinessModule, isStaffAccount } from "@/utils/staffExperience
  */
 import { router, type Href } from "expo-router";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, View } from "react-native";
 import Reanimated, { Easing as ReEasing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
-import { pearl, pearlShadow, pearlTones, pearlType, type PearlTone } from "@/components/auth/pearl/tokens";
+import { pearlShadow, pearlTones, pearlType, type PearlTone } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { Icon, type IconName } from "@/components/pearl/Icon";
 import { BottomSheet, SideDrawer } from "@/components/pearl/Sheet";
 import { Avatar, Card, Divider, EmptyState, ListRow, Skeleton, SmallButton, StatusPill, Tile } from "@/components/pearl/ui";
@@ -25,10 +26,11 @@ import type { NotificationItem } from "@/types/notification";
 import { resolveNotificationRoute } from "@/utils/notificationRouting";
 import { hasInventoryPermission } from "@/utils/permissions";
 import { getUserBusinessName, getUserFullName, getUserInitials } from "@/utils/userProfile";
-import { getApiErrorMessage } from "@/services/api";
+import { ApiError, getApiErrorMessage } from "@/services/api";
 import { BottomSheet as FormSheet } from "@/components/ui/BottomSheet";
 import { SettingsButton } from "@/features/settings/SettingsUI";
-import { ConnectedBranchesSheet } from "@/features/settings/ConnectedBranchesSheet";
+import { ConnectedBranchesSheet, type ConnectedBranchesMode } from "@/features/settings/ConnectedBranchesSheet";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 // Let a sheet finish closing before the next screen slides in.
 const afterClose = (action: () => void) => setTimeout(action, 240);
@@ -101,7 +103,7 @@ export function NotificationsSheet({ visible, onClose }: { visible: boolean; onC
                   onPress={() => openOne(item)}
                   accessibilityRole="button"
                   accessibilityLabel={`${item.isRead ? "" : "New. "}${item.title || "SalonOX alert"}. ${subtitle}`}
-                  style={({ pressed }) => [styles.notice, index > 0 && styles.sep, pressed && { backgroundColor: "rgba(255,255,255,0.55)" }]}
+                  style={({ pressed }) => [styles.notice, index > 0 && styles.sep, pressed && { backgroundColor: pearl.glassStrong }]}
                 >
                   <View>
                     <Tile icon={look.icon} tone={look.tone} />
@@ -285,9 +287,18 @@ export function SalonSwitchSheet({ visible, onClose }: { visible: boolean; onClo
   const status = useAppSelector(selectBranchStatus);
   const { switchSalon, user } = useAuth();
   const [isSwitching, setSwitching] = useState(false);
-  const [manage, setManage] = useState(false);
+  const [manage, setManage] = useState<false | ConnectedBranchesMode>(false);
   const lock = useRef(false);
   useEffect(() => { if (visible) void dispatch(fetchBranchesThunk()); else setManage(false); }, [visible, dispatch]);
+
+  // Opening another salon runs through the Branch Owner portal, which only
+  // exists once the owner has created a branch login. Without one the API
+  // answers 404 and the tap used to do nothing but raise a bare server
+  // message, leaving the owner on the salon they started from with no idea
+  // what to do. Recognise that one case and send them to the step that fixes
+  // it instead.
+  const needsBranchLogin = (error: unknown) =>
+    error instanceof ApiError && error.status === 404 && /branch login/i.test(error.message);
 
   const pick = async (id: string, name: string) => {
     if (id === activeBranchId || lock.current) return;
@@ -297,17 +308,22 @@ export function SalonSwitchSheet({ visible, onClose }: { visible: boolean; onClo
       onClose();
       toast.showSuccess(`Switched to ${name}`);
     } catch (error) {
-      toast.showError(getApiErrorMessage(error));
+      if (needsBranchLogin(error)) {
+        toast.showInfo("Create a branch login to open your other salons.");
+        setManage("create");
+      } else {
+        toast.showError(getApiErrorMessage(error));
+      }
     } finally {
       lock.current = false; setSwitching(false);
     }
   };
 
   if (!visible) return null;
-  if (manage) return <ConnectedBranchesSheet onClose={() => setManage(false)} onOpenPortal={() => { setManage(false); void dispatch(fetchBranchesThunk()); }} />;
+  if (manage) return <ConnectedBranchesSheet initialMode={manage} onClose={() => setManage(false)} onOpenPortal={() => { setManage(false); void dispatch(fetchBranchesThunk()); }} />;
   return (
     <FormSheet pearlStyle centered={false} visible={visible} onClose={() => { if (!lock.current) onClose(); }} title="Your salons"
-      footer={user?.role === "salon_owner" ? <View style={{flex:1,gap:10}}>{branches.some(branch => branch.isMain && branch.id !== activeBranchId) && <SettingsButton label="Back to main account" disabled={isSwitching} onPress={() => { const main = branches.find(branch => branch.isMain); if (main) void pick(main.id, main.name); }} />}<SettingsButton secondary label="Add a branch" disabled={isSwitching} onPress={() => setManage(true)} /></View> : undefined}>
+      footer={user?.role === "salon_owner" ? <View style={{flex:1,gap:10}}>{branches.some(branch => branch.isMain && branch.id !== activeBranchId) && <SettingsButton label="Back to main account" disabled={isSwitching} onPress={() => { const main = branches.find(branch => branch.isMain); if (main) void pick(main.id, main.name); }} />}<SettingsButton secondary label="Add a branch" disabled={isSwitching} onPress={() => setManage("list")} /></View> : undefined}>
       {status === "failed" ? (
         <EmptyState icon="alert" title="Couldn’t load your salons" body="Please check your connection and try again."
           action={<View style={{ marginTop: 8 }}><SmallButton title="Try again" icon="repeat" primary onPress={() => void dispatch(fetchBranchesThunk())} /></View>} />
@@ -337,25 +353,25 @@ export function SalonSwitchSheet({ visible, onClose }: { visible: boolean; onClo
   );
 }
 
-const styles = StyleSheet.create({
-  pressed: { backgroundColor: "rgba(255,255,255,0.5)" },
+const styles = themedStyles((p) => ({
+  pressed: { backgroundColor: p.glassStrong },
   notice: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
-  sep: { borderTopWidth: 1, borderTopColor: pearl.divider },
-  unreadDot: { position: "absolute", top: -3, right: -3, width: 10, height: 10, borderRadius: 5, backgroundColor: pearl.danger, borderWidth: 2, borderColor: "#fff" },
+  sep: { borderTopWidth: 1, borderTopColor: p.divider },
+  unreadDot: { position: "absolute", top: -3, right: -3, width: 10, height: 10, borderRadius: 5, backgroundColor: p.danger, borderWidth: 2, borderColor: "#fff" },
   // Drawer (prototype .drow / .drawer-grp / .dsub / .stat.mini / .btn-text)
   me: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 6, paddingBottom: 6, borderRadius: 16 },
-  group: { fontWeight: "800", fontSize: 10.5, letterSpacing: 0.9, color: pearl.muted, marginTop: 6, marginBottom: -6, marginHorizontal: 6 },
+  group: { fontWeight: "800", fontSize: 10.5, letterSpacing: 0.9, color: p.muted, marginTop: 6, marginBottom: -6, marginHorizontal: 6 },
   menuRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 9, paddingHorizontal: 8, borderRadius: 14 },
-  rowText: { fontSize: 14, fontWeight: "700", color: pearl.ink },
+  rowText: { fontSize: 14, fontWeight: "700", color: p.ink },
   planeTile: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: pearlTones.lavender.bg },
-  rowHint: { fontSize: 11, fontWeight: "600", color: pearl.muted, marginTop: 1 },
+  rowHint: { fontSize: 11, fontWeight: "600", color: p.muted, marginTop: 1 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingVertical: 6, paddingHorizontal: 2 },
-  create: { width: "47%", flexGrow: 1, flexDirection: "row", alignItems: "center", gap: 8, padding: 12, borderRadius: 20, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, ...pearlShadow.card },
-  createText: { fontSize: 13, fontWeight: "700", color: pearl.ink },
+  create: { width: "47%", flexGrow: 1, flexDirection: "row", alignItems: "center", gap: 8, padding: 12, borderRadius: 20, backgroundColor: p.glass, borderWidth: 1, borderColor: p.glassBorder, ...pearlShadow.card },
+  createText: { fontSize: 13, fontWeight: "700", color: p.ink },
   sub: { marginLeft: 26, marginBottom: 4, paddingLeft: 16, borderLeftWidth: 2, borderLeftColor: "#CFCBE8" },
   subRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 9, paddingHorizontal: 8, borderRadius: 12 },
-  subPressed: { backgroundColor: "rgba(255,255,255,0.6)" },
-  subText: { flex: 1, fontSize: 13.5, fontWeight: "600", color: pearl.ink },
+  subPressed: { backgroundColor: p.glassStrong },
+  subText: { flex: 1, fontSize: 13.5, fontWeight: "600", color: p.ink },
   signOut: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, alignSelf: "center", height: 48, paddingHorizontal: 12 },
-  signOutText: { fontSize: 14, fontWeight: "700", color: pearl.muted },
-});
+  signOutText: { fontSize: 14, fontWeight: "700", color: p.muted },
+}));

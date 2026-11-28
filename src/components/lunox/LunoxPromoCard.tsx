@@ -1,14 +1,16 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
-import { Image, Pressable, StyleSheet, View } from "react-native";
+import { Image, Pressable, View } from "react-native";
 
-import { pearl, pearlShadow } from "@/components/auth/pearl/tokens";
+import { pearlShadow } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { Icon } from "@/components/pearl/Icon";
 import { Text } from "@/components/ui/AppTypography";
 import { useAuth } from "@/context/AuthContext";
 import { canAccessLunox } from "@/utils/staffExperience";
 import { useOpenLunox } from "./LunoxContext";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 /**
  * A one-time, Groww-style promo card that markets Lunox AI with its brand image
@@ -85,9 +87,9 @@ function LunoxPromoCardContent() {
   );
 }
 
-const styles = StyleSheet.create({
-  card: { borderRadius: 22, padding: 14, gap: 12, borderWidth: 1, borderColor: pearl.glassBorder, ...pearlShadow.card },
-  close: { position: "absolute", top: 10, right: 10, width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.6)", zIndex: 2 },
+const styles = themedStyles((p) => ({
+  card: { borderRadius: 22, padding: 14, gap: 12, borderWidth: 1, borderColor: p.glassBorder, ...pearlShadow.card },
+  close: { position: "absolute", top: 10, right: 10, width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: p.glassStrong, zIndex: 2 },
   row: { flexDirection: "row", alignItems: "center", gap: 14 },
   hero: {
     width: 64, height: 64, borderRadius: 18, alignItems: "center", justifyContent: "center",
@@ -100,11 +102,11 @@ const styles = StyleSheet.create({
   word: { height: 15, width: 51 },
   tag: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 7, backgroundColor: "rgba(214,196,240,0.6)" },
   tagText: { fontSize: 10, fontWeight: "800", letterSpacing: 0.4, color: "#6A4F98" },
-  title: { fontSize: 15, fontWeight: "800", color: pearl.ink },
-  body: { fontSize: 12.5, lineHeight: 18, fontWeight: "600", color: pearl.muted },
+  title: { fontSize: 15, fontWeight: "800", color: p.ink },
+  body: { fontSize: 12.5, lineHeight: 18, fontWeight: "600", color: p.muted },
   cta: { height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center" },
   ctaText: { fontSize: 14, fontWeight: "700", color: "#FFFFFF" },
-});
+}));
 
 export function LunoxPromoCard() {
   const { user } = useAuth();

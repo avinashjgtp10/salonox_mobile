@@ -8,9 +8,10 @@ import { AppBackButton } from "@/components/ui/AppBackButton";
 import { Portal } from "@/components/ui/Portal";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import type { ReportRow } from "../report-data";
 import { reportCellValue, type ReportColumn } from "../report-table-data";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 const PAGE_SIZE = 10;
 const clamp = (width: number) => Math.max(90, Math.min(420, Math.round(width)));
@@ -78,7 +79,7 @@ export function ReportTable({ title, rows: incomingRows, columns, total, hasMore
   const visible = columns.filter((column, index) => index === 0 || !hidden.includes(column.key));
   const first = visible[0];
   const rest = visible.slice(1);
-  const width = (column: ReportColumn) => Math.min(widths[column.key] ?? (/invoice|date/i.test(column.key) ? 130 : /name|description|item/i.test(column.key) ? 170 : 140), column.key === visible[0]?.key ? Math.max(90, Math.min(240, (screenWidth - 32) * 0.5)) : 420);
+  const width = (column: ReportColumn) => Math.min(widths[column.key] ?? (column.key === "avgRevenue" ? 185 : /invoice|date/i.test(column.key) ? 130 : /name|description|item/i.test(column.key) ? 170 : 140), column.key === visible[0]?.key ? Math.max(90, Math.min(240, (screenWidth - 32) * 0.5)) : 420);
   const pageRows = ordered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const rowHeight = compact ? 40 : 56;
   const setColumnWidth = (key: string, value: number) => setWidths((current) => ({ ...current, [key]: value }));
@@ -108,9 +109,13 @@ export function ReportTable({ title, rows: incomingRows, columns, total, hasMore
       : ["partial", "pending", "booked", "scheduled", "unpaid"].includes(status) ? "#9C6B18"
       : ["cancelled", "failed", "expired", "blocked", "absent", "refunded"].includes(status) ? "#A8384A" : pearl.ink;
   };
-  const cell = (column: ReportColumn, row: ReportRow, index: number, frozen = false) => <Pressable key={column.key} accessibilityRole="button" accessibilityLabel={`${column.label}: ${reportCellValue(column.key, row[column.key])}. Open row details.`} onPress={() => onRowPress(row)} style={[s.cell, { width: width(column), height: rowHeight }, frozen && s.frozenCell, index % 2 === 1 && s.alternate]}>
-    <Text selectable={false} numberOfLines={1} style={[s.cellText, frozen && s.firstText, /status/i.test(column.key) && [s.status, { color: statusColor(row[column.key]) }]]}>{reportCellValue(column.key, row[column.key])}</Text>
-  </Pressable>;
+  const cell = (column: ReportColumn, row: ReportRow, index: number, frozen = false) => {
+    const value = reportCellValue(column.key, row[column.key], true);
+    const stacked = value.includes("\n");
+    return <Pressable key={column.key} accessibilityRole="button" accessibilityLabel={`${column.label}: ${value}. Open row details.`} onPress={() => onRowPress(row)} style={[s.cell, { width: width(column), height: rowHeight }, frozen && s.frozenCell, index % 2 === 1 && s.alternate]}>
+    <Text selectable={false} numberOfLines={stacked ? 2 : 1} style={[s.cellText, frozen && s.firstText, /status/i.test(column.key) && [s.status, { color: statusColor(row[column.key]) }]]}>{value}</Text>
+    </Pressable>;
+  };
   const controls = <View style={s.toolbar}>
     <Pressable accessibilityRole="button" onPress={() => setChoosingColumns(true)} style={s.control}><Ionicons name="options-outline" size={16} color={pearl.accentDeep} /><Text translate style={s.controlText}>Columns</Text></Pressable>
     <Pressable accessibilityRole="button" accessibilityState={{ selected: compact }} onPress={() => setCompact((value) => !value)} style={s.control}><Text translate style={s.controlText}>{compact ? "Comfortable rows" : "Compact rows"}</Text></Pressable>
@@ -143,20 +148,20 @@ export function ReportTable({ title, rows: incomingRows, columns, total, hasMore
   </>;
 }
 
-const s = StyleSheet.create({
+const s = themedStyles((p) => ({
   content: { gap: 12 }, toolbar: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 },
-  control: { flexDirection: "row", alignItems: "center", gap: 5, minHeight: 38, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: "#DDD9EB", backgroundColor: "#FFFFFF" },
+  control: { flexDirection: "row", alignItems: "center", gap: 5, minHeight: 38, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: p.glassBorder, backgroundColor: p.glassStrong },
   controlText: { color: "#514A71", fontSize: 12, fontWeight: "600" }, hint: { fontSize: 11, color: "#867E99", lineHeight: 17 },
-  grid: { borderWidth: 1, borderColor: "#E2DDEC", borderRadius: 15, overflow: "hidden", backgroundColor: "#FFFFFF" },
-  headerRow: { flexDirection: "row", height: 44, backgroundColor: "#F0EDF7" },
-  headerCell: { height: 44, justifyContent: "center", backgroundColor: "#F0EDF7", paddingHorizontal: 12, paddingRight: 20 },
+  grid: { borderWidth: 1, borderColor: p.glassBorder, borderRadius: 15, overflow: "hidden", backgroundColor: p.glass },
+  headerRow: { flexDirection: "row", height: 44, backgroundColor: p.accentTint },
+  headerCell: { height: 44, justifyContent: "center", backgroundColor: p.accentTint, paddingHorizontal: 12, paddingRight: 20 },
   headerButton: { flex: 1, justifyContent: "center" }, headerText: { color: "#6C6284", fontSize: 11, fontWeight: "700" },
   grip: { position: "absolute", right: 0, top: 0, bottom: 0, width: 18, alignItems: "flex-end", justifyContent: "center" }, gripLine: { width: 2, height: 24, backgroundColor: "#C8BDDB" },
   clip: { flex: 1, overflow: "hidden" }, frozenHeader: { zIndex: 2, borderRightWidth: 1, borderRightColor: "#E6DFEF" },
-  bodyRow: { flexDirection: "row" }, cell: { justifyContent: "center", paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: "#EEEBF4", backgroundColor: "#FFFFFF" },
-  cellText: { color: pearl.ink, fontSize: 12 }, frozenCell: { backgroundColor: "#FAF8FF", borderRightWidth: 1, borderRightColor: "#E6DFEF" }, alternate: { backgroundColor: "#FCFAFF" },
-  firstText: { color: pearl.accentDeep, fontWeight: "700" }, status: { color: "#218160", fontWeight: "600" },
+  bodyRow: { flexDirection: "row" }, cell: { justifyContent: "center", paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: p.divider, backgroundColor: p.glass },
+  cellText: { color: p.ink, fontSize: 12 }, frozenCell: { backgroundColor: p.glassStrong, borderRightWidth: 1, borderRightColor: p.glassBorder }, alternate: { backgroundColor: p.glassStrong },
+  firstText: { color: p.accentDeep, fontWeight: "700" }, status: { color: "#218160", fontWeight: "600" },
   pager: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" }, disabled: { opacity: 0.35 },
   columnChoice: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 13 },
-  expandedHeader: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16 }, title: { flex: 1, fontSize: 18, color: pearl.ink, fontWeight: "700" },
-});
+  expandedHeader: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16 }, title: { flex: 1, fontSize: 18, color: p.ink, fontWeight: "700" },
+}));

@@ -1,5 +1,6 @@
 import type { ReportData } from "@/store/report/report.slice";
 import type { ReportSlug } from "@/features/reports/report-config";
+import { clientSourceLabel } from "@/features/clients/constants/clientSources";
 import { formatCurrency } from "@/utils/currency";
 import { formatAppDate, formatAppDateTime } from "@/utils/dateTime";
 import { formatInvoiceNumber } from "@/utils/receipt";
@@ -11,14 +12,36 @@ const asRows = (value: unknown): ReportRow[] =>
     ? value.filter((item): item is ReportRow => item !== null && typeof item === "object")
     : [];
 
-export const getReportRows = (slug: ReportSlug, data: ReportData | null) => {
+export const getReportRows = (slug: ReportSlug, data: ReportData | null): ReportRow[] => {
   if (!data) return [];
-  void slug;
-  return asRows(data.rows);
+  const rows = asRows(data.rows);
+  if (slug !== "client-source") return rows;
+  const total = rows.reduce((sum, row) => sum + Number(row.clients || 0), 0);
+  return rows.map(row => {
+    const source = String(row.source || "not_set");
+    const clients = Number(row.clients || 0);
+    const revenue = Number(row.revenue || 0);
+    return {
+      ...row, clients, revenue,
+      source: source === "not_set" ? "Not set" : clientSourceLabel(source) || source.replace(/[_-]+/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+      clientSharePct: total ? Math.round(clients / total * 1000) / 10 : 0,
+      avgRevenue: clients ? revenue / clients : 0,
+    };
+  });
 };
 
-export const getReportSummary = (slug: ReportSlug, data: ReportData | null) => {
+export const getReportSummary = (slug: ReportSlug, data: ReportData | null): ReportRow | null => {
   if (!data) return null;
+  if (slug === "client-source") {
+    const stats = data.stats as ReportRow | undefined;
+    const [top] = getReportRows(slug, data);
+    return {
+      totalClients: stats?.totalClients ?? 0,
+      topSource: top ? { name: top.source, count: top.clients } : "—",
+      totalVisits: stats?.totalVisits ?? 0,
+      revenueGenerated: stats?.totalRevenue ?? 0,
+    };
+  }
   if (slug === "staff-performance") {
     const stats = (data.stats ?? {}) as ReportRow;
     return {
@@ -75,7 +98,15 @@ const NOT_MONEY_KEYS = new Set([
 const isMoneyKey = (key: string) => !NOT_MONEY_KEYS.has(key) && (MONEY_KEYS.has(key) || currencyKey.test(key));
 const NUMERIC_STRING = /^-?\d+(\.\d+)?$/;
 
-export const formatReportValue = (key: string, value: unknown): string => {
+export const isCollectedByMethod = (key: string) => /^collected_?by_?method$/i.test(key);
+
+export const formatReportValue = (key: string, value: unknown, multilineDate = false): string => {
+  if (isCollectedByMethod(key) && Array.isArray(value)) {
+    return value.flatMap((entry) => {
+      if (typeof entry?.method !== "string") return [];
+      return [`${humanizeReportKey(entry.method)}: ${formatReportValue("amount", entry.amount)}`];
+    }).join("\n") || "—";
+  }
   if (value === null || value === undefined || value === "") return "—";
   if (/^payment_?reference$/i.test(key)) {
     let reference = value;
@@ -110,7 +141,7 @@ export const formatReportValue = (key: string, value: unknown): string => {
   }
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return formatAppDate(value, "—");
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}(?:T| )/.test(value)) {
-    return formatAppDateTime(value, "—");
+    return formatAppDateTime(value, "—", multilineDate ? "\n" : undefined);
   }
   if (typeof value === "object") {
     const record = value as Record<string, unknown>;

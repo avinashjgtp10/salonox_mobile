@@ -93,6 +93,8 @@ export interface ThermalReceiptData {
   salonAddress?: string;
   salonPhone?: string;
   gstNumber?: string;
+  /** "GSTIN" or "TRN", per the salon's country. */
+  taxIdLabel?: string;
   logoUrl?: string;
   invoiceNo?: string;
   dateTime?: string;
@@ -181,7 +183,7 @@ export function buildThermalCss(profile: PaperProfile): string {
 }
 
 export function buildThermalBody(d: ThermalReceiptData): string {
-  const metaLines = [d.salonAddress, d.salonPhone && `Ph: ${d.salonPhone}`, d.gstNumber && `GSTIN: ${d.gstNumber}`]
+  const metaLines = [d.salonAddress, d.salonPhone && `Ph: ${d.salonPhone}`, d.gstNumber && `${d.taxIdLabel ?? "GSTIN"}: ${d.gstNumber}`]
     .filter(Boolean)
     .map((l) => `<div>${esc(l)}</div>`)
     .join("");

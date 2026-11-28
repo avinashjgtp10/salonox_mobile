@@ -5,14 +5,15 @@ import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, type Href } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { BottomSheet } from "@/components/pearl/Sheet";
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { useTaxName } from "@/hooks/useTaxName";
 import { getApiErrorMessage } from "@/services/api";
 import { reportService, type RevenueCategoryBreakdown } from "@/services/report.service";
 import { staffService } from "@/services/staff.service";
@@ -24,6 +25,7 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import { DateRangePickerSheet } from "@/components/ui/DateRangePickerSheet";
 import { dateRangeLabel } from "@/utils/dateRangePresets";
 import { formatCurrency as currency } from "@/utils/currency";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 // Breakdown legend colours, from the design's share bar.
 
@@ -73,6 +75,8 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
   "use no memo";
   useRegionalPreferences();
   const colors = useThemeColors();
+  // GST in India, VAT in the UAE — the same wording the web app uses.
+  const taxName = useTaxName();
   const dispatch = useAppDispatch();
   const salonId = useAppSelector(selectActiveBranchId);
   const [revenue, setRevenue] = useState<Revenue | null>(null);
@@ -266,7 +270,7 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
                 <Text style={styles.heroAmount}>{currency(revenue.revenue)}</Text>
                 <View style={styles.heroRule} />
                 <View style={styles.heroTop}>
-                  <Text translate style={styles.heroFoot}>GST collected</Text>
+                  <Text style={styles.heroFoot}>{taxName} collected</Text>
                   <Text style={styles.heroFootValue}>
                     {revenue.gst === null ? "—" : currency(revenue.gst)}
                   </Text>
@@ -275,7 +279,7 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
             </Pressable>
             <Text translate style={[styles.title, { color: colors.heading }]}>Staff Performance</Text>
             <Text translate style={{ color: colors.text2 }}>
-              Billed item revenue including GST, using the same report as the web app. Collections are shown separately above.
+              {`Billed item revenue including ${taxName}, using the same report as the web app. Collections are shown separately above.`}
             </Text>
             {revenue.staffError ? (
               <View style={[styles.card, { backgroundColor: colors.card }]}>
@@ -368,19 +372,19 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
 
           <View style={styles.sheetRows}>
             <View style={styles.sheetRow}>
-              <Text translate style={styles.sheetRowLabel}>GST collected (included above)</Text>
+              <Text style={styles.sheetRowLabel}>{taxName} collected (included above)</Text>
               <Text style={styles.sheetRowValue}>
                 {revenue.gst === null ? "—" : currency(revenue.gst)}
               </Text>
             </View>
             <View style={styles.sheetRow}>
-              <Text translate style={styles.sheetRowLabel}>Net revenue (excl. GST)</Text>
+              <Text style={styles.sheetRowLabel}>Net revenue (excl. {taxName})</Text>
               <Text style={styles.sheetRowValue}>
                 {revenue.gst === null ? "—" : currency(revenue.revenue - revenue.gst)}
               </Text>
             </View>
             <View style={styles.sheetRow}>
-              <Text translate style={styles.sheetRowLabel}>Billed revenue (incl. GST)</Text>
+              <Text style={styles.sheetRowLabel}>Billed revenue (incl. {taxName})</Text>
               <Text style={styles.sheetRowValue}>
                 {revenue.billedRevenue === null ? "—" : currency(revenue.billedRevenue)}
               </Text>
@@ -399,44 +403,44 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((p) => ({
   screen: { flex: 1 },
   header: { flexDirection: "row", alignItems: "center", gap: 14, padding: 20 },
-  title: { fontSize: 28, fontWeight: "800", letterSpacing: -0.5, color: pearl.ink, flexShrink: 1 },
+  title: { fontSize: 28, fontWeight: "800", letterSpacing: -0.5, color: p.ink, flexShrink: 1 },
   content: { padding: 20, gap: 16 },
   card: { padding: 18, borderRadius: 14, gap: 10 },
   total: { fontSize: 28, fontWeight: "800" },
   row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
   rowPressed: { opacity: 0.7 },
   staff: { flex: 1, gap: 4 },
-  rangeButton: { alignItems: "center", borderRadius: 16, borderWidth: 1, borderColor: pearl.fieldBorder, backgroundColor: pearl.field, flexDirection: "row", gap: 10, minHeight: 56, paddingHorizontal: 16 },
-  rangeText: { color: pearl.ink, flex: 1, fontSize: 16, fontWeight: "600" },
+  rangeButton: { alignItems: "center", borderRadius: 16, borderWidth: 1, borderColor: p.fieldBorder, backgroundColor: p.field, flexDirection: "row", gap: 10, minHeight: 56, paddingHorizontal: 16 },
+  rangeText: { color: p.ink, flex: 1, fontSize: 16, fontWeight: "600" },
   // Collected-revenue hero: the gradient card that opens the breakdown sheet.
   heroWrap: { borderRadius: 26, shadowColor: "#5D5890", shadowOpacity: 0.28, shadowRadius: 34, shadowOffset: { width: 0, height: 14 }, elevation: 8 },
   hero: { borderRadius: 26, padding: 22, paddingBottom: 18 },
   heroTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   heroLabel: { color: "#F1EFFA", fontSize: 12.5, fontWeight: "700", letterSpacing: 0.6, textTransform: "uppercase" },
-  heroPill: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(255,255,255,0.18)", borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
+  heroPill: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: p.glassStrong, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
   heroPillText: { color: "#FFFFFF", fontSize: 13, fontWeight: "700" },
   heroAmount: { color: "#FFFFFF", fontSize: 36, fontWeight: "800", letterSpacing: -0.9, marginTop: 10 },
-  heroRule: { height: 1, backgroundColor: "rgba(255,255,255,0.22)", marginTop: 16, marginBottom: 14 },
+  heroRule: { height: 1, backgroundColor: p.glassStrong, marginTop: 16, marginBottom: 14 },
   heroFoot: { color: "#F1EFFA", fontSize: 14, fontWeight: "600" },
   heroFootValue: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
-  sheetEyebrow: { color: pearl.accentDeep, fontSize: 12.5, fontWeight: "700", letterSpacing: 0.6, textTransform: "uppercase" },
-  sheetAmount: { color: pearl.ink, fontSize: 32, fontWeight: "800", letterSpacing: -0.8, marginTop: 4 },
+  sheetEyebrow: { color: p.accentDeep, fontSize: 12.5, fontWeight: "700", letterSpacing: 0.6, textTransform: "uppercase" },
+  sheetAmount: { color: p.ink, fontSize: 32, fontWeight: "800", letterSpacing: -0.8, marginTop: 4 },
   // Share bar: one flex-weighted segment per slice, like the design's legend bar.
   splitBar: { flexDirection: "row", gap: 2, height: 12, borderRadius: 12, overflow: "hidden", marginTop: 18 },
   splitFill: { height: "100%" },
-  sheetCard: { marginTop: 16, borderRadius: 20, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#EEECF4", overflow: "hidden" },
+  sheetCard: { marginTop: 16, borderRadius: 20, backgroundColor: p.glassStrong, borderWidth: 1, borderColor: "#EEECF4", overflow: "hidden" },
   sheetCardRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: "#F1EFF6" },
   sheetCardRowLast: { borderBottomWidth: 0 },
   swatch: { width: 12, height: 12, borderRadius: 4 },
-  sheetCardLabel: { flex: 1, color: pearl.ink, fontSize: 15, fontWeight: "700" },
-  sheetCardPct: { width: 52, textAlign: "right", color: pearl.ink2, fontSize: 12.5, fontWeight: "700" },
-  sheetCardValue: { minWidth: 104, textAlign: "right", color: pearl.ink, fontSize: 15, fontWeight: "800" },
+  sheetCardLabel: { flex: 1, color: p.ink, fontSize: 15, fontWeight: "700" },
+  sheetCardPct: { width: 52, textAlign: "right", color: p.ink2, fontSize: 12.5, fontWeight: "700" },
+  sheetCardValue: { minWidth: 104, textAlign: "right", color: p.ink, fontSize: 15, fontWeight: "800" },
   sheetRows: { marginTop: 16, gap: 10, paddingHorizontal: 4 },
   sheetRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
-  sheetRowLabel: { color: pearl.ink2, fontSize: 14, fontWeight: "600", flexShrink: 1 },
-  sheetRowValue: { color: pearl.ink, fontSize: 15, fontWeight: "800" },
-  sheetRowWarn: { color: pearl.accentDeep },
-});
+  sheetRowLabel: { color: p.ink2, fontSize: 14, fontWeight: "600", flexShrink: 1 },
+  sheetRowValue: { color: p.ink, fontSize: 15, fontWeight: "800" },
+  sheetRowWarn: { color: p.accentDeep },
+}));

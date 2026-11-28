@@ -3,7 +3,7 @@ import { ScrollView, View } from "react-native";
 
 import { Text } from "@/components/ui/AppTypography";
 import { BottomSheet } from "@/components/ui/BottomSheet";
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { getApiErrorMessage } from "@/services/api";
 import { attendanceService } from "@/services/attendance.service";
 import { StaffButton, staffUi } from "@/features/staff/components/StaffPearl";

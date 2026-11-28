@@ -9,9 +9,10 @@ import { useRegionalPreferences } from "@/localization/preferences";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, type Href } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, View } from "react-native";
 
-import { pearl, pearlShadow, pearlType } from "@/components/auth/pearl/tokens";
+import { pearlShadow, pearlType } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { NextAppointments, StaffOnFloor } from "@/components/dashboard/DashboardLists";
 import { MenuDrawer, NotificationsSheet, SalonSwitchSheet } from "@/components/dashboard/DashboardSheets";
 import SpotlightAnnouncementCard from "@/components/dashboard/SpotlightAnnouncementCard";
@@ -49,6 +50,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectUnreadCount } from "@/store/notification/notification.slice";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { formatCurrencyRounded as money } from "@/utils/currency";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -358,29 +360,29 @@ function StatsRow() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((p) => ({
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, paddingVertical: 8 },
   salonPill: {
     flexDirection: "row", alignItems: "center", gap: 8, height: 42, paddingHorizontal: 14, borderRadius: 21, maxWidth: "58%", flexShrink: 1,
-    backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, ...pearlShadow.card,
+    backgroundColor: p.glass, borderWidth: 1, borderColor: p.glassBorder, ...pearlShadow.card,
   },
-  salonText: { fontWeight: "700", fontSize: 13.5, color: pearl.ink, flexShrink: 1 },
+  salonText: { fontWeight: "700", fontSize: 13.5, color: p.ink, flexShrink: 1 },
   rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
   hero: { padding: 18, paddingBottom: 16 },
   eyebrow: { fontWeight: "800", fontSize: 11, letterSpacing: 0.8, color: "rgba(255,255,255,0.85)" },
-  change: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.22)", borderWidth: 1, borderColor: "rgba(255,255,255,0.35)" },
+  change: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 20, backgroundColor: p.glass, borderWidth: 1, borderColor: "rgba(255,255,255,0.35)" },
   changeText: { fontWeight: "800", fontSize: 12, color: "#fff" },
   heroNum: { fontWeight: "800", fontSize: 38, lineHeight: 46, letterSpacing: -1, color: "#fff", marginTop: 6 },
   heroSub: { fontWeight: "500", fontSize: 12.5, color: "rgba(255,255,255,0.85)", marginTop: 2 },
-  target: { marginTop: 14, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.14)", borderWidth: 1, borderColor: "rgba(255,255,255,0.22)", gap: 7 },
+  target: { marginTop: 14, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 14, backgroundColor: p.glass, borderWidth: 1, borderColor: "rgba(255,255,255,0.22)", gap: 7 },
   targetText: { fontWeight: "600", fontSize: 12, color: "#fff" },
-  track: { height: 7, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.25)", overflow: "hidden" },
+  track: { height: 7, borderRadius: 4, backgroundColor: p.glassStrong, overflow: "hidden" },
   fill: { height: "100%", borderRadius: 4 },
   heroLink: { flexDirection: "row", alignItems: "center", gap: 3, marginTop: 12, alignSelf: "flex-start" },
   heroLinkText: { fontWeight: "700", fontSize: 13, color: "#fff" },
   bleed: { marginHorizontal: -18 },
   qa: { flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 6 },
   qaItem: { alignItems: "center", gap: 6 },
-  qaLabel: { fontSize: 12, fontWeight: "700", color: pearl.ink2 },
-  qaButton: { width: 56, height: 56, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, ...pearlShadow.card },
-});
+  qaLabel: { fontSize: 12, fontWeight: "700", color: p.ink2 },
+  qaButton: { width: 56, height: 56, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: p.glass, borderWidth: 1, borderColor: p.glassBorder, ...pearlShadow.card },
+}));

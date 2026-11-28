@@ -1,4 +1,4 @@
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { SettingsButton, SettingsRow, useSettingsStyles } from "@/features/settings/SettingsUI";
 import { AppearanceSheet } from "@/features/settings/AppearanceSheet";

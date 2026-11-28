@@ -1,4 +1,5 @@
-import { pearl, pearlGradients, pearlRadius, pearlShadow } from "@/components/auth/pearl/tokens";
+import { pearlGradients, pearlRadius, pearlShadow } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { LinearGradient } from "expo-linear-gradient";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
@@ -9,7 +10,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Pressable, RefreshControl, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import { Pressable, RefreshControl, ScrollView, View, type StyleProp, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
@@ -21,6 +22,7 @@ import { formatAppDate } from "@/utils/dateTime";
 import { resolveAuthenticatedRoute } from "@/utils/routeResolver";
 import { branchSessionStorage } from "@/services/connectedBranches.service";
 import { useAppToast } from "@/hooks/useAppToast";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
@@ -442,51 +444,51 @@ export default function SubscriptionScreen() {
 }
 
 const createStyles = () =>
-  StyleSheet.create({
+  themedStyles((p) => ({
     content: { gap: 16, paddingHorizontal: 20 },
-    heroIcon: { alignItems: "center", alignSelf: "center", backgroundColor: pearl.dangerBg, borderRadius: 32, height: 64, justifyContent: "center", width: 64 },
-    title: { color: pearl.ink, fontSize: 26, fontWeight: "900", letterSpacing: -0.6, lineHeight: 32, textAlign: "center" },
-    subtitle: { color: pearl.ink2, fontSize: 14, fontWeight: "500", lineHeight: 21, textAlign: "center" },
-    cycleToggle: { alignSelf: "center", backgroundColor: pearl.glassStrong, borderColor: pearl.glassBorder, borderRadius: 999, borderWidth: 1, flexDirection: "row", padding: 4 },
+    heroIcon: { alignItems: "center", alignSelf: "center", backgroundColor: p.dangerBg, borderRadius: 32, height: 64, justifyContent: "center", width: 64 },
+    title: { color: p.ink, fontSize: 26, fontWeight: "900", letterSpacing: -0.6, lineHeight: 32, textAlign: "center" },
+    subtitle: { color: p.ink2, fontSize: 14, fontWeight: "500", lineHeight: 21, textAlign: "center" },
+    cycleToggle: { alignSelf: "center", backgroundColor: p.glassStrong, borderColor: p.glassBorder, borderRadius: 999, borderWidth: 1, flexDirection: "row", padding: 4 },
     cycleOption: { borderRadius: 999, minHeight: 40, justifyContent: "center", paddingHorizontal: 16 },
-    cycleOptionActive: { backgroundColor: pearl.accentTint },
-    cycleText: { color: pearl.muted, fontSize: 13, fontWeight: "700" },
-    cycleTextActive: { color: pearl.accentDeep },
+    cycleOptionActive: { backgroundColor: p.accentTint },
+    cycleText: { color: p.muted, fontSize: 13, fontWeight: "700" },
+    cycleTextActive: { color: p.accentDeep },
     planList: { gap: 14 },
     planCard: {
-      backgroundColor: pearl.glassStrong,
-      borderColor: pearl.glassBorder,
+      backgroundColor: p.glassStrong,
+      borderColor: p.glassBorder,
       borderRadius: pearlRadius.card,
       borderWidth: 1,
       gap: 8,
       padding: 18,
       ...pearlShadow.card,
     },
-    planCardPopular: { borderColor: pearl.accent, borderWidth: 1.5 },
+    planCardPopular: { borderColor: p.accent, borderWidth: 1.5 },
     planHeader: { alignItems: "center", flexDirection: "row", gap: 10, justifyContent: "space-between" },
-    planName: { color: pearl.ink, flexShrink: 1, fontSize: 20, fontWeight: "900" },
-    popularPill: { alignItems: "center", backgroundColor: pearl.accentDeep, borderRadius: 999, flexDirection: "row", gap: 4, paddingHorizontal: 10, paddingVertical: 4 },
-    popularText: { color: pearl.white, fontSize: 11, fontWeight: "800" },
-    planTagline: { color: pearl.ink2, fontSize: 13, lineHeight: 19 },
+    planName: { color: p.ink, flexShrink: 1, fontSize: 20, fontWeight: "900" },
+    popularPill: { alignItems: "center", backgroundColor: p.accentDeep, borderRadius: 999, flexDirection: "row", gap: 4, paddingHorizontal: 10, paddingVertical: 4 },
+    popularText: { color: p.white, fontSize: 11, fontWeight: "800" },
+    planTagline: { color: p.ink2, fontSize: 13, lineHeight: 19 },
     priceRow: { alignItems: "flex-end", flexDirection: "row", marginTop: 4 },
-    price: { color: pearl.ink, fontSize: 28, fontWeight: "900" },
-    per: { color: pearl.muted, fontSize: 14, fontWeight: "600", marginBottom: 4 },
-    gst: { color: pearl.muted, fontSize: 12 },
+    price: { color: p.ink, fontSize: 28, fontWeight: "900" },
+    per: { color: p.muted, fontSize: 14, fontWeight: "600", marginBottom: 4 },
+    gst: { color: p.muted, fontSize: 12 },
     primaryButtonWrap: { alignSelf: "stretch", borderRadius: 999, marginTop: 8, ...pearlShadow.button },
     primaryButton: { alignItems: "center", alignSelf: "stretch", borderRadius: 999, flexDirection: "row", gap: 8, justifyContent: "center", minHeight: 50, overflow: "hidden", paddingHorizontal: 16 },
-    primaryButtonText: { color: pearl.white, fontSize: 15, fontWeight: "800" },
+    primaryButtonText: { color: p.white, fontSize: 15, fontWeight: "800" },
     buttonDisabled: { opacity: 0.5 },
-    secondaryButton: { alignItems: "center", alignSelf: "stretch", borderColor: pearl.accent, borderRadius: 999, borderWidth: 1.5, justifyContent: "center", minHeight: 48 },
-    secondaryButtonText: { color: pearl.accentDeep, fontSize: 14, fontWeight: "800" },
+    secondaryButton: { alignItems: "center", alignSelf: "stretch", borderColor: p.accent, borderRadius: 999, borderWidth: 1.5, justifyContent: "center", minHeight: 48 },
+    secondaryButtonText: { color: p.accentDeep, fontSize: 14, fontWeight: "800" },
     linkButton: { minHeight: 44, justifyContent: "center", paddingHorizontal: 8 },
-    linkText: { color: pearl.ink2, fontSize: 13, fontWeight: "700", textDecorationLine: "underline" },
-    panel: { alignItems: "center", backgroundColor: pearl.glassStrong, borderColor: pearl.glassBorder, borderRadius: pearlRadius.card, borderWidth: 1, gap: 10, padding: 22, ...pearlShadow.card },
-    successPanel: { borderColor: pearl.successBorder },
-    panelTitle: { color: pearl.ink, fontSize: 17, fontWeight: "800", textAlign: "center" },
-    panelText: { color: pearl.ink2, fontSize: 13, lineHeight: 19, textAlign: "center" },
-    errorCard: { alignItems: "center", backgroundColor: pearl.dangerBg, borderColor: pearl.dangerBorder, borderRadius: pearlRadius.field, borderWidth: 1, flexDirection: "row", gap: 10, paddingHorizontal: 14, paddingVertical: 12 },
-    errorText: { color: pearl.dangerText, flex: 1, fontSize: 13, fontWeight: "700", lineHeight: 18 },
-    retryText: { color: pearl.accentDeep, fontSize: 13, fontWeight: "800", paddingHorizontal: 4, paddingVertical: 8 },
-    logoutButton: { alignItems: "center", backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderRadius: pearlRadius.field, borderWidth: 1, justifyContent: "center", marginTop: 4, minHeight: 48 },
-    logoutText: { color: pearl.ink2, fontSize: 14, fontWeight: "700" },
-  });
+    linkText: { color: p.ink2, fontSize: 13, fontWeight: "700", textDecorationLine: "underline" },
+    panel: { alignItems: "center", backgroundColor: p.glassStrong, borderColor: p.glassBorder, borderRadius: pearlRadius.card, borderWidth: 1, gap: 10, padding: 22, ...pearlShadow.card },
+    successPanel: { borderColor: p.successBorder },
+    panelTitle: { color: p.ink, fontSize: 17, fontWeight: "800", textAlign: "center" },
+    panelText: { color: p.ink2, fontSize: 13, lineHeight: 19, textAlign: "center" },
+    errorCard: { alignItems: "center", backgroundColor: p.dangerBg, borderColor: p.dangerBorder, borderRadius: pearlRadius.field, borderWidth: 1, flexDirection: "row", gap: 10, paddingHorizontal: 14, paddingVertical: 12 },
+    errorText: { color: p.dangerText, flex: 1, fontSize: 13, fontWeight: "700", lineHeight: 18 },
+    retryText: { color: p.accentDeep, fontSize: 13, fontWeight: "800", paddingHorizontal: 4, paddingVertical: 8 },
+    logoutButton: { alignItems: "center", backgroundColor: p.glass, borderColor: p.glassBorder, borderRadius: pearlRadius.field, borderWidth: 1, justifyContent: "center", marginTop: 4, minHeight: 48 },
+    logoutText: { color: p.ink2, fontSize: 14, fontWeight: "700" },
+  }));

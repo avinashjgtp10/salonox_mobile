@@ -1,9 +1,10 @@
 import { useRegionalPreferences } from "@/localization/preferences";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { Text } from "@/components/ui/AppTypography";
 import { Icon } from "@/components/pearl/Icon";
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { formatCurrency } from "@/features/quickSale/utils/money";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 export function PearlCatalogRow({ name, detail, price, selected, first = false, last = false, disabled = false, onPress }: { name: string; detail?: string; price: number; selected: boolean; first?: boolean; last?: boolean; disabled?: boolean; onPress: () => void }) {
   "use no memo";
   useRegionalPreferences();
@@ -13,4 +14,4 @@ export function PearlCatalogRow({ name, detail, price, selected, first = false, 
     <View style={[s.add, selected && s.selected]}><Icon name={selected ? "check" : "plus"} size={18} color={selected ? "#fff" : pearl.accentDeep} /></View>
   </Pressable>;
 }
-const s=StyleSheet.create({row:{flexDirection:"row",alignItems:"center",gap:10,padding:14,backgroundColor:pearl.glass,borderBottomWidth:1,borderBottomColor:pearl.divider},copy:{flex:1,minWidth:0},name:{fontSize:14.5,fontWeight:"700",color:pearl.ink},detail:{fontSize:12,color:pearl.muted,marginTop:3},price:{fontSize:14,fontWeight:"700",color:pearl.ink},add:{width:32,height:32,borderRadius:11,backgroundColor:"rgba(255,255,255,0.8)",alignItems:"center",justifyContent:"center",borderWidth:1,borderColor:pearl.glassBorder},selected:{backgroundColor:pearl.accent}});
+const s=themedStyles((p) => ({row:{flexDirection:"row",alignItems:"center",gap:10,padding:14,backgroundColor:p.glass,borderBottomWidth:1,borderBottomColor:p.divider},copy:{flex:1,minWidth:0},name:{fontSize:14.5,fontWeight:"700",color:p.ink},detail:{fontSize:12,color:p.muted,marginTop:3},price:{fontSize:14,fontWeight:"700",color:p.ink},add:{width:32,height:32,borderRadius:11,backgroundColor:"rgba(255,255,255,0.8)",alignItems:"center",justifyContent:"center",borderWidth:1,borderColor:p.glassBorder},selected:{backgroundColor:p.accent}}));

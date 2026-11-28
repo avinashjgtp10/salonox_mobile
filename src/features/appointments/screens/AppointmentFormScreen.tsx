@@ -1,5 +1,6 @@
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
-import { pearl, pearlType } from "@/components/auth/pearl/tokens";
+import { pearlType } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { NoteBox } from "@/components/pearl/Page";
 import { formatAppDate } from "@/utils/dateTime";
 import { Text } from "@/components/ui/AppTypography";

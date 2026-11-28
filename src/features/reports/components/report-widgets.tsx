@@ -16,9 +16,12 @@ import {
 import {
   formatReportValue,
   humanizeReportKey,
+  isCollectedByMethod,
   type ReportRow,
 } from "@/features/reports/report-data";
 import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
+import { useTaxName } from "@/hooks/useTaxName";
+import { applyTaxName, isBlankTaxValue, isTaxColumnKey } from "@/utils/taxLabels";
 
 export const ReportSummaryCards = memo(function ReportSummaryCards({
   summary,
@@ -32,20 +35,29 @@ export const ReportSummaryCards = memo(function ReportSummaryCards({
   "use no memo";
   useRegionalPreferences();
   const Colors = usePearlColors();
+  const taxName = useTaxName();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const entries = useMemo(() => Object.entries(summary ?? {}).filter(([, value]) => value !== undefined && value !== null).slice(0, maxCards), [summary, maxCards]);
+  const entries = useMemo(
+    () => Object.entries(summary ?? {})
+      .filter(([key, value]) => !isCollectedByMethod(key) && value !== undefined && value !== null && !(isTaxColumnKey(key) && isBlankTaxValue(value)))
+      .slice(0, maxCards),
+    [summary, maxCards],
+  );
   if (!entries.length) return null;
 
   return (
     <View accessibilityRole="summary" style={styles.summaryGrid}>
       {entries.map(([key, value]) => (
         <View key={key} style={styles.summaryCard}>
-          <Text translate allowFontScaling numberOfLines={1} style={styles.summaryLabel}>
-            {labels?.[key] ?? humanizeReportKey(key)}
+          <Text translate allowFontScaling numberOfLines={2} style={styles.summaryLabel}>
+            {applyTaxName(labels?.[key] ?? humanizeReportKey(key), taxName)}
           </Text>
-          <Text adjustsFontSizeToFit allowFontScaling minimumFontScale={0.7} selectable numberOfLines={1} style={styles.summaryValue}>
-            {formatReportValue(key, value)}
+          <Text adjustsFontSizeToFit allowFontScaling minimumFontScale={0.5} selectable numberOfLines={1} style={styles.summaryValue}>
+            {key === "topSource" && typeof value === "object" && value && "name" in value ? String(value.name) : formatReportValue(key, value)}
           </Text>
+          {key === "topSource" && typeof value === "object" && value && "count" in value ? (
+            <Text style={styles.rowValue}>{String(value.count)} {value.count === 1 ? "client" : "clients"}</Text>
+          ) : null}
         </View>
       ))}
     </View>
@@ -213,7 +225,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   summaryLabel: { color: Colors.text2, fontSize: 11, fontWeight: "700", textTransform: "uppercase" },
   summaryValue: {
     color: Colors.heading, fontFamily: Typography.fontFamilies.display, fontSize: 20,
-    fontVariant: ["tabular-nums"], fontWeight: "700", paddingTop: Spacing.sm,
+    fontVariant: ["tabular-nums"], fontWeight: "700", lineHeight: 28, paddingTop: Spacing.sm,
   },
   rowCard: {
     backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: AppRadius.card,

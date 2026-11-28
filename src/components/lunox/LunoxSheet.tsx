@@ -13,7 +13,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { pearl, pearlShadow } from "@/components/auth/pearl/tokens";
+import { pearlShadow } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { Icon } from "@/components/pearl/Icon";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
@@ -21,6 +22,9 @@ import { useLunoxSuggestions } from "@/hooks/useLunoxSuggestions";
 import { lunoxErrorMessage, lunoxService, type LunoxTurn } from "@/services/lunox.service";
 import { LunoxMarkdown } from "./LunoxMarkdown";
 import { isInvalidLunoxReply } from "@/utils/lunoxReply";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
+import { usePearlPalette } from "@/components/auth/pearl/usePearlPalette";
+import { useAppTheme } from "@/theme/ThemeProvider";
 
 const LUNOX_MARK = require("../../../assets/images/brand/lunox-mark.png");
 const LUNOX_WORD = require("../../../assets/images/brand/lunox-wordmark.png");
@@ -44,6 +48,8 @@ let nextId = 0;
 const newId = () => `m${++nextId}`;
 
 function LunoxSheetContent({ visible, onClose, seed }: { visible: boolean; onClose: () => void; seed?: string | null }) {
+  const palette = usePearlPalette();
+  const dark = useAppTheme().scheme === "dark";
   const insets = useSafeAreaInsets();
   const { height: H } = useWindowDimensions();
   const [mounted, setMounted] = useState(visible);
@@ -131,7 +137,7 @@ function LunoxSheetContent({ visible, onClose, seed }: { visible: boolean; onClo
           <View style={styles.headLeft}>
             <LunoxOrb />
             <View>
-              <Image source={LUNOX_WORD} style={styles.word} resizeMode="contain" accessibilityLabel="lunox" />
+              <Image source={LUNOX_WORD} style={[styles.word, dark && { tintColor: palette.ink }]} resizeMode="contain" accessibilityLabel="lunox" />
               <Text translate style={styles.subtitle}>Your salon assistant</Text>
             </View>
           </View>
@@ -246,13 +252,13 @@ function ThinkingBubble() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((p) => ({
   dim: { backgroundColor: "rgba(59,57,80,0.22)" },
   // .screen.sheet .sheet-panel (tall)
   panel: {
     position: "absolute", left: 0, right: 0, bottom: 0, borderTopLeftRadius: 30, borderTopRightRadius: 30,
     paddingHorizontal: 18, paddingTop: 10, gap: 14,
-    backgroundColor: "#FAF9FC", borderTopWidth: 1, borderColor: "#FFFFFF",
+    backgroundColor: p.bgBottom, borderTopWidth: 1, borderColor: p.glassBorder,
     shadowColor: "#46446E", shadowOpacity: 0.18, shadowRadius: 20, shadowOffset: { width: 0, height: -14 }, elevation: 16,
   },
   grab: { alignItems: "center", marginTop: -4, marginBottom: -8 },
@@ -265,39 +271,39 @@ const styles = StyleSheet.create({
   },
   orbCore: { flex: 1, borderRadius: 24, alignItems: "center", justifyContent: "center" },
   word: { height: 21, width: 72 },
-  subtitle: { fontSize: 12.5, fontWeight: "500", color: pearl.muted, marginTop: 3 },
+  subtitle: { fontSize: 12.5, fontWeight: "500", color: p.muted, marginTop: 3 },
   // .icon-btn.glass.sm
-  close: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, ...pearlShadow.card },
+  close: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: p.glass, borderWidth: 1, borderColor: p.glassBorder, ...pearlShadow.card },
   chat: { gap: 14, paddingBottom: 4 },
   // .bubble / .bubble.me / .bubble.ai
   bubble: { paddingVertical: 12, paddingHorizontal: 14, borderRadius: 20 },
   me: { alignSelf: "flex-end", maxWidth: "86%", borderBottomRightRadius: 6 },
   meText: { fontSize: 13.5, lineHeight: 19.5, fontWeight: "600", color: "#FFFFFF" },
-  ai: { alignSelf: "flex-start", maxWidth: "94%", backgroundColor: "rgba(255,255,255,0.75)", borderWidth: 1, borderColor: "#FFFFFF", borderBottomLeftRadius: 6, gap: 10 },
-  errorText: { fontSize: 13.5, lineHeight: 19.5, fontWeight: "600", color: pearl.dangerText },
+  ai: { alignSelf: "flex-start", maxWidth: "94%", backgroundColor: p.glassStrong, borderWidth: 1, borderColor: p.glassBorder, borderBottomLeftRadius: 6, gap: 10 },
+  errorText: { fontSize: 13.5, lineHeight: 19.5, fontWeight: "600", color: p.dangerText },
   thinking: { flexDirection: "row", alignItems: "center", gap: 8 },
-  thinkingText: { fontSize: 13.5, fontWeight: "600", color: pearl.muted },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: pearl.accent },
+  thinkingText: { fontSize: 13.5, fontWeight: "600", color: p.muted },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: p.accent },
   // .lx-ghost
-  ghost: { alignSelf: "flex-start", height: 36, paddingHorizontal: 12, borderRadius: 12, justifyContent: "center", backgroundColor: "rgba(255,255,255,0.6)", borderWidth: 1, borderColor: "rgba(255,255,255,0.9)" },
-  ghostText: { fontSize: 13, fontWeight: "700", color: pearl.accentDeep },
+  ghost: { alignSelf: "flex-start", height: 36, paddingHorizontal: 12, borderRadius: 12, justifyContent: "center", backgroundColor: p.glassStrong, borderWidth: 1, borderColor: p.glassBorder },
+  ghostText: { fontSize: 13, fontWeight: "700", color: p.accentDeep },
   // .sugg
   sugg: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: { flexDirection: "row", alignItems: "center", maxWidth: "100%", borderRadius: 12, backgroundColor: "rgba(255,255,255,0.6)", borderWidth: 1, borderColor: "rgba(255,255,255,0.9)" },
+  chip: { flexDirection: "row", alignItems: "center", maxWidth: "100%", borderRadius: 12, backgroundColor: p.glassStrong, borderWidth: 1, borderColor: p.glassBorder },
   chipQuestion: { flexShrink: 1, paddingVertical: 10, paddingLeft: 11, paddingRight: 4, minHeight: 44, justifyContent: "center" },
   chipClose: { width: 44, minHeight: 44, alignSelf: "stretch", alignItems: "center", justifyContent: "center" },
-  chipText: { fontSize: 12, fontWeight: "700", color: pearl.accentDeep },
+  chipText: { fontSize: 12, fontWeight: "700", color: p.accentDeep },
   // .ask-bar.glass / .mic / .send-b
   askBar: {
     flexDirection: "row", alignItems: "flex-end", gap: 10, minHeight: 56, paddingLeft: 14, paddingRight: 6, paddingVertical: 6, borderRadius: 20,
-    backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, ...pearlShadow.card,
+    backgroundColor: p.glass, borderWidth: 1, borderColor: p.glassBorder, ...pearlShadow.card,
   },
   input: {
     flex: 1, minWidth: 0, minHeight: 44, maxHeight: 120, paddingVertical: 11,
-    fontSize: 14.5, lineHeight: 20, fontWeight: "500", color: pearl.ink, textAlignVertical: "top",
+    fontSize: 14.5, lineHeight: 20, fontWeight: "500", color: p.ink, textAlignVertical: "top",
   },
   send: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-});
+}));
 
 export function LunoxSheet(props: { visible: boolean; onClose: () => void; seed?: string | null }) {
  const { user } = useAuth();

@@ -1,19 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { RefreshControl, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { BottomSheet } from "@/components/ui/BottomSheet";
+import { PrimaryButton, TextButton } from "@/components/auth/pearl/Buttons";
 import { DateRangePickerSheet } from "@/components/ui/DateRangePickerSheet";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { appAlert as Alert } from "@/services/appAlert";
 import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
+import { useTaxName } from "@/hooks/useTaxName";
+import { applyTaxName } from "@/utils/taxLabels";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { rememberReportFilters, selectReportEntry } from "@/store/report/report.slice";
 import { fetchReportThunk } from "@/middleware/report/report.thunk";
@@ -31,6 +34,7 @@ import { SalesSummaryDetailSheet } from "../components/sales-summary-detail-shee
 import { REPORT_FILTER_FIELDS, countReportFilters } from "../report-filters";
 import { createDefaultReportFilters, type ReportConfig, type ReportFilters } from "../report-config";
 import { getReportPagination, getReportRows, getReportSummary, humanizeReportKey, type ReportRow } from "../report-data";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 const getInvoiceDetailSaleId = (row: ReportRow, slug: ReportConfig["slug"]) => {
   const saleId = row.saleId ?? row.id;
@@ -61,6 +65,7 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
   const [rangeSheetVisible, setRangeSheetVisible] = useState(false);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [selectedRow, setSelectedRow] = useState<ReportRow | null>(null);
+  const [exportColumns, setExportColumns] = useState<ReportColumn[] | null>(null);
   const [exporting, setExporting] = useState(false);
   const [moreTotals, setMoreTotals] = useState(false);
   const [search, setSearch] = useState(filters.search ?? "");
@@ -130,6 +135,13 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
   }, [config.slug, debouncedSearch, dispatch, isUnavailable, load, supportsSearch]);
 
   const refresh = useCallback(() => load({ ...filters, page: 1 }, { refresh: true }), [filters, load]);
+  const refreshAfterEdit = useRef(false);
+  useFocusEffect(useCallback(() => {
+    if (refreshAfterEdit.current) {
+      refreshAfterEdit.current = false;
+      refresh();
+    }
+  }, [refresh]));
   const loadMore = useCallback(() => {
     if (!hasMore || entry?.loadingMore || entry?.loading || entry?.refreshing || !pagination) return;
     load({ ...filters, page: pagination.page + 1 }, { append: true });
@@ -160,7 +172,11 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
     ? { totalSale: summary.totalSale ?? "", outstandingAmount: summary.outstandingAmount ?? summary.dueAmount ?? summary.pendingAmount ?? "" }
     : config.slug === "staff-performance" ? { totalRevenue: summary.totalRevenue ?? "", totalCommission: summary.totalCommission ?? "" }
     : summary;
-  const columns = useMemo(() => reportColumns(rows, config.columns ?? [], config.primaryFields), [rows, config.columns, config.primaryFields]);
+  // UAE salons read VAT wherever the catalogue says GST, as on the web.
+  const taxName = useTaxName();
+  const reportTitle = applyTaxName(config.title, taxName);
+  const emptyMessage = applyTaxName(config.emptyMessage, taxName);
+  const columns = useMemo(() => reportColumns(rows, config.columns ?? [], config.primaryFields, taxName), [rows, config.columns, config.primaryFields, taxName]);
   const activeFilterCount = countReportFilters(config.slug, filters);
   // Opened from Revenue for a single staff member: this report becomes that
   // person's detail screen - their totals only, no chips, search or table.
@@ -252,35 +268,55 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
     { key: "newClients", label: "New clients" },
     { key: "pendingCommission", label: "Commission pending" },
   ];
-  const exportCsv = async (visibleColumns: ReportColumn[]) => {
+  const exportCsv = async (visibleColumns: ReportColumn[], action: "share" | "download") => {
     if (exporting) return;
     setExporting(true);
-    try { await exportReportCsv(config, filters, visibleColumns, rows); }
+    try {
+      const filename = await exportReportCsv(config, filters, visibleColumns, rows, action);
+      if (filename) Alert.alert("CSV downloaded", `Saved ${filename} in the folder you selected.`);
+    }
     catch { Alert.alert("Export failed", "Could not export this report. Please try again."); }
     finally { setExporting(false); }
   };
 
+
   return <PearlBackground><SafeAreaView edges={["top"]} style={styles.safe}><AppStatusBar />
     <RefreshViewport><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl colors={[pearl.accent]} refreshing={Boolean(entry?.refreshing)} onRefresh={refresh} />}>
-      <View style={styles.header}><AppBackButton onPress={() => router.back()} /><View style={styles.headerCopy}>{staffDetail ? <><Text translate style={styles.eyebrow}>Staff performance</Text><Text style={styles.staffName} numberOfLines={1}>{staffName || config.title}</Text></> : <><Text translate style={styles.title}>{config.title}</Text><Text style={styles.subtitle}>{config.group}</Text></>}</View></View>
+      <View style={styles.header}><AppBackButton onPress={() => router.back()} /><View style={styles.headerCopy}>{staffDetail ? <><Text translate style={styles.eyebrow}>Staff performance</Text><Text style={styles.staffName} numberOfLines={1}>{staffName || reportTitle}</Text></> : <><Text translate style={styles.title}>{reportTitle}</Text><Text style={styles.subtitle}>{config.group}</Text></>}</View></View>
       <View style={styles.filterRow}>
-        {dateKeys ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="Report date range" onPress={() => setRangeSheetVisible(true)} style={[styles.control, { flex: 1 }]}><Ionicons name="calendar-outline" size={17} color={pearl.accentDeep} /><Text style={[styles.controlText, { flex: 1 }]}>{dateRangeLabel}</Text><Ionicons name="chevron-down" size={15} color={pearl.accentDeep} /></TouchableOpacity> : null}
+        {dateKeys ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="Report date range" onPress={() => setRangeSheetVisible(true)} style={[styles.control, { flex: 1 }, config.slug === "lost-customers" && Boolean(filters.start_date || filters.end_date) && styles.activeFilter]}><Ionicons name="calendar-outline" size={17} color={pearl.accentDeep} /><Text style={[styles.controlText, { flex: 1 }]}>{config.slug === "lost-customers" ? "Last visit: " : ""}{dateRangeLabel}</Text><Ionicons name="chevron-down" size={15} color={pearl.accentDeep} /></TouchableOpacity> : null}
         {/* The staff detail view is already scoped to one person, so its only
             control is the date range - no Filters button. */}
-        {(!staffDetail && (REPORT_FILTER_FIELDS[config.slug]?.length ?? 0) > 0) ? <TouchableOpacity accessibilityRole="button" accessibilityLabel={'Filters, ' + activeFilterCount + ' active'} onPress={() => setFilterSheetVisible(true)} style={styles.control}><Ionicons name="funnel-outline" size={16} color={pearl.accentDeep} /><Text style={styles.controlText}>Filters{activeFilterCount ? ' · ' + activeFilterCount : ''}</Text></TouchableOpacity> : null}
+        {(!staffDetail && (REPORT_FILTER_FIELDS[config.slug]?.length ?? 0) > 0) ? <TouchableOpacity accessibilityRole="button" accessibilityLabel={'Filters, ' + activeFilterCount + ' active'} onPress={() => setFilterSheetVisible(true)} style={[styles.control, config.slug === "lost-customers" && activeFilterCount > 0 && styles.activeFilter]}><Ionicons name="funnel-outline" size={16} color={pearl.accentDeep} /><Text style={styles.controlText}>Filters{activeFilterCount ? ' · ' + activeFilterCount : ''}</Text></TouchableOpacity> : null}
       </View>
-      {staffDetail ? null : <ReportSummaryCards summary={moreTotals ? summary : primarySummary} maxCards={moreTotals ? Number.MAX_SAFE_INTEGER : 2} labels={moreTotals ? undefined : { totalSale: "Total sales", outstandingAmount: "Outstanding", totalCommission: "Commission earned" }} />}
-      {!staffDetail && summary && Object.keys(summary).length > 2 ? <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: moreTotals }} onPress={() => setMoreTotals((value) => !value)} style={styles.control}><Ionicons name="stats-chart-outline" size={17} color={pearl.accentDeep} /><Text translate style={[styles.controlText, { flex: 1 }]}>{moreTotals ? "Fewer totals" : "More totals"}</Text><Ionicons name={moreTotals ? "chevron-up" : "chevron-down"} size={16} color={pearl.muted} /></TouchableOpacity> : null}
-      {supportsSearch && !staffDetail ? <View style={styles.search}><Ionicons name="search-outline" size={18} color={pearl.muted} /><TextInput accessibilityLabel={'Search ' + config.title} placeholder={config.searchPlaceholder ?? 'Search ' + config.title.toLowerCase()} placeholderTextColor={pearl.muted} value={search} onChangeText={setSearch} underlineColorAndroid="transparent" style={styles.input} />{search ? <TouchableOpacity accessibilityLabel="Clear search" onPress={() => setSearch("")}><Ionicons name="close-circle" size={18} color={pearl.muted} /></TouchableOpacity> : null}</View> : null}
-      {(entry?.loading && !entry.data) || staleStaffData ? <ReportSkeleton /> : entry?.error ? <ReportState error title="Report unavailable" description="We couldn’t load this report. Check your connection and try again." onRetry={refresh} /> : staffDetail ? (summary ? <View style={styles.statGrid}>{staffCards.map((card) => <View key={card.key} style={styles.statCard}><Text translate style={styles.statLabel}>{card.label}</Text><Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{staffCardValue(card.key, summary as Record<string, unknown>, extras)}</Text></View>)}</View> : <ReportState title={config.emptyMessage} description="Adjust the filters or refresh to check again." onRetry={refresh} />) : rows.length ?
-        <ReportTable queryKey={JSON.stringify({ ...filters, page: undefined })} onRequestAllRows={() => loadCompleteReport(config, filters, rows)} onSortError={() => Alert.alert("Sort unavailable", "Could not load the full report for sorting. Please try again.")} title={config.title} rows={rows} columns={columns} total={pagination?.total ?? rows.length} hasMore={hasMore} loadingMore={Boolean(entry?.loadingMore)} onLoadMore={loadMore} onRowPress={handleRowPress} onExport={(visibleColumns) => void exportCsv(visibleColumns)} exporting={exporting} /> :
-        <ReportState title={config.emptyMessage} description="Adjust the filters or refresh to check again." onRetry={refresh} />}
+      {staffDetail ? null : <ReportSummaryCards summary={moreTotals ? summary : primarySummary} maxCards={config.slug === "client-source" ? 4 : moreTotals ? Number.MAX_SAFE_INTEGER : 2} labels={moreTotals ? undefined : { totalSale: "Total sales", outstandingAmount: "Outstanding", totalCommission: "Commission earned" }} />}
+      {!staffDetail && config.slug !== "client-source" && summary && Object.keys(summary).length > 2 ? <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: moreTotals }} onPress={() => setMoreTotals((value) => !value)} style={styles.control}><Ionicons name="stats-chart-outline" size={17} color={pearl.accentDeep} /><Text translate style={[styles.controlText, { flex: 1 }]}>{moreTotals ? "Fewer totals" : "More totals"}</Text><Ionicons name={moreTotals ? "chevron-up" : "chevron-down"} size={16} color={pearl.muted} /></TouchableOpacity> : null}
+      {supportsSearch && !staffDetail ? <View style={styles.search}><Ionicons name="search-outline" size={18} color={pearl.muted} /><TextInput accessibilityLabel={'Search ' + reportTitle} placeholder={config.searchPlaceholder ?? 'Search ' + reportTitle.toLowerCase()} placeholderTextColor={pearl.muted} value={search} onChangeText={setSearch} underlineColorAndroid="transparent" style={styles.input} />{search ? <TouchableOpacity accessibilityLabel="Clear search" onPress={() => setSearch("")}><Ionicons name="close-circle" size={18} color={pearl.muted} /></TouchableOpacity> : null}</View> : null}
+      {(entry?.loading && !entry.data) || staleStaffData ? <ReportSkeleton /> : entry?.error ? <ReportState error title="Report unavailable" description="We couldn’t load this report. Check your connection and try again." onRetry={refresh} /> : staffDetail ? (summary ? <View style={styles.statGrid}>{staffCards.map((card) => <View key={card.key} style={styles.statCard}><Text translate style={styles.statLabel}>{card.label}</Text><Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{staffCardValue(card.key, summary as Record<string, unknown>, extras)}</Text></View>)}</View> : <ReportState title={emptyMessage} description="Adjust the filters or refresh to check again." onRetry={refresh} />) : rows.length ?
+        <ReportTable queryKey={JSON.stringify({ ...filters, page: undefined })} onRequestAllRows={() => loadCompleteReport(config, filters, rows)} onSortError={() => Alert.alert("Sort unavailable", "Could not load the full report for sorting. Please try again.")} title={reportTitle} rows={rows} columns={columns} total={pagination?.total ?? rows.length} hasMore={hasMore} loadingMore={Boolean(entry?.loadingMore)} onLoadMore={loadMore} onRowPress={handleRowPress} onExport={setExportColumns} exporting={exporting} /> :
+        <ReportState title={emptyMessage} description="Adjust the filters or refresh to check again." onRetry={refresh} />}
     </ScrollView></RefreshViewport>
+    <BottomSheet pearlStyle title="Export CSV" subtitle={reportTitle} visible={exportColumns !== null} onClose={() => setExportColumns(null)}>
+      <View style={styles.exportActions}>
+        {(["Share", "Download"] as const).map(label => (
+          <PrimaryButton
+            key={label}
+            title={label}
+            left={<View style={styles.exportIcon}><Ionicons name={label === "Share" ? "share-outline" : "download-outline"} size={18} color={pearl.white} /></View>}
+            onPress={() => {
+              setExportColumns(null);
+              if (exportColumns) void exportCsv(exportColumns, label === "Share" ? "share" : "download");
+            }}
+          />
+        ))}
+        <TextButton title="Cancel" color={Colors.primaryText} onPress={() => setExportColumns(null)} />
+      </View>
+    </BottomSheet>
     <ReportFilterSheet slug={config.slug} data={entry?.data} filters={filters} onApply={applyFilters} onClose={() => setFilterSheetVisible(false)} visible={filterSheetVisible} />
     {dateKeys ? <DateRangePickerSheet pearlStyle centered={false} allowAllTime={dateKeys.mode === "range"} mode={dateKeys.mode} startDate={filters[dateKeys.start] ?? null} endDate={dateKeys.end ? filters[dateKeys.end] ?? null : null} onApply={applyRange} onClose={() => setRangeSheetVisible(false)} visible={rangeSheetVisible} /> : null}
-    <SalesSummaryDetailSheet saleId={selectedSaleId} onClose={() => setSelectedSaleId(null)} />
-    <BottomSheet pearlStyle centered={false} title="Report details" visible={Boolean(selectedRow)} onClose={() => setSelectedRow(null)}>{selectedRow ? columns.map((column) => <View key={column.key} style={styles.detailRow}><Text style={styles.subtitle}>{column.label || humanizeReportKey(column.key)}</Text><Text selectable style={styles.value}>{reportCellValue(column.key, selectedRow[column.key])}</Text></View>) : null}</BottomSheet>
+    <SalesSummaryDetailSheet onEdit={() => { refreshAfterEdit.current = true; }} onDeleted={refresh} saleId={selectedSaleId} onClose={() => setSelectedSaleId(null)} />
+    <BottomSheet pearlStyle centered={false} title="Report details" visible={Boolean(selectedRow)} onClose={() => setSelectedRow(null)}>{selectedRow ? columns.map((column) => <View key={column.key} style={styles.detailRow}><Text style={styles.subtitle}>{column.label || applyTaxName(humanizeReportKey(column.key), taxName)}</Text><Text selectable style={styles.value}>{reportCellValue(column.key, selectedRow[column.key])}</Text></View>) : null}</BottomSheet>
   </SafeAreaView></PearlBackground>;
 }
 /** Most cards read the report's own totals; two come from separate calls. */
@@ -294,20 +330,23 @@ const staffCardValue = (
   return reportCellValue(key, summary[key]);
 };
 
-const createStyles = (_colors: ThemeColors) => StyleSheet.create({
+const createStyles = (_colors: ThemeColors) => themedStyles((p) => ({
+  exportActions: { width: "100%", alignItems: "stretch", gap: 12 },
+  exportIcon: { position: "absolute", start: 20, top: 0, bottom: 0, justifyContent: "center" },
   safe: { flex: 1 }, content: { padding: 16, paddingBottom: 100, gap: 14 },
   header: { flexDirection: "row", alignItems: "center", gap: 12 }, headerCopy: { flex: 1, gap: 3 },
-  title: { fontSize: 22, fontWeight: "700", color: pearl.ink }, subtitle: { color: pearl.muted, fontSize: 12 },
-  eyebrow: { fontSize: 12, fontWeight: "700", letterSpacing: 0.6, textTransform: "uppercase", color: pearl.accentDeep },
-  staffName: { fontSize: 28, fontWeight: "800", letterSpacing: -0.5, color: pearl.ink },
+  title: { fontSize: 22, fontWeight: "700", color: p.ink }, subtitle: { color: p.muted, fontSize: 12 },
+  eyebrow: { fontSize: 12, fontWeight: "700", letterSpacing: 0.6, textTransform: "uppercase", color: p.accentDeep },
+  staffName: { fontSize: 28, fontWeight: "800", letterSpacing: -0.5, color: p.ink },
   statGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  statCard: { flexBasis: "47%", flexGrow: 1, minWidth: 150, borderRadius: 22, padding: 18, paddingBottom: 20, gap: 12, backgroundColor: "rgba(255,255,255,0.62)", borderWidth: 1, borderColor: "rgba(255,255,255,0.95)" },
-  statLabel: { fontSize: 12.5, fontWeight: "700", letterSpacing: 0.3, textTransform: "uppercase", color: pearl.ink2 },
-  statValue: { fontSize: 20, lineHeight: 26, fontWeight: "800", letterSpacing: -0.3, color: pearl.ink },
+  statCard: { flexBasis: "47%", flexGrow: 1, minWidth: 150, borderRadius: 22, padding: 18, paddingBottom: 20, gap: 12, backgroundColor: p.glassStrong, borderWidth: 1, borderColor: "rgba(255,255,255,0.95)" },
+  statLabel: { fontSize: 12.5, fontWeight: "700", letterSpacing: 0.3, textTransform: "uppercase", color: p.ink2 },
+  statValue: { fontSize: 20, lineHeight: 26, fontWeight: "800", letterSpacing: -0.3, color: p.ink },
   filterRow: { flexDirection: "row", gap: 8, alignItems: "center", flexWrap: "wrap" },
-  control: { flexDirection: "row", gap: 7, alignItems: "center", paddingHorizontal: 12, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: "#DDD9EB", backgroundColor: pearl.glass },
-  controlText: { color: pearl.accentDeep, fontSize: 12, fontWeight: "600" },
-  search: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: "#DDD9EB", backgroundColor: pearl.glass },
-  input: { flex: 1, fontSize: 13, color: pearl.ink, backgroundColor: "transparent", paddingVertical: 12 },
-  detailRow: { paddingVertical: 12, flexDirection: "row", justifyContent: "space-between", gap: 20, borderBottomWidth: 1, borderBottomColor: pearl.divider }, value: { flex: 1, textAlign: "right", fontSize: 13, fontWeight: "600", color: pearl.ink },
-});
+  activeFilter: { backgroundColor: p.accentTint, borderColor: p.accent, shadowColor: p.accent, shadowOpacity: 0.45, shadowRadius: 6, shadowOffset: { width: 0, height: 1 }, elevation: 4 },
+  control: { flexDirection: "row", gap: 7, alignItems: "center", paddingHorizontal: 12, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: "#DDD9EB", backgroundColor: p.glass },
+  controlText: { color: p.accentDeep, fontSize: 12, fontWeight: "600" },
+  search: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: "#DDD9EB", backgroundColor: p.glass },
+  input: { flex: 1, fontSize: 13, color: p.ink, backgroundColor: "transparent", paddingVertical: 12 },
+  detailRow: { paddingVertical: 12, flexDirection: "row", justifyContent: "space-between", gap: 20, borderBottomWidth: 1, borderBottomColor: p.divider }, value: { flex: 1, textAlign: "right", fontSize: 13, fontWeight: "600", color: p.ink },
+}));

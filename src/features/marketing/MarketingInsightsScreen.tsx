@@ -7,7 +7,7 @@ import { Text } from "@/components/ui/AppTypography";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { hasCustomPermission } from "@/utils/permissions";

@@ -1,5 +1,6 @@
 import { API_BASE_URL, api } from "@/services/api";
 import { REPORT } from "@/services/api/endpoints/report.endpoints";
+import { salesService } from "@/services/sales.service";
 import type { ApiResponse } from "@/types/auth";
 import type { ConsumableUsageReportResponse, ConsumableUsageReportRow } from "@/types/report";
 
@@ -53,6 +54,8 @@ export type GenericReportRequest = Record<string, unknown>;
 export type GenericReportResponse = Record<string, unknown>;
 
 export type SalesSummaryDetailItem = {
+  taxAmount?: number;
+  taxableAmount?: number;
   discountAmount: number;
   id: string;
   itemId: string | null;
@@ -239,11 +242,16 @@ export const reportService = {
   },
 
   async getSalesSummaryDetail(saleId: string): Promise<SalesSummaryDetailResponse> {
-    const response = await api.get<ApiResponse<unknown>>(
-      `${getReportApiOrigin()}${REPORT.SALES_SUMMARY_DETAIL(saleId)}`,
-    );
-
-    return unwrap<SalesSummaryDetailResponse>(response);
+    const [response, invoice] = await Promise.all([
+      api.get<ApiResponse<unknown>>(`${getReportApiOrigin()}${REPORT.SALES_SUMMARY_DETAIL(saleId)}`),
+      salesService.getSale(saleId).catch(() => null),
+    ]);
+    const detail = unwrap<SalesSummaryDetailResponse>(response);
+    const lines = new Map(invoice?.lineItems.map(line => [line.id, line]));
+    return { ...detail, items: (detail.items ?? []).map(item => {
+      const line = lines.get(item.id);
+      return line ? { ...item, taxAmount: line.taxAmount, taxableAmount: line.taxableAmount } : item;
+    }) };
   },
 
   async getConsumableUsage(branchId: string): Promise<ConsumableUsageReportResponse> {

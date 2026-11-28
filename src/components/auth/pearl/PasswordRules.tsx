@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
-import { StyleSheet, View } from "react-native";
+import { View } from "react-native";
 
 import { Text } from "@/components/ui/AppTypography";
 
-import { pearl } from "./tokens";
+import { pearl } from "./themedPearl";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 export type PasswordRuleState = { length: boolean; number: boolean; mixedCase: boolean; match: boolean };
 
@@ -39,11 +40,11 @@ export function PasswordRules({ rules }: { rules: PasswordRuleState }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((p) => ({
   grid: { flexDirection: "row", flexWrap: "wrap", rowGap: 8 },
   rule: { width: "50%", flexDirection: "row", alignItems: "center", gap: 7, paddingRight: 6 },
   dot: { width: 16, height: 16, borderRadius: 8, borderWidth: 1.8, borderColor: "rgba(138,136,156,0.45)", alignItems: "center", justifyContent: "center" },
-  dotOn: { backgroundColor: pearl.success, borderColor: pearl.success },
-  text: { fontSize: 12, fontWeight: "600", color: pearl.muted, flexShrink: 1 },
-  textOn: { color: pearl.successText },
-});
+  dotOn: { backgroundColor: p.success, borderColor: p.success },
+  text: { fontSize: 12, fontWeight: "600", color: p.muted, flexShrink: 1 },
+  textOn: { color: p.successText },
+}));

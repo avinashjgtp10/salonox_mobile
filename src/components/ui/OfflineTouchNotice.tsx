@@ -1,6 +1,6 @@
 import NetInfo from "@react-native-community/netinfo";
 import { useRef, useState, type ReactNode } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "@/components/pearl/Icon";
@@ -9,6 +9,7 @@ import { useAppToast } from "@/hooks/useAppToast";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { useAppSelector } from "@/store/hooks";
 import { selectDashboardLastFetchedAt } from "@/store/dashboard/dashboard.slice";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 /** The prototype's persistent banner; existing network monitoring owns recovery. */
 export function OfflineTouchNotice({ children }: { children: ReactNode }) {
@@ -62,7 +63,7 @@ export function OfflineTouchNotice({ children }: { children: ReactNode }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((p) => ({
   root: { flex: 1 },
   banner: {
     position: "absolute", left: 10, right: 10, zIndex: 38,
@@ -72,11 +73,11 @@ const styles = StyleSheet.create({
     shadowColor: "#3B3950", shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3, shadowRadius: 24, elevation: 10,
   },
-  icon: { width: 30, height: 30, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.14)" },
+  icon: { width: 30, height: 30, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: p.glassStrong },
   copy: { flex: 1, minWidth: 0 },
   title: { fontSize: 13, fontWeight: "700", color: "#fff" },
   caption: { fontSize: 11.5, fontWeight: "500", color: "rgba(255,255,255,0.85)", marginTop: 2 },
-  retry: { minHeight: 32, paddingHorizontal: 12, borderRadius: 10, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" },
+  retry: { minHeight: 32, paddingHorizontal: 12, borderRadius: 10, backgroundColor: p.glassStrong, alignItems: "center", justifyContent: "center" },
   retryLabel: { fontSize: 12.5, fontWeight: "700", color: "#3B3950" },
   pressed: { opacity: 0.7 },
-});
+}));

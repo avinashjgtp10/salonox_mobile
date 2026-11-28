@@ -100,7 +100,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     name: env.appName,
     slug: "SalonOX",
     version: APP_VERSION,
-    orientation: "portrait",
+    orientation: "default",
     icon,
     scheme: env.scheme,
     userInterfaceStyle: "automatic",

@@ -1,4 +1,4 @@
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { useMemo } from "react";
@@ -16,6 +16,7 @@ import { formatEmpty, formatValue } from "@/features/profile/utils/profileFormat
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { UserProfile } from "@/types/profile";
 import type { SalonListItem } from "@/types/salon";
+import { useTaxName } from "@/hooks/useTaxName";
 
 type SalonInfoCardProps = {
   isLoading: boolean;
@@ -26,6 +27,7 @@ type SalonInfoCardProps = {
 
 export function SalonInfoCard({ isLoading, onEdit, profile, salon }: SalonInfoCardProps) {
   const Colors = useThemeColors();
+  const taxName = useTaxName();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   const salonName = salon?.businessName || salon?.name || profile.businessName;
@@ -72,7 +74,7 @@ export function SalonInfoCard({ isLoading, onEdit, profile, salon }: SalonInfoCa
 
       <ProfileSubsection title="BUSINESS & TAX">
         <FieldGrid>
-          <FieldBox empty={gstin.isEmpty} icon="pricetag-outline" label="GST NUMBER" value={gstin.text} />
+          <FieldBox empty={gstin.isEmpty} icon="pricetag-outline" label={`${taxName} NUMBER`} value={gstin.text} />
           <FieldBox empty={businessRegNo.isEmpty} icon="card-outline" label="BUSINESS REG. NO. (PAN)" value={businessRegNo.text} />
           <FieldBox empty={businessType.isEmpty} icon="business-outline" label="BUSINESS TYPE" value={businessType.text} />
           <FieldBox empty={businessCategory.isEmpty} icon="ticket-outline" label="BUSINESS CATEGORY" value={businessCategory.text} />

@@ -5,7 +5,8 @@ import { router, type Href } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/ui/AppTypography";
-import { pearl, pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { Icon, type IconName } from "@/components/pearl/Icon";
 import { Avatar, IconButton, StatusPill } from "@/components/pearl/ui";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
@@ -13,6 +14,7 @@ import { appAlert } from "@/services/appAlert";
 import { formatCurrency } from "@/features/appointments/utils/appointmentForm";
 import { formatBusinessDate, formatBusinessTime, getAppointmentEndValue, getAppointmentGrandTotal, getAppointmentStaffNames, maskPhone } from "@/features/appointments/utils/appointmentScreenHelpers";
 import type { AppointmentListItem } from "@/types/appointment";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 export function BookingDetailsSheet({ appointment, onClose }: { appointment: AppointmentListItem | null; onClose: () => void }) {
   "use no memo";
@@ -59,22 +61,22 @@ export function BookingDetailsSheet({ appointment, onClose }: { appointment: App
   </View>
  </Modal>;
 }
-const s = StyleSheet.create({
+const s = themedStyles((p) => ({
  backdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(35,33,52,0.35)" },
- sheet: { backgroundColor: "#F7F6FA", borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: "hidden" },
- handle: { width: 36, height: 4, backgroundColor: pearl.divider, borderRadius: 2, alignSelf: "center", marginTop: 10 },
+ sheet: { backgroundColor: p.bgBottom, borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: "hidden" },
+ handle: { width: 36, height: 4, backgroundColor: p.divider, borderRadius: 2, alignSelf: "center", marginTop: 10 },
  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 18, paddingVertical: 12 },
- title: { fontSize: 18, fontWeight: "800", color: pearl.ink },
+ title: { fontSize: 18, fontWeight: "800", color: p.ink },
  content: { paddingHorizontal: 18, gap: 16 },
  client: { flexDirection: "row", alignItems: "center", gap: 12 },
- muted: { fontSize: 13, color: pearl.muted },
- card: { backgroundColor: pearl.glass, borderRadius: 22, borderWidth: 1, borderColor: pearl.glassBorder, overflow: "hidden" },
- kv: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 14, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: pearl.divider },
- value: { flexShrink: 1, maxWidth: "74%", textAlign: "right", color: pearl.ink, fontSize: 13, fontWeight: "700" },
+ muted: { fontSize: 13, color: p.muted },
+ card: { backgroundColor: p.glass, borderRadius: 22, borderWidth: 1, borderColor: p.glassBorder, overflow: "hidden" },
+ kv: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 14, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: p.divider },
+ value: { flexShrink: 1, maxWidth: "74%", textAlign: "right", color: p.ink, fontSize: 13, fontWeight: "700" },
  actions: { flexDirection: "row", gap: 8 }, action: { flex: 1, alignItems: "center", gap: 7 },
- actionIcon: { width: 46, height: 46, borderRadius: 16, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, alignItems: "center", justifyContent: "center" },
- actionText: { color: pearl.ink, fontSize: 11.5, fontWeight: "600" }, buttons: { flexDirection: "row", gap: 8 },
- secondary: { flex: 1, minHeight: 48, borderRadius: 16, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, alignItems: "center", justifyContent: "center" },
+ actionIcon: { width: 46, height: 46, borderRadius: 16, backgroundColor: p.glass, borderWidth: 1, borderColor: p.glassBorder, alignItems: "center", justifyContent: "center" },
+ actionText: { color: p.ink, fontSize: 11.5, fontWeight: "600" }, buttons: { flexDirection: "row", gap: 8 },
+ secondary: { flex: 1, minHeight: 48, borderRadius: 16, backgroundColor: p.glass, borderWidth: 1, borderColor: p.glassBorder, alignItems: "center", justifyContent: "center" },
  primary: { minHeight: 48, borderRadius: 16, flexDirection: "row", gap: 7, alignItems: "center", justifyContent: "center" },
- buttonText: { fontSize: 14, fontWeight: "700", color: pearl.accentDeep }, cancel: { alignItems: "center", paddingBottom: 10, paddingTop: 2 }, cancelText: { fontSize: 13, fontWeight: "600", color: pearl.muted },
-});
+ buttonText: { fontSize: 14, fontWeight: "700", color: p.accentDeep }, cancel: { alignItems: "center", paddingBottom: 10, paddingTop: 2 }, cancelText: { fontSize: 13, fontWeight: "600", color: p.muted },
+}));

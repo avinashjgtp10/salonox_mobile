@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { BottomSheet } from "@/components/ui/BottomSheet";
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { inboxService } from "@/services/inbox.service";
 import { getApiErrorMessage } from "@/services/api";
 import type { InboxMessage, InboxTemplate } from "@/types/inbox";

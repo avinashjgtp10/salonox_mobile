@@ -12,11 +12,12 @@ import { useAppDispatch } from "@/store/hooks";
 import { fetchBranchesThunk } from "@/middleware/branch/branch.thunk";
 import { useAuth } from "@/context/AuthContext";
 
-type Mode = "list" | "connect" | "create" | "reset" | "disconnect";
-export function ConnectedBranchesSheet({ onClose, onOpenPortal }: { onClose: () => void; onOpenPortal: () => void }) {
+export type ConnectedBranchesMode = "list" | "connect" | "create" | "reset" | "disconnect";
+type Mode = ConnectedBranchesMode;
+export function ConnectedBranchesSheet({ onClose, onOpenPortal, initialMode = "list" }: { onClose: () => void; onOpenPortal: () => void; initialMode?: Mode }) {
   const ui = useSettingsStyles(), toast = useAppToast(), dispatch = useAppDispatch();
   const { user, switchSalon } = useAuth();
-  const [mode, setMode] = useState<Mode>("list");
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [data, setData] = useState<ConnectedBranchesData | null>(null);
   const [loading, setLoading] = useState(true), [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
   const [identity, setIdentity] = useState(""), [password, setPassword] = useState(""), [confirm, setConfirm] = useState("");

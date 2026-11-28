@@ -3,7 +3,7 @@ import { StyleSheet, View } from "react-native";
 
 import { Text, TextInput } from "@/components/ui/AppTypography";
 
-import { pearl } from "./tokens";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 /**
  * Six-box code input. One transparent TextInput is laid over all the boxes, so a
@@ -54,7 +54,7 @@ export function OtpInput({ value, onChange, onSubmit, error, length = 6, autoFoc
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((p) => ({
   row: { flexDirection: "row", gap: 8 },
   box: {
     flex: 1,
@@ -62,13 +62,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.8)",
+    backgroundColor: p.glassStrong,
     borderWidth: 1,
-    borderColor: pearl.fieldBorder,
+    borderColor: p.fieldBorder,
   },
-  active: { borderColor: pearl.accent, borderWidth: 1.5 },
-  bad: { borderColor: pearl.dangerFieldBorder, borderWidth: 1.5, backgroundColor: pearl.dangerField },
-  digit: { fontSize: 22, fontWeight: "800", color: pearl.ink },
+  active: { borderColor: p.accent, borderWidth: 1.5 },
+  bad: { borderColor: p.dangerFieldBorder, borderWidth: 1.5, backgroundColor: p.dangerField },
+  digit: { fontSize: 22, fontWeight: "800", color: p.ink },
   // Covers the boxes and receives the taps, but draws nothing itself.
   overlay: {
     ...StyleSheet.absoluteFillObject,
@@ -77,4 +77,4 @@ const styles = StyleSheet.create({
     fontSize: 1,
     opacity: 0.02,
   },
-});
+}));

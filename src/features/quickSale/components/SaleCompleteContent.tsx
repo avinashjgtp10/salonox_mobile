@@ -1,12 +1,14 @@
 import { useRegionalPreferences } from "@/localization/preferences";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { Text } from "@/components/ui/AppTypography";
-import { pearl, pearlType } from "@/components/auth/pearl/tokens";
+import { pearlType } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { Card, ListRow, Tile } from "@/components/pearl/ui";
 import { Ionicons } from "@expo/vector-icons";
 import { invoiceDateLabel } from "@/utils/receipt";
 import { formatCurrency } from "@/utils/currency";
 import type { SaleDetail, SaleLineItem } from "@/types/sales";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 export function SaleCompleteContent({ sale, lines, total, receipt, preview, paymentMethod, clientName, staff, busy, onShare, onPrint, onInvoice, onBook }: { sale: SaleDetail; lines: SaleLineItem[]; total: number; receipt: string; preview: boolean; paymentMethod: string; clientName: string; staff: boolean; busy: boolean; onShare: () => void; onPrint: () => void; onInvoice: () => void; onBook: () => void }) {
   "use no memo";
   useRegionalPreferences();
@@ -28,4 +30,4 @@ export function SaleCompleteContent({ sale, lines, total, receipt, preview, paym
    <Pressable onPress={onInvoice} style={{ alignItems: "center", padding: 8 }}><Text translate style={pearlType.link}>View invoice</Text></Pressable></> : null}
  </View>;
 }
-const s=StyleSheet.create({success:{alignItems:"center",gap:10,paddingVertical:24},badge:{height:82,width:82,borderRadius:41,backgroundColor:pearl.glass,alignItems:"center",justifyContent:"center",borderWidth:1,borderColor:pearl.glassBorder,marginBottom:8},row:{flexDirection:"row",alignItems:"center",gap:12,justifyContent:"space-between",padding:16},rowDivided:{borderBottomWidth:1,borderBottomColor:pearl.divider},name:{flex:1,fontSize:14,color:pearl.ink,fontWeight:"600"},price:{fontSize:14,color:pearl.ink,fontWeight:"700"},actions:{flexDirection:"row",gap:8},action:{flex:1,flexDirection:"row",gap:8,justifyContent:"center",alignItems:"center",minHeight:48,borderRadius:16,backgroundColor:pearl.glass,borderWidth:1,borderColor:pearl.glassBorder}});
+const s=themedStyles((p) => ({success:{alignItems:"center",gap:10,paddingVertical:24},badge:{height:82,width:82,borderRadius:41,backgroundColor:p.glass,alignItems:"center",justifyContent:"center",borderWidth:1,borderColor:p.glassBorder,marginBottom:8},row:{flexDirection:"row",alignItems:"center",gap:12,justifyContent:"space-between",padding:16},rowDivided:{borderBottomWidth:1,borderBottomColor:p.divider},name:{flex:1,fontSize:14,color:p.ink,fontWeight:"600"},price:{fontSize:14,color:p.ink,fontWeight:"700"},actions:{flexDirection:"row",gap:8},action:{flex:1,flexDirection:"row",gap:8,justifyContent:"center",alignItems:"center",minHeight:48,borderRadius:16,backgroundColor:p.glass,borderWidth:1,borderColor:p.glassBorder}}));

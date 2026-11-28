@@ -1,6 +1,7 @@
 import { SaleCompleteContent } from "@/features/quickSale/components/SaleCompleteContent";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
-import { pearl, pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { LinearGradient } from "expo-linear-gradient";
 import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";

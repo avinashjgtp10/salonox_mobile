@@ -1,4 +1,4 @@
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { CatalogFormFooter } from "@/features/catalog/components/CatalogFormFooter";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";

@@ -1,4 +1,4 @@
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { cloneElement, isValidElement, useEffect, useRef, useState, type ReactElement } from "react";
 import { PanResponder, Platform, RefreshControl, StyleSheet, View, type RefreshControlProps, type ScrollViewProps, type ViewStyle } from "react-native";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";

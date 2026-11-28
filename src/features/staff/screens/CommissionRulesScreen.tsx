@@ -51,7 +51,7 @@ import {
   type PearlColors as ThemeColors,
 } from "@/components/auth/pearl/usePearlColors";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { StaffHeader, staffUi } from "../components/StaffPearl";
 import {
   CommissionButton,

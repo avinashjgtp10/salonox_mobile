@@ -1,5 +1,5 @@
 import { useRegionalPreferences } from "@/localization/preferences";
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { Text, TextInput } from "@/components/ui/AppTypography";

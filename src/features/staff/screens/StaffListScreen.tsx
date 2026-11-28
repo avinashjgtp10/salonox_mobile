@@ -14,7 +14,7 @@ import { Text, TextInput } from "@/components/ui/AppTypography";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {

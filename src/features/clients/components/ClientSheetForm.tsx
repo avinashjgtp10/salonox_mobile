@@ -1,4 +1,5 @@
-import { pearl, pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { usePearlColors, type PearlColors } from "@/components/auth/pearl/usePearlColors";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
@@ -10,6 +11,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import type { CountryCode } from "libphonenumber-js";
 import { useMemo } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 /** The stored gender values, shared by the full client form. */
 export const CLIENT_GENDER_OPTIONS = ["Female", "Male", "Other"] as const;
@@ -219,26 +221,26 @@ export function ClientSheetActions({ formError, onCancel, onSubmit, submitLabel,
   );
 }
 
-const createStyles = (Colors: PearlColors) => StyleSheet.create({
+const createStyles = (Colors: PearlColors) => themedStyles((p) => ({
   row: { flexDirection: "row", gap: Spacing.sm },
   half: { flex: 1 },
   field: { marginBottom: Spacing.md },
   // The pinned footer brings its own top padding, so the last field does not
   // also pad the bottom of the scroll.
   lastField: { marginBottom: 0 },
-  label: { color: pearl.ink2, fontSize: 12, fontWeight: "600", marginBottom: 8 },
+  label: { color: p.ink2, fontSize: 12, fontWeight: "600", marginBottom: 8 },
   input: {
-    backgroundColor: pearl.field, borderColor: pearl.fieldBorder, borderRadius: 16, borderWidth: 1,
-    color: pearl.ink, fontSize: 14, minHeight: 48, paddingHorizontal: 14, paddingVertical: 12,
+    backgroundColor: p.field, borderColor: p.fieldBorder, borderRadius: 16, borderWidth: 1,
+    color: p.ink, fontSize: 14, minHeight: 48, paddingHorizontal: 14, paddingVertical: 12,
   },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
-    backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderRadius: 20,
+    backgroundColor: p.glass, borderColor: p.glassBorder, borderRadius: 20,
     borderWidth: 1, paddingHorizontal: 13, paddingVertical: 9,
   },
-  chipSelected: { backgroundColor: pearl.accentWash, borderColor: pearl.accentTint },
-  chipText: { color: pearl.ink2, fontSize: 12, fontWeight: "600" },
-  chipTextSelected: { color: pearl.accentDeep },
+  chipSelected: { backgroundColor: p.accentWash, borderColor: p.accentTint },
+  chipText: { color: p.ink2, fontSize: 12, fontWeight: "600" },
+  chipTextSelected: { color: p.accentDeep },
   errorText: { color: Colors.error, fontSize: 12, fontWeight: "700", marginBottom: Spacing.sm, marginTop: 4 },
   // The sheet's footer is a row; this fills it so the error can sit above.
   footerStack: { flex: 1 },
@@ -251,4 +253,4 @@ const createStyles = (Colors: PearlColors) => StyleSheet.create({
   saveButton: { alignItems: "center", borderRadius: 16, flex: 1, justifyContent: "center", minHeight: 46, overflow: "hidden" },
   saveText: { color: Colors.onPrimary, fontSize: 14, fontWeight: "800" },
   disabled: { opacity: 0.6 },
-});
+}));

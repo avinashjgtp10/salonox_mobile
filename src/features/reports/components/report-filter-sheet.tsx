@@ -4,6 +4,7 @@ import { StyleSheet, View } from "react-native";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { FilterSheet, type FilterField, type FilterSelection } from "@/components/ui/FilterSheet";
 import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
+import { useTaxName } from "@/hooks/useTaxName";
 import type { ReportFilters, ReportSlug } from "../report-config";
 import { decodeReportSelection, REPORT_FILTER_FIELDS } from "../report-filters";
 import { useReportFilterOptions, type ReportOption } from "../useReportFilterOptions";
@@ -17,6 +18,7 @@ export function ReportFilterSheet({ slug, data, filters, onApply, onClose, visib
   visible: boolean;
 }) {
   const colors = usePearlColors();
+  const includeTaxLabel = `Include ${useTaxName()}`;
   const definitions = useMemo(() => REPORT_FILTER_FIELDS[slug] ?? [], [slug]);
   const lookup = useReportFilterOptions(slug, data, visible);
   const selected = useMemo(() => Object.fromEntries(definitions.map((field) => [field.key,
@@ -30,7 +32,7 @@ export function ReportFilterSheet({ slug, data, filters, onApply, onClose, visib
       field.dependsOn = "category_ids";
       field.optionsFor = (parents, own) => fieldOptions.filter((option) => own.includes(option.id) || (option.categoryId && parents.includes(option.categoryId)));
     }
-    if (definition.kind === "boolean") field.render = (values, update) => <View style={styles.toggle}><Text translate style={{ color: colors.text }}>Include GST</Text><AppSwitch accessibilityLabel="Include GST" value={values[0] !== "false"} onValueChange={(value) => update(value ? [] : ["false"])} /></View>;
+    if (definition.kind === "boolean") field.render = (values, update) => <View style={styles.toggle}><Text style={{ color: colors.text }}>{includeTaxLabel}</Text><AppSwitch accessibilityLabel={includeTaxLabel} value={values[0] !== "false"} onValueChange={(value) => update(value ? [] : ["false"])} /></View>;
     if (definition.kind === "number" || definition.kind === "date") field.render = (values, update) => <TextInput accessibilityLabel={definition.label} keyboardType={definition.kind === "number" ? definition.decimal ? "decimal-pad" : "number-pad" : "default"} placeholder={definition.kind === "date" ? "YYYY-MM-DD" : "0"} placeholderTextColor={colors.placeholder} value={values[0] ?? ""} onChangeText={(value) => update(value ? [value] : [])} style={[styles.input, { color: colors.text, borderColor: colors.border }]} />;
     return field;
   });
@@ -38,6 +40,7 @@ export function ReportFilterSheet({ slug, data, filters, onApply, onClose, visib
     for (const field of definitions) {
       const value = draft[field.key]?.[0];
       if (!value) continue;
+      if (field.key === "lost_days" && Number(value) < 1) return "Enter at least one day of inactivity.";
       if (field.kind === "number" && (field.decimal ? !/^\d+(?:\.\d{1,2})?$/.test(value) || !Number.isFinite(Number(value)) : !/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)))) return `${field.label} must be a non-negative ${field.decimal ? "amount with up to two decimal places" : "whole number"}.`;
       if (field.kind === "date" && (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(value)) || new Date(value).toISOString().slice(0, 10) !== value)) return `${field.label} must be a valid date (YYYY-MM-DD).`;
     }
@@ -48,7 +51,7 @@ export function ReportFilterSheet({ slug, data, filters, onApply, onClose, visib
     const next = { ...filters, page: 1 };
     definitions.forEach((field) => {
       const values = draft[field.key] ?? [];
-      next[field.key] = field.kind === "boolean" ? values[0] ?? "true" : field.single || field.kind ? values[0] ?? "" : values.length ? JSON.stringify(values) : "";
+      next[field.key] = field.kind === "boolean" ? values[0] ?? "true" : field.single || field.kind ? values[0] ?? (field.key === "lost_days" ? "90" : "") : values.length ? JSON.stringify(values) : "";
     });
     onApply(next);
   }} />;

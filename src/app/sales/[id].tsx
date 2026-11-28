@@ -1,4 +1,4 @@
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { InvoiceDetailsView } from "@/features/quickSale/components/InvoiceDetailsView";
 import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { AppBackButton } from "@/components/ui/AppBackButton";

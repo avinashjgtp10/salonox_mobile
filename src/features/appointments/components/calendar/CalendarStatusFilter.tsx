@@ -1,4 +1,4 @@
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { Text } from "@/components/ui/AppTypography";
 import { Portal } from "@/components/ui/Portal";
 import { CALENDAR_STATUS_FILTERS } from "@/features/appointments/constants/appointmentConstants";

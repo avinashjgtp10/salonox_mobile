@@ -1,12 +1,19 @@
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
+import { router } from "expo-router";
+import { useAppToast } from "@/hooks/useAppToast";
+import { useTaxName } from "@/hooks/useTaxName";
+import { invoiceItemTax } from "@/features/quickSale/utils/invoiceItemTax";
 import { maskPhone } from "@/utils/maskPhone";
+import { selectCurrentUser } from "@/store/user/user.slice";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { deleteSaleThunk } from "@/middleware/sales/sales.thunk";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { Alert, Clipboard, StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { AppRadius } from "@/constants/layout";
@@ -21,6 +28,8 @@ import { computeBillRoundOff } from "@/utils/billRoundOff";
 
 type SalesSummaryDetailSheetProps = {
   onClose: () => void;
+  onDeleted?: () => void;
+  onEdit?: () => void;
   saleId: string | null;
 };
 
@@ -48,7 +57,7 @@ const formatPaymentMethod = (method: string | null, reference: string | null) =>
   }
 };
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({ label, value, action }: { label: string; value: string; action?: ReactNode }) {
   "use no memo";
   useRegionalPreferences();
   const Colors = usePearlColors();
@@ -58,6 +67,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
     <View style={styles.infoRow}>
       <Text translate allowFontScaling style={styles.infoLabel}>{label}</Text>
       <Text allowFontScaling selectable style={styles.infoValue}>{value}</Text>
+      {action}
     </View>
   );
 }
@@ -78,6 +88,8 @@ function Section({ children, title }: { children: ReactNode; title: string }) {
 
 export const SalesSummaryDetailSheet = memo(function SalesSummaryDetailSheet({
   onClose,
+  onDeleted,
+  onEdit,
   saleId,
 }: SalesSummaryDetailSheetProps) {
   "use no memo";
@@ -85,14 +97,19 @@ export const SalesSummaryDetailSheet = memo(function SalesSummaryDetailSheet({
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const requestIdRef = useRef(0);
+  const dispatch = useAppDispatch();
+  const toast = useAppToast();
+  const taxName = useTaxName();
+  const [deleting, setDeleting] = useState(false);
   const [data, setData] = useState<SalesSummaryDetailResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
-    if (!saleId || loading) return;
+    if (!saleId) return;
     const requestId = ++requestIdRef.current;
     setLoading(true);
+    setData(null);
     setError(null);
 
     try {
@@ -110,7 +127,7 @@ export const SalesSummaryDetailSheet = memo(function SalesSummaryDetailSheet({
         setLoading(false);
       }
     }
-  }, [loading, saleId]);
+  }, [saleId]);
 
   useEffect(() => {
     if (!saleId) {
@@ -122,14 +139,46 @@ export const SalesSummaryDetailSheet = memo(function SalesSummaryDetailSheet({
     }
 
     void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [saleId]);
+    return () => { requestIdRef.current += 1; };
+  }, [saleId, load]);
 
   const sale = data?.sale ?? null;
   const items = data?.items ?? [];
   const payment = data?.payment ?? null;
   const invoice = formatInvoiceNumber(sale?.invoiceNumber) ?? sale?.invoiceNumber ?? "Bill Details";
   const sheetTitle = sale ? invoice : "Bill Details";
+  const phone = sale?.clientPhone?.trim();
+  const user = useAppSelector(selectCurrentUser);
+  const fullNumber = !!user && (["salon_owner", "admin", "super_admin"].includes(user.role) ||
+    (user.role === "staff" && user.effective_permissions?.view_full_client_numbers === true));
+  const copyPhone = () => {
+    if (!phone || !fullNumber) return;
+    try {
+      Clipboard.setString(phone);
+      toast.showSuccess("Mobile number copied");
+    } catch {
+      toast.showError("Could not copy the mobile number.");
+    }
+  };
+  const confirmDelete = () => {
+    if (!sale || deleting) return;
+    Alert.alert("Delete sale?", `Permanently delete ${invoice}?`, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: async () => {
+        setDeleting(true);
+        try {
+          await dispatch(deleteSaleThunk(sale.id)).unwrap();
+          onClose();
+          onDeleted?.();
+          toast.showSuccess("Sale deleted");
+        } catch (error) {
+          toast.showError(getApiErrorMessage(error) || "Unable to delete sale.");
+        } finally {
+          setDeleting(false);
+        }
+      } },
+    ]);
+  };
   const sheetSubtitle = sale?.clientName ?? (loading ? "Loading bill details..." : "Please try again.");
   // Same inputs as the web Sale Detail modal. sale.totalAmount is revenue (no
   // redemptions taken off), so redemptions are netted off the grand total.
@@ -156,7 +205,7 @@ export const SalesSummaryDetailSheet = memo(function SalesSummaryDetailSheet({
 
   return (
     <BottomSheet pearlStyle centered={false}
-      onClose={onClose}
+      onClose={() => { if (!deleting) onClose(); }}
       subtitle={sheetSubtitle}
       title={sheetTitle}
       visible={Boolean(saleId)}
@@ -179,9 +228,32 @@ export const SalesSummaryDetailSheet = memo(function SalesSummaryDetailSheet({
         </View>
       ) : (
         <View style={styles.content}>
+          <View style={styles.actions}>
+            {([
+              ["Edit", "pencil-outline", () => {
+                onEdit?.();
+                onClose();
+                router.push({ pathname: "/quick-sale", params: { draftId: sale.id } });
+              }],
+              ["Print", "print-outline", () => {
+                onClose();
+                router.push({ pathname: "/quick-sale/checkout", params: { saleId: sale.id, printReceipt: "1" } });
+              }],
+              ["Delete", "trash-outline", confirmDelete],
+            ] as const).map(([label, icon, press]) => (
+              <TouchableOpacity key={label} accessibilityRole="button" disabled={deleting} onPress={press} style={styles.action}>
+                <Ionicons name={icon} size={17} color={label === "Delete" ? Colors.error : Colors.heading} />
+                <Text translate style={styles.sectionTitleText}>{label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
           <Section title="Customer">
             <InfoRow label="Name" value={sale.clientName ?? "Walk-in"} />
-            <InfoRow label="Phone" value={maskPhone(sale.clientPhone)} />
+            <InfoRow label="Mobile number" value={(fullNumber ? phone : maskPhone(phone)) || "—"} action={fullNumber && phone && /^[+\d\s().-]+$/.test(phone) && /\d/.test(phone) ? (
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Copy mobile number" hitSlop={8} onPress={copyPhone}>
+                <Ionicons name="copy-outline" size={19} color={Colors.primaryText} />
+              </TouchableOpacity>
+            ) : null} />
           </Section>
 
           <Section title="Invoice">
@@ -205,6 +277,9 @@ export const SalesSummaryDetailSheet = memo(function SalesSummaryDetailSheet({
                       Discount {money(item.discountAmount)}
                     </Text>
                   ) : null}
+                  <Text allowFontScaling style={styles.itemMeta}>
+                    {invoiceItemTax(item, sale.taxAmount, taxName)}
+                  </Text>
                 </View>
                 <View style={styles.itemAmount}>
                   <Text allowFontScaling style={styles.itemTotal}>{money(item.totalPrice)}</Text>
@@ -225,7 +300,7 @@ export const SalesSummaryDetailSheet = memo(function SalesSummaryDetailSheet({
             {sale.referralDiscountAmount > 0 ? (
               <InfoRow label="Referral discount" value={money(sale.referralDiscountAmount)} />
             ) : null}
-            <InfoRow label="Tax" value={money(sale.taxAmount)} />
+            <InfoRow label="Total tax" value={money(sale.taxAmount)} />
             <InfoRow label="Additional charges" value={money(sale.exCharges)} />
             {roundOff !== 0 ? (
               <InfoRow label="Round off" value={`${roundOff > 0 ? "+" : "-"} ${money(Math.abs(roundOff))}`} />
@@ -262,6 +337,9 @@ export const SalesSummaryDetailSheet = memo(function SalesSummaryDetailSheet({
 });
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
+  actions: { flexDirection: "row", gap: Spacing.sm },
+  action: { flex: 1, minHeight: 44, justifyContent: "center", alignItems: "center", flexDirection: "row", gap: 5, backgroundColor: Colors.backgroundElement, borderRadius: 12, borderWidth: 1, borderColor: Colors.border },
+  sectionTitleText: { color: Colors.heading, fontSize: 13, fontWeight: "700" },
   content: { gap: Spacing.md, paddingBottom: 72 },
   emptyText: { color: Colors.text2, fontSize: 12, lineHeight: 18 },
   infoLabel: { color: Colors.text2, flex: 1, fontSize: 12, lineHeight: 18 },

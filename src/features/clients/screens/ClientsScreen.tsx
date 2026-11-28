@@ -3,7 +3,8 @@ import { AppSwitch } from "@/components/ui/AppSwitch";
 import { ClientBottomNav } from "../components/ClientBottomNav";
 import { clientActionsService } from "../client-actions.service";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
-import { pearl, pearlTones, pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearlTones, pearlGradients } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 import { LinearGradient } from "expo-linear-gradient";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { ClientButton, ClientChips, ClientMenuRow, clientUi } from "../components/ClientPearl";
@@ -80,6 +81,7 @@ import {
   type ClientSortOption,
   type ClientStatusFilter,
 } from "@/features/clients/utils/clientList";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 function SwipeActionButton({
   backgroundColor,
@@ -952,4 +954,4 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
 
 export default ClientsScreenContent;
 
-const newStyles = StyleSheet.create({ iconButton: { width: 44, height: 44, borderRadius: 16, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, alignItems: "center", justifyContent: "center" }, search: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, borderRadius: 16, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder }, fab: { overflow: "hidden", minHeight: 52, paddingHorizontal: 20, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 18 }, fabText: { color: "#FFFFFF", fontWeight: "700", fontSize: 14 } });
+const newStyles = themedStyles((p) => ({ iconButton: { width: 44, height: 44, borderRadius: 16, backgroundColor: p.glass, borderWidth: 1, borderColor: p.glassBorder, alignItems: "center", justifyContent: "center" }, search: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, borderRadius: 16, backgroundColor: p.glass, borderWidth: 1, borderColor: p.glassBorder }, fab: { overflow: "hidden", minHeight: 52, paddingHorizontal: 20, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 18 }, fabText: { color: "#FFFFFF", fontWeight: "700", fontSize: 14 } }));

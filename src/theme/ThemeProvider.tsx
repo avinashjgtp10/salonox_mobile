@@ -14,6 +14,8 @@ import {
 import { getDashboardColors, type AppColorScheme, type ThemeColors } from "@/constants/theme";
 import { themeStorage } from "@/services/themeStorage";
 import { useRegionalPreferences } from "@/localization/preferences";
+import { setStatusBarStyle } from "expo-status-bar";
+import { setActivePearlPalette } from "@/components/auth/pearl/themedStyles";
 
 export type ThemeMode = "light" | "dark" | "system";
 
@@ -66,6 +68,7 @@ export function ThemeProvider({ children }: PropsWithChildren) {
 
   const scheme: AppColorScheme = mode === "system" ? systemScheme : mode;
   const colors = useMemo(() => getDashboardColors(scheme), [scheme]);
+  setActivePearlPalette(scheme);
 
   useEffect(() => {
     if (Platform.OS === "android") {
@@ -73,6 +76,8 @@ export function ThemeProvider({ children }: PropsWithChildren) {
       // transparent and setBackgroundColorAsync is a no-op that warns.
       NavigationBar.setStyle(scheme === "dark" ? "light" : "dark");
     }
+
+    setStatusBarStyle(scheme === "dark" ? "light" : "dark");
 
     SystemUI.setBackgroundColorAsync(colors.bg).catch(() => {});
   }, [colors.bg, scheme]);

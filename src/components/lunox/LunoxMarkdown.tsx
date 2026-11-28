@@ -3,13 +3,13 @@
  * lists and tables (the server formats rankings and comparisons as Markdown tables).
  */
 import { Fragment, type ReactNode } from "react";
-import { StyleSheet, View } from "react-native";
+import { View } from "react-native";
 
-import { pearl } from "@/components/auth/pearl/tokens";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { localizeCurrencyText } from "@/utils/currency";
 import { Text } from "@/components/ui/AppTypography";
 import { isInvalidLunoxReply, LUNOX_INVALID_REPLY } from "@/utils/lunoxReply";
+import { themedStyles } from "@/components/auth/pearl/themedStyles";
 
 type Block =
   | { kind: "p"; text: string }
@@ -115,20 +115,20 @@ const column = (c: number, count: number) => {
   return [c === count - 1 ? styles.valueCell : styles.nameCell];
 };
 
-const styles = StyleSheet.create({
+const styles = themedStyles((p) => ({
   wrap: { gap: 10 },
   // .bubble: 13.5px, line-height 1.45
-  text: { fontSize: 13.5, lineHeight: 19.5, fontWeight: "500", color: pearl.ink },
-  bold: { fontWeight: "800", color: pearl.ink },
+  text: { fontSize: 13.5, lineHeight: 19.5, fontWeight: "500", color: p.ink },
+  bold: { fontWeight: "800", color: p.ink },
   item: { flexDirection: "row", gap: 6, marginTop: -6 },
-  marker: { minWidth: 14, fontWeight: "700", color: pearl.accentDeep },
+  marker: { minWidth: 14, fontWeight: "700", color: p.accentDeep },
   // Rows styled like the prototype's .mini-stats tiles
   table: { borderRadius: 12, overflow: "hidden", backgroundColor: "rgba(238,236,246,0.7)" },
   row: { flexDirection: "row", gap: 8, paddingHorizontal: 10, paddingVertical: 7 },
   headRow: { backgroundColor: "rgba(231,222,246,0.7)" },
   rowSep: { borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.8)" },
-  headCell: { flex: 1, fontSize: 10.5, lineHeight: 14, fontWeight: "600", color: pearl.muted },
-  cell: { flex: 1, fontSize: 13, lineHeight: 17, fontWeight: "700", color: pearl.ink },
+  headCell: { flex: 1, fontSize: 10.5, lineHeight: 14, fontWeight: "600", color: p.muted },
+  cell: { flex: 1, fontSize: 13, lineHeight: 17, fontWeight: "700", color: p.ink },
   // Rank / index: a digit or two, so it only needs a sliver.
   indexCell: { flex: 0.4, textAlign: "left" },
   // Service / client names: widest column, and the one that was wrapping.
@@ -136,4 +136,4 @@ const styles = StyleSheet.create({
   // Two-column "label | value" tables keep the original wider first column.
   labelCell: { flex: 1.4, textAlign: "left" },
   valueCell: { flex: 1.2, textAlign: "right" },
-});
+}));

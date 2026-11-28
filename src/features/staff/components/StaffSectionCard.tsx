@@ -8,7 +8,7 @@ import {
   usePearlColors,
   type PearlColors as ThemeColors,
 } from "@/components/auth/pearl/usePearlColors";
-import { pearl } from "@/components/auth/pearl/tokens";
+import { pearl } from "@/components/auth/pearl/themedPearl";
 
 type StaffSectionCardProps = {
   action?: ReactNode;
