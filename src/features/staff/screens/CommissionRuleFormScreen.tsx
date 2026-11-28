@@ -69,6 +69,13 @@ const sanitizeDecimalInput = (text: string) => {
 type Tier = { reward: string; target: string };
 const EMPTY_TIER: Tier = { reward: "", target: "" };
 const positive = (value: string) => Number(value) > 0;
+// A tiered rule's below-target rate may be 0 — no commission at all until the
+// target is hit — which the API explicitly allows. An empty field is still not
+// a zero, so it stays invalid.
+const nonNegative = (value: string) => value.trim() !== "" && Number(value) >= 0;
+// Percentage rates are capped at 100 on the server; catch it here rather than
+// letting the save come back with a server message.
+const overHundred = (value: string) => Number(value) > 100;
 
 export function CommissionRuleFormScreen() {
   const insets = useSafeAreaInsets();
@@ -198,11 +205,20 @@ export function CommissionRuleFormScreen() {
     (sum, tier) => sum + (positive(tier.reward) ? Number(tier.reward) : 0),
     0,
   );
+  // "Commission below target" accepts 0%; every other rate still needs a real
+  // amount, and the percentages are bounded like the API bounds them.
+  const rateInvalid = (() => {
+    if (isLadder) return false;
+    if (type === "fixed") return !positive(rate);
+    const entered = type === "tiered_target" ? nonNegative(rate) : positive(rate);
+    return !entered || overHundred(rate);
+  })();
   const errors = {
     conditionTarget: type === "tiered_target" && !positive(conditionTarget),
     name: !name.trim(),
-    rate: !isLadder && !positive(rate),
-    rateAfterTarget: type === "tiered_target" && !positive(rateAfterTarget),
+    rate: rateInvalid,
+    rateAfterTarget:
+      type === "tiered_target" && (!positive(rateAfterTarget) || overHundred(rateAfterTarget)),
     staff: staffIds.length === 0,
     tiers: isLadder && tierError,
   };
@@ -377,6 +393,7 @@ export function CommissionRuleFormScreen() {
     ref: React.RefObject<TextInput | null>,
     options: {
       error?: boolean;
+      errorText?: string;
       placeholder?: string;
       text?: boolean;
       suffix?: string;
@@ -415,9 +432,8 @@ export function CommissionRuleFormScreen() {
         </View>
         {options.error && (
           <Text translate style={ui.error}>
-            {options.text
-              ? "Enter a rule name."
-              : "Enter a value greater than 0."}
+            {options.errorText ??
+              (options.text ? "Enter a rule name." : "Enter a value greater than 0.")}
           </Text>
         )}
       </View>
@@ -685,6 +701,12 @@ export function CommissionRuleFormScreen() {
                         placeholder: type === "fixed" ? "e.g. 100" : "e.g. 10",
                         suffix: type === "fixed" ? currencyLabel("₹") : "%",
                         error: show("rate"),
+                        errorText:
+                          type === "tiered_target"
+                            ? "Enter a percentage between 0 and 100."
+                            : type === "percentage"
+                              ? "Enter a percentage between 1 and 100."
+                              : undefined,
                       },
                     )}
                   {type === "tiered_target" &&
@@ -697,6 +719,7 @@ export function CommissionRuleFormScreen() {
                         placeholder: "e.g. 15",
                         suffix: "%",
                         error: show("rateAfterTarget"),
+                        errorText: "Enter a percentage between 1 and 100.",
                       },
                     )}
                   {isLadder && (
