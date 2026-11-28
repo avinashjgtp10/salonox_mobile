@@ -25,10 +25,10 @@ import type { NotificationItem } from "@/types/notification";
 import { resolveNotificationRoute } from "@/utils/notificationRouting";
 import { hasInventoryPermission } from "@/utils/permissions";
 import { getUserBusinessName, getUserFullName, getUserInitials } from "@/utils/userProfile";
-import { getApiErrorMessage } from "@/services/api";
+import { ApiError, getApiErrorMessage } from "@/services/api";
 import { BottomSheet as FormSheet } from "@/components/ui/BottomSheet";
 import { SettingsButton } from "@/features/settings/SettingsUI";
-import { ConnectedBranchesSheet } from "@/features/settings/ConnectedBranchesSheet";
+import { ConnectedBranchesSheet, type ConnectedBranchesMode } from "@/features/settings/ConnectedBranchesSheet";
 
 // Let a sheet finish closing before the next screen slides in.
 const afterClose = (action: () => void) => setTimeout(action, 240);
@@ -285,9 +285,18 @@ export function SalonSwitchSheet({ visible, onClose }: { visible: boolean; onClo
   const status = useAppSelector(selectBranchStatus);
   const { switchSalon, user } = useAuth();
   const [isSwitching, setSwitching] = useState(false);
-  const [manage, setManage] = useState(false);
+  const [manage, setManage] = useState<false | ConnectedBranchesMode>(false);
   const lock = useRef(false);
   useEffect(() => { if (visible) void dispatch(fetchBranchesThunk()); else setManage(false); }, [visible, dispatch]);
+
+  // Opening another salon runs through the Branch Owner portal, which only
+  // exists once the owner has created a branch login. Without one the API
+  // answers 404 and the tap used to do nothing but raise a bare server
+  // message, leaving the owner on the salon they started from with no idea
+  // what to do. Recognise that one case and send them to the step that fixes
+  // it instead.
+  const needsBranchLogin = (error: unknown) =>
+    error instanceof ApiError && error.status === 404 && /branch login/i.test(error.message);
 
   const pick = async (id: string, name: string) => {
     if (id === activeBranchId || lock.current) return;
@@ -297,17 +306,22 @@ export function SalonSwitchSheet({ visible, onClose }: { visible: boolean; onClo
       onClose();
       toast.showSuccess(`Switched to ${name}`);
     } catch (error) {
-      toast.showError(getApiErrorMessage(error));
+      if (needsBranchLogin(error)) {
+        toast.showInfo("Create a branch login to open your other salons.");
+        setManage("create");
+      } else {
+        toast.showError(getApiErrorMessage(error));
+      }
     } finally {
       lock.current = false; setSwitching(false);
     }
   };
 
   if (!visible) return null;
-  if (manage) return <ConnectedBranchesSheet onClose={() => setManage(false)} onOpenPortal={() => { setManage(false); void dispatch(fetchBranchesThunk()); }} />;
+  if (manage) return <ConnectedBranchesSheet initialMode={manage} onClose={() => setManage(false)} onOpenPortal={() => { setManage(false); void dispatch(fetchBranchesThunk()); }} />;
   return (
     <FormSheet pearlStyle centered={false} visible={visible} onClose={() => { if (!lock.current) onClose(); }} title="Your salons"
-      footer={user?.role === "salon_owner" ? <View style={{flex:1,gap:10}}>{branches.some(branch => branch.isMain && branch.id !== activeBranchId) && <SettingsButton label="Back to main account" disabled={isSwitching} onPress={() => { const main = branches.find(branch => branch.isMain); if (main) void pick(main.id, main.name); }} />}<SettingsButton secondary label="Add a branch" disabled={isSwitching} onPress={() => setManage(true)} /></View> : undefined}>
+      footer={user?.role === "salon_owner" ? <View style={{flex:1,gap:10}}>{branches.some(branch => branch.isMain && branch.id !== activeBranchId) && <SettingsButton label="Back to main account" disabled={isSwitching} onPress={() => { const main = branches.find(branch => branch.isMain); if (main) void pick(main.id, main.name); }} />}<SettingsButton secondary label="Add a branch" disabled={isSwitching} onPress={() => setManage("list")} /></View> : undefined}>
       {status === "failed" ? (
         <EmptyState icon="alert" title="Couldn’t load your salons" body="Please check your connection and try again."
           action={<View style={{ marginTop: 8 }}><SmallButton title="Try again" icon="repeat" primary onPress={() => void dispatch(fetchBranchesThunk())} /></View>} />
