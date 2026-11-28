@@ -53,8 +53,11 @@ export const ReportSummaryCards = memo(function ReportSummaryCards({
             {applyTaxName(labels?.[key] ?? humanizeReportKey(key), taxName)}
           </Text>
           <Text adjustsFontSizeToFit allowFontScaling minimumFontScale={0.5} selectable numberOfLines={1} style={styles.summaryValue}>
-            {formatReportValue(key, value)}
+            {key === "topSource" && typeof value === "object" && value && "name" in value ? String(value.name) : formatReportValue(key, value)}
           </Text>
+          {key === "topSource" && typeof value === "object" && value && "count" in value ? (
+            <Text style={styles.rowValue}>{String(value.count)} {value.count === 1 ? "client" : "clients"}</Text>
+          ) : null}
         </View>
       ))}
     </View>
