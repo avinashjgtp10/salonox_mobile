@@ -15,6 +15,8 @@ import { pearl, pearlGradients } from "@/components/auth/pearl/tokens";
 import { Icon, type IconName } from "@/components/pearl/Icon";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/ui/AppTypography";
+import { usePearlPalette } from "@/components/auth/pearl/usePearlPalette";
+import { useAppTheme } from "@/theme/ThemeProvider";
 
 const BAR_H = 70; // pill height
 const LIFT = 26; // space above the pill for the notch and the raised button
@@ -69,6 +71,11 @@ export function PearlNavigationBar({ tabs, activeName, onNavigate }: { tabs: App
   const d = useMemo(() => (w ? barPath(w, notch) : ""), [notch, w]);
 
   const onLayout = (e: LayoutChangeEvent) => setW(Math.round(e.nativeEvent.layout.width));
+  // The bar was painted white whatever the theme, so in Dim mode a bright slab
+  // sat under a dark app with its own labels barely legible on it.
+  const p = usePearlPalette();
+  const dark = useAppTheme().scheme === "dark";
+  const barFill = dark ? { top: p.accentTint, bottom: p.bgBottom } : { top: "#FFFFFF", bottom: "#F9F8FC" };
 
   return (
     <View pointerEvents="box-none" style={[styles.wrap, { bottom: Math.max(insets.bottom, 10), left: insets.left + 14, right: insets.right + 14 }]}>
@@ -77,8 +84,8 @@ export function PearlNavigationBar({ tabs, activeName, onNavigate }: { tabs: App
           <Svg width={w + 24} height={BAR_H + LIFT + 24} viewBox={`-12 0 ${w + 24} ${BAR_H + LIFT + 24}`} style={styles.svg} pointerEvents="none">
             <Defs>
               <SvgGradient id="fill" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0.97} />
-                <Stop offset="1" stopColor="#F9F8FC" stopOpacity={0.96} />
+                <Stop offset="0" stopColor={barFill.top} stopOpacity={0.97} />
+                <Stop offset="1" stopColor={barFill.bottom} stopOpacity={0.96} />
               </SvgGradient>
               <SvgGradient id="edge" x1="0" y1="0" x2="1" y2="0">
                 <Stop offset="0" stopColor={pearl.accentTint} stopOpacity={0.6} />
@@ -91,7 +98,7 @@ export function PearlNavigationBar({ tabs, activeName, onNavigate }: { tabs: App
               <Path key={ring.width} d={d} translateY={6} fill="none" stroke="#46446E" strokeOpacity={ring.opacity} strokeWidth={ring.width} strokeLinejoin="round" />
             ))}
             <Path d={d} fill="url(#fill)" stroke="url(#edge)" strokeWidth={1.6} />
-            <Path d={d} translateY={1.2} fill="none" stroke="#FFFFFF" strokeOpacity={0.9} strokeWidth={1} />
+            <Path d={d} translateY={1.2} fill="none" stroke="#FFFFFF" strokeOpacity={dark ? 0.08 : 0.9} strokeWidth={1} />
           </Svg>
         ) : null}
 
@@ -110,7 +117,7 @@ export function PearlNavigationBar({ tabs, activeName, onNavigate }: { tabs: App
               return (
                 <Pressable key={route.key} onPress={onPress} style={styles.slot} accessibilityRole="button" accessibilityLabel={label}>
                   {tab.raised === "lunox" ? (
-                    <View style={styles.raised}>
+                    <View style={[styles.raised, { borderColor: p.accentTint }]}>
                       <Image source={LUNOX_MARK} style={{ width: 28, height: 28 }} resizeMode="contain" />
                     </View>
                   ) : (
@@ -119,13 +126,13 @@ export function PearlNavigationBar({ tabs, activeName, onNavigate }: { tabs: App
                     </LinearGradient>
                   )}
                   <View style={{ height: 22 }} />
-                  <Text translate style={[styles.label, styles.raisedLabel]} numberOfLines={1}>{label}</Text>
+                  <Text translate style={[styles.label, dark ? { color: p.ink } : styles.raisedLabel]} numberOfLines={1}>{label}</Text>
                   <View style={[styles.marker, { opacity: 0 }]} />
                 </Pressable>
               );
             }
 
-            const color = focused ? pearl.accentDeep : pearl.muted;
+            const color = focused ? p.accentDeep : p.muted;
             return (
               <Pressable key={route.key} onPress={onPress} style={styles.slot}
                 accessibilityRole="tab" accessibilityState={{ selected: focused }}
@@ -134,10 +141,10 @@ export function PearlNavigationBar({ tabs, activeName, onNavigate }: { tabs: App
                   {tab.name === "whatsapp"
                     ? <Ionicons name="logo-whatsapp" size={22} color={color} />
                     : <Icon name={tab.icon} size={22} color={color} />}
-                  {tab.badge ? <View style={styles.badge}><Text style={styles.badgeText}>{tab.badge > 99 ? "99+" : tab.badge}</Text></View> : null}
+                  {tab.badge ? <View style={[styles.badge, { backgroundColor: p.accent, borderColor: dark ? p.bgBottom : "#fff" }]}><Text style={styles.badgeText}>{tab.badge > 99 ? "99+" : tab.badge}</Text></View> : null}
                 </View>
                 <Text translate style={[styles.label, { color }]} numberOfLines={1}>{label}</Text>
-                <View style={[styles.marker, !focused && { opacity: 0 }]} />
+                <View style={[styles.marker, { backgroundColor: p.accent }, !focused && { opacity: 0 }]} />
               </Pressable>
             );
           })}
@@ -148,9 +155,10 @@ export function PearlNavigationBar({ tabs, activeName, onNavigate }: { tabs: App
 }
 
 export function AppTabLayout({ children, tabs }: AppTabLayoutProps) {
+  const p = usePearlPalette();
   return (
       <Tabs
-        screenOptions={{ freezeOnBlur: true, headerShown: false, sceneStyle: { backgroundColor: pearl.bgTop } }}
+        screenOptions={{ freezeOnBlur: true, headerShown: false, sceneStyle: { backgroundColor: p.bgTop } }}
         tabBar={props => <PearlTabBar {...props} tabs={tabs} />}
       >
         {tabs.map(tab => <Tabs.Screen key={tab.name} name={tab.name} options={{ title: tab.title }} />)}

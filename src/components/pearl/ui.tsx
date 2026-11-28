@@ -1,27 +1,30 @@
 import { AppBackButton } from "@/components/ui/AppBackButton";
 /** Shared pearl UI pieces (from the prototype) used across the main app screens. */
 import { LinearGradient } from "expo-linear-gradient";
-import { type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Pressable, type PressableProps, StyleSheet, View, type ViewStyle } from "react-native";
 
-import { pearl, pearlGradients, pearlShadow, pearlType, pearlTones, type PearlTone } from "@/components/auth/pearl/tokens";
+import { pearlGradients, pearlShadow, pearlType, pearlTones, type PearlTone } from "@/components/auth/pearl/tokens";
+import { usePearlPalette } from "@/components/auth/pearl/usePearlPalette";
 import { Text } from "@/components/ui/AppTypography";
 import { Icon, type IconName } from "./Icon";
 
 export function IconButton({ icon, onPress, label, badge, size = 42, style }: {
   icon: IconName; onPress?: () => void; label: string; badge?: number; size?: number; style?: ViewStyle;
 }) {
+  const { p, styles } = useStyles();
   if (icon === "chevronLeft") return <AppBackButton onPress={onPress} accessibilityLabel={label} style={style} />;
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={badge ? `${label}, ${badge} new` : label} hitSlop={6}
       style={({ pressed }) => [styles.iconBtn, { width: size, height: size }, pressed && styles.pressed, style]}>
-      <Icon name={icon} size={20} color={pearl.ink} />
+      <Icon name={icon} size={20} color={p.ink} />
       {badge ? <View style={styles.badge}><Text style={styles.badgeText}>{badge > 99 ? "99+" : badge}</Text></View> : null}
     </Pressable>
   );
 }
 
 export function Tile({ icon, tone = "lavender", size = 40 }: { icon: IconName; tone?: PearlTone; size?: number }) {
+  const { styles } = useStyles();
   return (
     <View style={[styles.tile, { width: size, height: size, borderRadius: size * 0.32, backgroundColor: pearlTones[tone].bg }]}>
       <Icon name={icon} size={18} color={pearlTones[tone].fg} />
@@ -42,6 +45,7 @@ export function Avatar({ initials, tone = "lavender", size = 34 }: { initials: s
 // one here, so On Leave does not have to borrow the red of a real absence.
 export type PillTone = "success" | "warning" | "danger" | "neutral" | "lilac" | "sky";
 export function StatusPill({ tone, label }: { tone: PillTone; label: string }) {
+  const { styles } = useStyles();
   return (
     <View style={[styles.pill, { backgroundColor: pearlTones[tone].bg }]} accessibilityLabel={label}>
       <View style={[styles.pillDot, { backgroundColor: pearlTones[tone].fg }]} />
@@ -51,6 +55,7 @@ export function StatusPill({ tone, label }: { tone: PillTone; label: string }) {
 }
 
 export function SectionHeader({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
+  const { styles } = useStyles();
   return (
     <View style={styles.secH}>
       <Text translate style={[pearlType.bodyStrong, { fontSize: 15, fontWeight: "800" }]} accessibilityRole="header">{title}</Text>
@@ -60,12 +65,14 @@ export function SectionHeader({ title, action, onAction }: { title: string; acti
 }
 
 export function Card({ children, style, padded }: { children: ReactNode; style?: ViewStyle; padded?: boolean }) {
+  const { styles } = useStyles();
   return <View style={[styles.card, padded && { padding: 16 }, style]}>{children}</View>;
 }
 
 export function ListRow({ left, title, subtitle, detail, right, onPress, label, chevron }: {
   left?: ReactNode; title: string; subtitle?: string; detail?: ReactNode; right?: ReactNode; onPress?: () => void; label?: string; chevron?: boolean;
 }) {
+  const { p, styles } = useStyles();
   const body = (
     <>
       {left}
@@ -75,27 +82,31 @@ export function ListRow({ left, title, subtitle, detail, right, onPress, label, 
           {detail}
       </View>
       {right}
-      {chevron ? <Icon name="chevronRight" size={16} color={pearl.muted} /> : null}
+      {chevron ? <Icon name="chevronRight" size={16} color={p.muted} /> : null}
     </>
   );
   if (!onPress) return <View style={styles.row}>{body}</View>;
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label ?? title}
-      style={({ pressed }) => [styles.row, pressed && { backgroundColor: "rgba(255,255,255,0.5)" }]}>{body}</Pressable>
+      style={({ pressed }) => [styles.row, pressed && { backgroundColor: p.glassStrong }]}>{body}</Pressable>
   );
 }
 
-export const Divider = ({ inset = 14 }: { inset?: number }) => <View style={[styles.divider, { marginLeft: inset }]} />;
+export const Divider = ({ inset = 14 }: { inset?: number }) => {
+  const { styles } = useStyles();
+  return <View style={[styles.divider, { marginLeft: inset }]} />;
+};
 
 export function StatTile({ icon, tone, label, value, sub, onPress, style, loading }: {
   icon?: IconName; tone?: PearlTone; label: string; value: string; sub?: string; onPress?: () => void; style?: ViewStyle; loading?: boolean;
 }) {
+  const { p, styles } = useStyles();
   const inner = (
     <>
       {icon ? (
         <View style={styles.statTop}>
           <Tile icon={icon} tone={tone} size={34} />
-          {onPress ? <Icon name="chevronRight" size={14} color={pearl.muted} /> : null}
+          {onPress ? <Icon name="chevronRight" size={14} color={p.muted} /> : null}
         </View>
       ) : null}
       <Text translate style={[pearlType.small, { fontSize: 12, fontWeight: "600" }]} numberOfLines={1}>{label}</Text>
@@ -111,6 +122,7 @@ export function StatTile({ icon, tone, label, value, sub, onPress, style, loadin
 }
 
 export function EmptyState({ icon, title, body, action }: { icon: IconName; title: string; body: string; action?: ReactNode }) {
+  const { styles } = useStyles();
   return (
     <View style={styles.empty}>
       <Tile icon={icon} tone="lilac" size={52} />
@@ -122,16 +134,19 @@ export function EmptyState({ icon, title, body, action }: { icon: IconName; titl
 }
 
 /** Placeholder block while loading. */
-export const Skeleton = ({ h, r = 20, style }: { h: number; r?: number; style?: ViewStyle }) =>
-  <View style={[{ height: h, borderRadius: r, backgroundColor: "rgba(255,255,255,0.55)" }, style]} />;
+export const Skeleton = ({ h, r = 20, style }: { h: number; r?: number; style?: ViewStyle }) => {
+  const p = usePearlPalette();
+  return <View style={[{ height: h, borderRadius: r, backgroundColor: p.glassStrong }, style]} />;
+};
 
 export function SmallButton({ title, onPress, primary, icon, disabled }: {
   title: string; onPress?: PressableProps["onPress"]; primary?: boolean; icon?: IconName; disabled?: boolean;
 }) {
+  const { p, styles } = useStyles();
   const content = (
     <>
-      {icon ? <Icon name={icon} size={15} color={primary ? "#fff" : pearl.accentDeep} strokeWidth={2} /> : null}
-      <Text translate style={[styles.smallText, { color: primary ? "#fff" : pearl.accentDeep }]}>{title}</Text>
+      {icon ? <Icon name={icon} size={15} color={primary ? "#fff" : p.accentDeep} strokeWidth={2} /> : null}
+      <Text translate style={[styles.smallText, { color: primary ? "#fff" : p.accentDeep }]}>{title}</Text>
     </>
   );
   return (
@@ -144,24 +159,33 @@ export function SmallButton({ title, onPress, primary, icon, disabled }: {
   );
 }
 
-const styles = StyleSheet.create({
+type Palette = ReturnType<typeof usePearlPalette>;
+
+/** Styles rebuilt per theme; the light-only versions made every card, border
+ *  and ghost button render light-on-dark in Dim mode. */
+const createStyles = (p: Palette) => StyleSheet.create({
   pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
-  iconBtn: { borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, ...pearlShadow.card },
-  badge: { position: "absolute", top: 5, right: 5, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 3, backgroundColor: pearl.danger, borderWidth: 2, borderColor: "#fff", alignItems: "center", justifyContent: "center" },
+  iconBtn: { borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: p.glass, borderWidth: 1, borderColor: p.glassBorder, ...pearlShadow.card },
+  badge: { position: "absolute", top: 5, right: 5, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 3, backgroundColor: p.danger, borderWidth: 2, borderColor: "#fff", alignItems: "center", justifyContent: "center" },
   badgeText: { color: "#fff", fontWeight: "800", fontSize: 9.5, lineHeight: 12 },
   tile: { alignItems: "center", justifyContent: "center" },
   pill: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 20 },
   pillDot: { width: 6, height: 6, borderRadius: 3 },
   pillText: { fontWeight: "600", fontSize: 11.5 },
   secH: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 2, paddingTop: 4 },
-  card: { backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderWidth: 1, borderRadius: 22, paddingVertical: 4, overflow: "hidden", ...pearlShadow.card },
+  card: { backgroundColor: p.glass, borderColor: p.glassBorder, borderWidth: 1, borderRadius: 22, paddingVertical: 4, overflow: "hidden", ...pearlShadow.card },
   row: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
-  divider: { height: 1, backgroundColor: pearl.divider, marginRight: 14 },
-  stat: { flex: 1, minWidth: 0, paddingVertical: 12, paddingHorizontal: 10, borderRadius: 20, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, gap: 2, ...pearlShadow.card },
+  divider: { height: 1, backgroundColor: p.divider, marginRight: 14 },
+  stat: { flex: 1, minWidth: 0, paddingVertical: 12, paddingHorizontal: 10, borderRadius: 20, backgroundColor: p.glass, borderWidth: 1, borderColor: p.glassBorder, gap: 2, ...pearlShadow.card },
   statTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 },
-  statValue: { fontWeight: "800", fontSize: 18, color: pearl.ink, marginTop: 2 },
+  statValue: { fontWeight: "800", fontSize: 18, color: p.ink, marginTop: 2 },
   empty: { alignItems: "center", gap: 6, paddingVertical: 24, paddingHorizontal: 16 },
   small: { height: 36, paddingHorizontal: 14, borderRadius: 12, flexDirection: "row", alignItems: "center", gap: 6 },
-  smallGhost: { backgroundColor: "rgba(255,255,255,0.7)", borderWidth: 1, borderColor: pearl.white },
+  smallGhost: { backgroundColor: p.glassStrong, borderWidth: 1, borderColor: p.glassBorder },
   smallText: { fontWeight: "700", fontSize: 13 },
 });
+
+const useStyles = () => {
+  const p = usePearlPalette();
+  return { p, styles: useMemo(() => createStyles(p), [p]) };
+};
