@@ -492,6 +492,7 @@ function AppShell() {
               <Stack
                 initialRouteName="login"
                 screenOptions={{
+                  orientation: "default",
                   animation: "slide_from_right",
                   contentStyle: { backgroundColor: colors.bg },
                   headerShown: false,

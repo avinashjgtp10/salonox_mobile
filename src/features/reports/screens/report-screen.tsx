@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshControl, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { pearl } from "@/components/auth/pearl/themedPearl";
@@ -133,6 +133,13 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
   }, [config.slug, debouncedSearch, dispatch, isUnavailable, load, supportsSearch]);
 
   const refresh = useCallback(() => load({ ...filters, page: 1 }, { refresh: true }), [filters, load]);
+  const refreshAfterEdit = useRef(false);
+  useFocusEffect(useCallback(() => {
+    if (refreshAfterEdit.current) {
+      refreshAfterEdit.current = false;
+      refresh();
+    }
+  }, [refresh]));
   const loadMore = useCallback(() => {
     if (!hasMore || entry?.loadingMore || entry?.loading || entry?.refreshing || !pagination) return;
     load({ ...filters, page: pagination.page + 1 }, { append: true });
@@ -286,7 +293,7 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
     </ScrollView></RefreshViewport>
     <ReportFilterSheet slug={config.slug} data={entry?.data} filters={filters} onApply={applyFilters} onClose={() => setFilterSheetVisible(false)} visible={filterSheetVisible} />
     {dateKeys ? <DateRangePickerSheet pearlStyle centered={false} allowAllTime={dateKeys.mode === "range"} mode={dateKeys.mode} startDate={filters[dateKeys.start] ?? null} endDate={dateKeys.end ? filters[dateKeys.end] ?? null : null} onApply={applyRange} onClose={() => setRangeSheetVisible(false)} visible={rangeSheetVisible} /> : null}
-    <SalesSummaryDetailSheet saleId={selectedSaleId} onClose={() => setSelectedSaleId(null)} />
+    <SalesSummaryDetailSheet onEdit={() => { refreshAfterEdit.current = true; }} onDeleted={refresh} saleId={selectedSaleId} onClose={() => setSelectedSaleId(null)} />
     <BottomSheet pearlStyle centered={false} title="Report details" visible={Boolean(selectedRow)} onClose={() => setSelectedRow(null)}>{selectedRow ? columns.map((column) => <View key={column.key} style={styles.detailRow}><Text style={styles.subtitle}>{column.label || applyTaxName(humanizeReportKey(column.key), taxName)}</Text><Text selectable style={styles.value}>{reportCellValue(column.key, selectedRow[column.key])}</Text></View>) : null}</BottomSheet>
   </SafeAreaView></PearlBackground>;
 }
